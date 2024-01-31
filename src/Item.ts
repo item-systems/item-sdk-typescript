@@ -3,12 +3,32 @@ import { EpochType, ItemType, SmartContractConfig, UserAccount } from './types'
 import { Utils } from './helpers'
 import { u, wallet } from "@cityofzion/neon-core";
 
+/**
+ * The ITEM class is the primary interface point for the digital twin of an NFI. Use this class to execute standard
+ * non-fungible token interations as well as additional capabilities like authentication and configuration. WalletConnect 2.0
+ * has native support through the neon-invoker package.
+ *
+ * To use this class:
+ * ```typescript
+ * import { Item } from '@item-systems/item'
+ * import Neon from '@cityofzion/neon-core'
+ * import { NeonInvoker } from '@cityofzion/neon-invoker'
+ * import { NeonParser } from '@cityofzion/neon-parser'
+ *
+ * const account = new Neon.wallet.Account()
+ *
+ * const item = new Item({
+ *   scriptHash,
+ *   invoker: await NeonInvoker.init(NODE, account),
+ *   parser: NeonParser,
+ * })
+ * const totalItems = await item.totalSupply()
+ * console.log(totalItems)
+ * ```
+ */
 export class Item {
-  // Once you get a scriptHash from deploying your smart contract via `npm run deploy`, update the `this.options.scriptHash` value.
-  // The default is analogous to localnet (neo-express) so you will most likely want to be updating that value.  Remember to
-  // compile the sdk before use or your change wont take effect.  Do that by running `tsc` in the sdk directory.
   static MAINNET = '0x904deb56fdd9a87b48d89e0cc0ac3415f9207840'
-  static TESTNET = ''
+  static TESTNET = '0x904deb56fdd9a87b48d89e0cc0ac3415f9207840'
   static PRIVATENET = '0x904deb56fdd9a87b48d89e0cc0ac3415f9207840'
 
   private config: SmartContractConfig
@@ -17,9 +37,15 @@ export class Item {
     this.config = configOptions
   }
 
+  ///////////////////////////////////////////////////
+  ///////////////////////////////////////////////////
+  ////////////////// CORE SCOPE /////////////////////
+  ///////////////////////////////////////////////////
+  ///////////////////////////////////////////////////
+
+
   /**
-   * DO NOT EDIT ME
-   * The contract script hash that is being interfaced with.
+   * Gets the script hash of the smart contract.
    */
   get scriptHash(): string {
     if (this.config.scriptHash) {
@@ -28,6 +54,10 @@ export class Item {
     throw new Error('no scripthash defined')
   }
 
+  /**
+   * Returns the token symbol for the digital twin "ITEM". This is a great test method and exist primarily to support
+   * existing token standard.
+   */
   async symbol(): Promise<string> {
     const res = await this.config.invoker.testInvoke({
       invocations: [ItemAPI.symbol(this.config.scriptHash)],
@@ -41,6 +71,9 @@ export class Item {
     return this.config.parser.parseRpcResponse(res.stack[0])
   }
 
+  /**
+   * Returns the decimals supported by ITEMs. Currently, the ITEM contract does not support native fractional ownership.
+   */
   async decimals(): Promise<number> {
     const res = await this.config.invoker.testInvoke({
       invocations: [ItemAPI.decimals(this.config.scriptHash)],
@@ -54,6 +87,9 @@ export class Item {
     return this.config.parser.parseRpcResponse(res.stack[0])
   }
 
+  /**
+   * Gets the total number of ITEMS tracked in the contract.
+   */
   async totalSupply(): Promise<number> {
     const res = await this.config.invoker.testInvoke({
       invocations: [ItemAPI.totalSupply(this.config.scriptHash)],
@@ -67,7 +103,12 @@ export class Item {
     return this.config.parser.parseRpcResponse(res.stack[0])
   }
 
-  // TODO - Iterator Support
+  /**
+   * Gets the items owned by an entity.
+   * @param params
+   * @param params.address the address of the requested entity
+   * @returns an array of pointers to the items owned
+   */
   async tokensOf(params: { address: string }): Promise<number[]> {
     const res = await this.config.invoker.testInvoke({
       invocations: [ItemAPI.tokensOf(this.config.scriptHash, params)],
@@ -86,6 +127,11 @@ export class Item {
     })
   }
 
+  /**
+   * Gets the total NFI holdings of an entity
+   * @param params
+   * @param params.address the address of the requested entity
+   */
   async balanceOf(params: { address: string }): Promise<number> {
     const res = await this.config.invoker.testInvoke({
       invocations: [ItemAPI.balanceOf(this.config.scriptHash, params)],
@@ -99,6 +145,16 @@ export class Item {
     return this.config.parser.parseRpcResponse(res.stack[0])
   }
 
+  /**
+   * Transfers ownership of an NFI from the owner to another entity. For a method which
+   * considers block confirmations, refer to (transferConfirmed)[http://localhost:3000/docs/api/classes/Item#transferconfirmed].
+   * @param params
+   * @param params.to the destination address
+   * @param params.tokenId the global id of the NFI to transfer
+   * @param params.data parameters for handling upstream workflows (default: null)
+   *
+   * @return the transaction id for lookup on (dora)[https://dora.coz.io]
+   */
   async transfer(params: { to: string; tokenId: number; data: any }): Promise<string> {
     return await this.config.invoker.invokeFunction({
       invocations: [ItemAPI.transfer(this.config.scriptHash, params)],
@@ -106,6 +162,16 @@ export class Item {
     })
   }
 
+  /**
+   * Transfers ownership of an NFI from the owner to another entity. This method confirms the block before returning
+   * and will error if there is a confirmation issue.
+   * @param params
+   * @param params.to the destination address
+   * @param params.tokenId the global id of the NFI to transfer
+   * @param params.data parameters for handling upstream workflows (default: null)
+   *
+   * @return boolean Was the transfer successful?
+   */
   async transferConfirmed(params: { to: string; tokenId: number; data: any }): Promise<string> {
     const txid = await this.transfer(params)
     const log = await Utils.transactionCompletion(txid)
@@ -117,6 +183,13 @@ export class Item {
     return this.config.parser.parseRpcResponse(log.executions[0].stack![0])
   }
 
+  /**
+   * Gets the owner of the NFI.
+   * @param params
+   * @param params.tokenId the global id of the NFI
+   *
+   * @return the owning entity's address
+   */
   async ownerOf(params: { tokenId: number }): Promise<string> {
     const res = await this.config.invoker.testInvoke({
       invocations: [ItemAPI.ownerOf(this.config.scriptHash, params)],
@@ -132,6 +205,13 @@ export class Item {
     return wallet.getAddressFromScriptHash(scriptHash.slice(2))
   }
 
+  /**
+   * Gets every pointer for an NFI. This method exists for standards purposes.
+   * Because we use incrementing pointers, using (totalSupply)[http://localhost:3000/docs/api/classes/Item#totalsupply]
+   * and iterating from 1-"totalSupply" is more much more efficient.
+   *
+   * @return the list of globals ids for every NFI
+   */
   async tokens(): Promise<number[]> {
     const res = await this.config.invoker.testInvoke({
       invocations: [ItemAPI.tokens(this.config.scriptHash)],
@@ -152,6 +232,12 @@ export class Item {
     })
   }
 
+  /**
+   * Gets the properties of the NFI. This method is designed to emulate existing
+   * NFT standards for wallet support and marketplaces.
+   * @param params
+   * @param params.tokenId the global id for the NFI
+   */
   async properties(params: { tokenId: number }): Promise<string> {
     const res = await this.config.invoker.testInvoke({
       invocations: [ItemAPI.properties(this.config.scriptHash, params)],
@@ -165,8 +251,18 @@ export class Item {
     return this.config.parser.parseRpcResponse(res.stack[0])
   }
 
-  // USER SCOPE
+  ///////////////////////////////////////////////////
+  ///////////////////////////////////////////////////
+  ////////////////// USER SCOPE /////////////////////
+  ///////////////////////////////////////////////////
+  ///////////////////////////////////////////////////
 
+
+  /**
+   * Gets the user entity state in the smart contract including permissions
+   * and NFI ownership.
+   * @param params.address the entity you are requesting information about
+   */
   async getUserJSON(params: { address: string }): Promise<UserAccount> {
     const res = await this.config.invoker.testInvoke({
       invocations: [ItemAPI.getUserJSON(this.config.scriptHash, params)],
@@ -180,6 +276,10 @@ export class Item {
     return this.config.parser.parseRpcResponse(res.stack[0])
   }
 
+  /**
+   * RAW data payload for contract interfacing
+   * @param params
+   */
   async getUser(params: { address: string }): Promise<string> {
     const res = await this.config.invoker.testInvoke({
       invocations: [ItemAPI.getUser(this.config.scriptHash, params)],
@@ -193,7 +293,12 @@ export class Item {
     return this.config.parser.parseRpcResponse(res.stack[0])
   }
 
-  // TODO
+  /**
+   * Updates a users permissions within the contract. This is a protected method.
+   * @param params
+   * @param params.address the entity to update
+   * @param params.permissions the complete permission-set to update to
+   */
   async setUserPermissions(params: { address: string; permissions: any }): Promise<string> {
     return await this.config.invoker.invokeFunction({
       invocations: [ItemAPI.setUserPermissions(this.config.scriptHash, params)],
@@ -201,6 +306,10 @@ export class Item {
     })
   }
 
+  /**
+   * Gets the total number of accounts managed in the smart contract
+   * @return the number of accounts
+   */
   async totalAccounts(): Promise<number> {
     const res = await this.config.invoker.testInvoke({
       invocations: [ItemAPI.totalAccounts(this.config.scriptHash)],
@@ -210,12 +319,19 @@ export class Item {
     if (res.stack.length === 0) {
       throw new Error(res.exception ?? 'unrecognized response')
     }
-
     return this.config.parser.parseRpcResponse(res.stack[0])
   }
 
-  // EPOCH SCOPE
+  ///////////////////////////////////////////////////
+  ///////////////////////////////////////////////////
+  ////////////////// USER SCOPE /////////////////////
+  ///////////////////////////////////////////////////
+  ///////////////////////////////////////////////////
 
+  /**
+   * Creates a
+   * @param params
+   */
   async createEpoch(params: {
     label: string
     generatorInstanceId: number

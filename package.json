@@ -1,5 +1,5 @@
 {
-  "name": "@cityofzion/props-item",
+  "name": "@item-systems/item",
   "version": "0.1.3",
   "description": "A cryptographic primative for physical assets (SDK).",
   "main": "./dist/cjs/index.js",
