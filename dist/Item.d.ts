@@ -262,3 +262,4 @@ export declare class Item {
         data: any;
     }): Promise<string>;
 }
+//# sourceMappingURL=Item.d.ts.map
