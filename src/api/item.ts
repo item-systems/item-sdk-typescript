@@ -428,9 +428,7 @@ export class ItemAPI {
     return {
       scriptHash,
       operation: 'unbindToken',
-      args: [
-        { type: 'Integer', value: params.tokenId },
-      ],
+      args: [{ type: 'Integer', value: params.tokenId }],
     }
   }
 
@@ -443,9 +441,7 @@ export class ItemAPI {
     return {
       scriptHash,
       operation: 'unbindAsset',
-      args: [
-        { type: 'ByteArray', value: u.hex2base64(params.assetPubKey) },
-      ],
+      args: [{ type: 'ByteArray', value: u.hex2base64(params.assetPubKey) }],
     }
   }
 

@@ -5,7 +5,6 @@ import { Collection, Generator, types } from '@cityofzion/props'
 import Neon, { u } from '@cityofzion/neon-core'
 import { assert } from 'chai'
 import { NetworkOption } from '@cityofzion/props/dist/interface'
-import { last } from 'lodash'
 
 // TODO - Mint and verify total supply change
 // TODO - Transfer tests

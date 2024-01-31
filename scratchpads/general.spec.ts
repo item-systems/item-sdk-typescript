@@ -1,9 +1,6 @@
 import { NeonInvoker } from '@cityofzion/neon-invoker'
 import { NeonParser } from '@cityofzion/neon-parser'
 import { Item } from '../dist/esm'
-// @ts-ignore
-import Neon from '@cityofzion/neon-core'
-import { assert } from 'chai'
 
 // TODO - Mint and verify total supply change
 // TODO - Transfer tests
@@ -21,30 +18,27 @@ describe('Stateless Item', function () {
     })
   }
 
-  it('Should iterate over all the epochs', async function() {
-
+  it('Should iterate over all the epochs', async function () {
     const sdk = await getSDK()
     const totalEpochs = await sdk.totalEpochs()
     console.log(totalEpochs)
     for (let i = 1; i < totalEpochs; i++) {
       console.log(i)
       const epoch = await sdk.getEpochJSON({
-        epochId: i
+        epochId: i,
       })
       console.log(epoch)
     }
   })
 
-  it('Should iterate over all the tokens', async function() {
-
+  it('Should iterate over all the tokens', async function () {
     const sdk = await getSDK()
     for (let i = 100; i < 110; i++) {
       console.log(i)
       const epoch = await sdk.getItemJSON({
-        tokenId: i
+        tokenId: i,
       })
       console.log(epoch)
     }
   })
-  })
-
+})

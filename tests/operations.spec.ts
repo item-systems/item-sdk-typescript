@@ -2,8 +2,8 @@ import { Item, Utils } from '../dist/esm'
 // @ts-ignore
 import Neon from '@cityofzion/neon-core'
 import * as fs from 'fs'
-import { NeonInvoker } from "@cityofzion/neon-invoker";
-import { NeonParser } from "@cityofzion/neon-parser";
+import { NeonInvoker } from '@cityofzion/neon-invoker'
+import { NeonParser } from '@cityofzion/neon-parser'
 
 // TODO - Mint and verify total supply change
 // TODO - Transfer tests
@@ -36,28 +36,22 @@ describe('It should deploy', function () {
     console.log(res)
   })
 
-  it ('Should update', async function () {
+  it('Should update', async function () {
     const pathToNEF = '../contract/item.nef'
 
     const sdk = await getSDK(ACCOUNT)
-    const nef = Neon.sc.NEF.fromBuffer(
-      fs.readFileSync(
-        pathToNEF
-      )
-    )
+    const nef = Neon.sc.NEF.fromBuffer(fs.readFileSync(pathToNEF))
     const serializedNEF = Neon.u.HexString.fromHex(nef.serialize(), true)
     const rawManifest = fs.readFileSync(pathToNEF.replace('.nef', '.manifest.json'))
 
-    const manifest = Neon.sc.ContractManifest.fromJson(
-      JSON.parse(rawManifest.toString())
-    )
+    const manifest = Neon.sc.ContractManifest.fromJson(JSON.parse(rawManifest.toString()))
     const stringifiedManifest = JSON.stringify(manifest.toJson())
 
     const txid = await sdk.update({
       script: serializedNEF.toBase64(true),
       manifest: stringifiedManifest,
-      data: ''
-  })
+      data: '',
+    })
 
     /*
     const NEFRaw = fs.readFileSync(pathToNEF)
@@ -67,5 +61,4 @@ describe('It should deploy', function () {
     const res = await Utils.transactionCompletion(txid)
     console.log(res)
   })
-
 })

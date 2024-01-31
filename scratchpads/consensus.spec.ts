@@ -1,8 +1,8 @@
 import { NeonInvoker } from '@cityofzion/neon-invoker'
 import { NeonParser } from '@cityofzion/neon-parser'
 import { Item, Utils } from '../dist/esm'
-import { Generator, Collection, helpers, types } from '@cityofzion/props'
-import Neon, { u } from '@cityofzion/neon-core'
+import { Generator, Collection, types } from '@cityofzion/props'
+import Neon from '@cityofzion/neon-core'
 import { assert } from 'chai'
 import { NetworkOption } from '@cityofzion/props/dist/interface'
 
@@ -131,7 +131,6 @@ describe('Consensus 2023', function () {
   it('Should mint', async function () {
     const testAccount = new Neon.wallet.Account('L2QckffShko8godFoH6wS1TK6AtdGZHdx5D4M8rn9KdwcnSEKrpg')
 
-    const epochId = 4
     const sdk = await getSDK(ACCOUNT)
     console.log(ACCOUNT.address)
     const admin = await sdk.getUserJSON({

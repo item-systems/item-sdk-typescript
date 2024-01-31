@@ -1,5 +1,4 @@
-import { CONST, rpc, sc, u, wallet } from '@cityofzion/neon-core'
-import { ContractInvocation, Neo3Invoker } from '@cityofzion/neo3-invoker'
+import { rpc, sc, u, wallet } from '@cityofzion/neon-core'
 import { pollingOptions } from '../types'
 import { experimental } from '@cityofzion/neon-js'
 
@@ -78,27 +77,29 @@ export class Utils {
 
   static processDERSignature(sigBytes: Uint8Array): Uint8Array {
     // Drop the first three bytes. They are always `30 46 02`
-    let truncated = sigBytes.slice(3);
+    let truncated = sigBytes.slice(3)
 
     // Check length of r coordinate
     if (truncated[0] === 0x21) {
       truncated = truncated.slice(2) // skip the size byte and the zero byte that was prepended to the r coordinate
-    } else {// truncated [0] === 20
+    } else {
+      // truncated [0] === 20
       truncated = truncated.slice(1) // skip only the size byte
     }
-    const r = truncated.slice(0, 32); // Read the r coordinate
+    const r = truncated.slice(0, 32) // Read the r coordinate
 
     // Skip the r coordinate and type byte
     truncated = truncated.slice(32 + 1)
     // Check length of s coordinate
     if (truncated[0] === 0x21) {
       truncated = truncated.slice(2) // skip the size byte and the zero byte that was prepended to the s coordinate
-    } else { // truncated [0] === 20
+    } else {
+      // truncated [0] === 20
       truncated = truncated.slice(1) // skip only the size byte
     }
-    const s = truncated.slice(0, 32); // Read the s coordinate
+    const s = truncated.slice(0, 32) // Read the s coordinate
 
-    const concat = new Uint8Array(r.length + s.length);
+    const concat = new Uint8Array(r.length + s.length)
     concat.set(r)
     concat.set(s, r.length)
     return concat

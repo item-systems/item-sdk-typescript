@@ -1,7 +1,7 @@
 import { ItemAPI } from './api'
 import { EpochType, ItemType, SmartContractConfig, UserAccount } from './types'
 import { Utils } from './helpers'
-import { u, wallet } from "@cityofzion/neon-core";
+import { u, wallet } from '@cityofzion/neon-core'
 
 /**
  * The ITEM class is the primary interface point for the digital twin of an NFI. Use this class to execute standard
@@ -37,12 +37,11 @@ export class Item {
     this.config = configOptions
   }
 
-  ///////////////////////////////////////////////////
-  ///////////////////////////////////////////////////
-  ////////////////// CORE SCOPE /////////////////////
-  ///////////////////////////////////////////////////
-  ///////////////////////////////////////////////////
-
+  /// ////////////////////////////////////////////////
+  /// ////////////////////////////////////////////////
+  /// /////////////// CORE SCOPE /////////////////////
+  /// ////////////////////////////////////////////////
+  /// ////////////////////////////////////////////////
 
   /**
    * Gets the script hash of the smart contract.
@@ -251,12 +250,11 @@ export class Item {
     return this.config.parser.parseRpcResponse(res.stack[0])
   }
 
-  ///////////////////////////////////////////////////
-  ///////////////////////////////////////////////////
-  ////////////////// USER SCOPE /////////////////////
-  ///////////////////////////////////////////////////
-  ///////////////////////////////////////////////////
-
+  /// ////////////////////////////////////////////////
+  /// ////////////////////////////////////////////////
+  /// /////////////// USER SCOPE /////////////////////
+  /// ////////////////////////////////////////////////
+  /// ////////////////////////////////////////////////
 
   /**
    * Gets the user entity state in the smart contract including permissions
@@ -322,11 +320,11 @@ export class Item {
     return this.config.parser.parseRpcResponse(res.stack[0])
   }
 
-  ///////////////////////////////////////////////////
-  ///////////////////////////////////////////////////
-  ////////////////// USER SCOPE /////////////////////
-  ///////////////////////////////////////////////////
-  ///////////////////////////////////////////////////
+  /// ////////////////////////////////////////////////
+  /// ////////////////////////////////////////////////
+  /// /////////////// USER SCOPE /////////////////////
+  /// ////////////////////////////////////////////////
+  /// ////////////////////////////////////////////////
 
   /**
    * Creates a
@@ -444,10 +442,7 @@ export class Item {
     return this.config.parser.parseRpcResponse(log.executions[0].stack![0])
   }
 
-  async bindItem(params: {
-    tokenId: number
-    assetPubKey: string
-  }): Promise<string> {
+  async bindItem(params: { tokenId: number; assetPubKey: string }): Promise<string> {
     return await this.config.invoker.invokeFunction({
       invocations: [ItemAPI.bindItem(this.config.scriptHash, params)],
       signers: [],
@@ -506,10 +501,7 @@ export class Item {
     })
   }
 
-  async setBindOnPickupConfirmed(params: {
-    tokenId: number
-    state: boolean
-  }): Promise<boolean> {
+  async setBindOnPickupConfirmed(params: { tokenId: number; state: boolean }): Promise<boolean> {
     const txid = await this.setBindOnPickup(params)
     const log = await Utils.transactionCompletion(txid)
 
@@ -609,7 +601,7 @@ export class Item {
     })
   }
 
-  async offlineMintConfirmed(params: { epochId: number; address: string; bindOnPickup: boolean}): Promise<string> {
+  async offlineMintConfirmed(params: { epochId: number; address: string; bindOnPickup: boolean }): Promise<string> {
     const txid = await this.offlineMint(params)
     const log = await Utils.transactionCompletion(txid)
 

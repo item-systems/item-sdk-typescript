@@ -71,7 +71,7 @@ describe('Minting', function () {
     const txid = await sdk.offlineMint({
       epochId,
       address: testAccount.address,
-      bindOnPickup: false
+      bindOnPickup: false,
     })
     const log = await Utils.transactionCompletion(txid)
     const event = NeonParser.parseRpcResponse(log.executions[0].notifications![0].state, {

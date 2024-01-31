@@ -62,11 +62,11 @@ describe('Stateless Item', function () {
   // TODO - verify all fields
   it('should get all of the epochs', async function () {
     const sdk = await getSDK()
-    const total_epochs = await sdk.totalEpochs()
-    assert.isAbove(total_epochs, 8)
-    for (let i = 1; i <= total_epochs; i++) {
+    const totalEpochs = await sdk.totalEpochs()
+    assert.isAbove(totalEpochs, 8)
+    for (let i = 1; i <= totalEpochs; i++) {
       const epoch = await sdk.getEpochJSON({
-        epochId: i
+        epochId: i,
       })
       console.log(epoch)
       assert.equal(epoch.epochId, i)
@@ -75,20 +75,19 @@ describe('Stateless Item', function () {
 
   it('should get the tokens', async function () {
     const sdk = await getSDK()
-    const total_tokens = await sdk.totalSupply()
-    console.log(total_tokens)
-    assert.isAbove(total_tokens, 8)
-    for (let i = 1; i <= total_tokens; i++) {
+    const totalTokens = await sdk.totalSupply()
+    console.log(totalTokens)
+    assert.isAbove(totalTokens, 8)
+    for (let i = 1; i <= totalTokens; i++) {
       try {
         const item = await sdk.getItemJSON({
-          tokenId: i
+          tokenId: i,
         })
         console.log(item)
       } catch (e) {
         console.log(i, e)
       }
     }
-
   })
   it('should get the tokens of an account', async function () {
     const account = new Neon.wallet.Account('NaZwraSdJv9BYwYzZryiZcydaPDof56beK')
@@ -98,14 +97,13 @@ describe('Stateless Item', function () {
     })
     assert.isAbove(res.length, 5)
     console.log(res)
-    for (let i = 0; i < res.length; i ++) {
+    for (let i = 0; i < res.length; i++) {
       console.log(res[i])
       const item = await sdk.getItemJSON({
-        tokenId: res[i]
+        tokenId: res[i],
       })
       console.log(item)
     }
-
   })
 
   it('should get the token ids', async function () {
@@ -125,11 +123,12 @@ describe('Stateless Item', function () {
     } catch (err) {}
   })
 
-  it('should get the owner of a token', async function() {
+  it('should get the owner of a token', async function () {
     const sdk = await getSDK()
-      const owner = await sdk.ownerOf({
-        tokenId: 1,
-      })
+    const owner = await sdk.ownerOf({
+      tokenId: 1,
+    })
+    assert.isNotEmpty(owner)
   })
 
   it('should get the total number of accounts', async function () {
@@ -155,8 +154,8 @@ describe('Stateless Item', function () {
           set_mint_fee: true,
           create_epoch: true,
           set_permissions: true,
-          bind_item: true
-        }
+          bind_item: true,
+        },
       })
     )
   })

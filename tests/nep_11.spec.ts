@@ -73,7 +73,7 @@ describe('NEP-11 features', function () {
     const txid = await sdk.offlineMint({
       epochId,
       address: testAccount.address,
-      bindOnPickup: false
+      bindOnPickup: false,
     })
     const log = await Utils.transactionCompletion(txid)
     const event = NeonParser.parseRpcResponse(log.executions[0].notifications![0].state, {
@@ -160,7 +160,7 @@ describe('NEP-11 features', function () {
     let txid = await sdk.offlineMint({
       epochId,
       address: ACCOUNT.address,
-      bindOnPickup: false
+      bindOnPickup: false,
     })
     let log = await Utils.transactionCompletion(txid)
     const newToken = parseInt(u.reverseHex(u.base642hex(log.executions[0].stack![0].value as string)), 16)

@@ -5,7 +5,7 @@ import { NeonParser } from '@cityofzion/neon-parser'
 import { Item, Utils } from '../dist/esm'
 import { Generator } from '@cityofzion/props'
 // @ts-ignore
-import Neon, { rpc, u, wallet } from '@cityofzion/neon-core'
+import Neon, { u, wallet } from '@cityofzion/neon-core'
 import { assert } from 'chai'
 
 // TODO - Mint and verify total supply change
@@ -115,7 +115,7 @@ describe('Bind on pickup', function () {
       tokenId,
       state: true,
     })
-    const res = await Utils.transactionCompletion(txid)
+    await Utils.transactionCompletion(txid)
     const token = await sdk.getItemJSON({
       tokenId,
     })
@@ -219,17 +219,17 @@ describe('Bind on pickup', function () {
     const claimSDK = await getSDK(claimAccount)
 
     let tok = await claimSDK.getItemJSON({
-      tokenId
+      tokenId,
     })
     console.log(tok)
     console.log(claimAccount.address, wallet.getAddressFromScriptHash(tok.owner.slice(2)))
     const txid = await claimSDK.lock({
-      tokenId
+      tokenId,
     })
     await Utils.transactionCompletion(txid)
 
-     tok = await claimSDK.getItemJSON({
-      tokenId
+    tok = await claimSDK.getItemJSON({
+      tokenId,
     })
     console.log(tok)
   })
