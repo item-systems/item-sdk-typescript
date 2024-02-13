@@ -13,17 +13,23 @@ export type pollingOptions = {
   node: string
 }
 
-export interface AccountPermissions {
+export interface AccountITEMPermissions {
   contract_upgrade: boolean
   set_mint_fee: boolean
   create_epoch: boolean
   set_permissions: boolean
 }
 
+export interface AccountQuestPermissions {
+  contract_upgrade: boolean
+  set_permissions: boolean
+  create_quest: boolean
+}
+
 export interface UserAccount {
-  balance: number
+  balance?: number
   account_id: string
-  permissions: AccountPermissions
+  permissions: AccountITEMPermissions | AccountQuestPermissions
 }
 
 export interface EpochType {

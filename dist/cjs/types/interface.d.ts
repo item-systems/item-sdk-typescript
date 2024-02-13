@@ -10,21 +10,16 @@ export declare type pollingOptions = {
     timeout: number;
     node: string;
 };
-export interface AccountITEMPermissions {
+export interface AccountPermissions {
     contract_upgrade: boolean;
     set_mint_fee: boolean;
     create_epoch: boolean;
     set_permissions: boolean;
 }
-export interface AccountQuestPermissions {
-    contract_upgrade: boolean;
-    set_permissions: boolean;
-    create_quest: boolean;
-}
 export interface UserAccount {
-    balance?: number;
+    balance: number;
     account_id: string;
-    permissions: AccountITEMPermissions | AccountQuestPermissions;
+    permissions: AccountPermissions;
 }
 export interface EpochType {
     author?: string;
