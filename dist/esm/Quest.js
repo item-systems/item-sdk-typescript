@@ -76,7 +76,7 @@ export class Quest {
                 max_completions: 5,
                 entry_nodes: [1],
                 exit_nodes: [1],
-                edges: [1]
+                edges: [1],
             };
         }
         const res = await this.config.invoker.testInvoke({
@@ -176,6 +176,12 @@ export class Quest {
     async createEdge(params) {
         return this.config.invoker.invokeFunction({
             invocations: [QuestsAPI.createEdge(this.config.scriptHash, params)],
+            signers: [],
+        });
+    }
+    async setEdgeCondition(params) {
+        return this.config.invoker.invokeFunction({
+            invocations: [QuestsAPI.setEdgeCondition(this.config.scriptHash, params)],
             signers: [],
         });
     }
@@ -303,7 +309,7 @@ export class Quest {
         return this.config.parser.parseRpcResponse(res.stack[0]);
     }
 }
-Quest.MAINNET = '0x707e8ece25870b67d285f1ab271f74c262c6613f';
-Quest.TESTNET = '0x707e8ece25870b67d285f1ab271f74c262c6613f';
-Quest.PRIVATENET = '0x707e8ece25870b67d285f1ab271f74c262c6613f';
+Quest.MAINNET = '0x2fa49f2db0a653f3d48acfd11ff0303c6ea3592c';
+Quest.TESTNET = '0x2fa49f2db0a653f3d48acfd11ff0303c6ea3592c';
+Quest.PRIVATENET = '0x2fa49f2db0a653f3d48acfd11ff0303c6ea3592c';
 //# sourceMappingURL=Quest.js.map

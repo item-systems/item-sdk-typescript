@@ -1,8 +1,8 @@
-import { ContractInvocation } from '@cityofzion/neo3-invoker'
-import { sc, u } from '@cityofzion/neon-core'
+import { Arg, ContractInvocation } from '@cityofzion/neo3-invoker'
+import { u } from '@cityofzion/neon-core'
+import { EdgeConditionITEMPick, EdgeResolutionITEMPick } from '../types'
 
 export class QuestsAPI {
-
   /*
   # -------------------------------------------
   # Quests
@@ -20,13 +20,12 @@ export class QuestsAPI {
     scriptHash: string,
     params: {
       questId: number
-    }): ContractInvocation {
+    }
+  ): ContractInvocation {
     return {
       scriptHash,
       operation: 'get_quest',
-      args: [
-        { type: 'Integer', value: params.questId }
-      ],
+      args: [{ type: 'Integer', value: params.questId }],
     }
   }
 
@@ -34,13 +33,12 @@ export class QuestsAPI {
     scriptHash: string,
     params: {
       questId: number
-    }): ContractInvocation {
+    }
+  ): ContractInvocation {
     return {
       scriptHash,
       operation: 'get_quest_json',
-      args: [
-        { type: 'Integer', value: params.questId }
-      ],
+      args: [{ type: 'Integer', value: params.questId }],
     }
   }
 
@@ -50,14 +48,15 @@ export class QuestsAPI {
       title: string
       description: string
       maxCompletions: number
-    }): ContractInvocation {
+    }
+  ): ContractInvocation {
     return {
       scriptHash,
       operation: 'create_quest',
       args: [
         { type: 'String', value: params.title },
         { type: 'String', value: params.description },
-        { type: 'Integer', value: params.maxCompletions}
+        { type: 'Integer', value: params.maxCompletions },
       ],
     }
   }
@@ -65,16 +64,17 @@ export class QuestsAPI {
   static setQuestActive(
     scriptHash: string,
     params: {
-      questId: number,
+      questId: number
       state: boolean
-    }): ContractInvocation {
+    }
+  ): ContractInvocation {
     return {
       scriptHash,
       operation: 'set_quest_active',
       args: [
         { type: 'Integer', value: params.questId },
-        { type: 'Boolean', value: params.state }
-      ]
+        { type: 'Boolean', value: params.state },
+      ],
     }
   }
 
@@ -96,13 +96,12 @@ export class QuestsAPI {
     scriptHash: string,
     params: {
       edgeId: number
-    }): ContractInvocation {
+    }
+  ): ContractInvocation {
     return {
       scriptHash,
       operation: 'get_edge',
-      args: [
-        { type: 'Integer', value: params.edgeId }
-      ],
+      args: [{ type: 'Integer', value: params.edgeId }],
     }
   }
 
@@ -110,13 +109,12 @@ export class QuestsAPI {
     scriptHash: string,
     params: {
       edgeId: number
-    }): ContractInvocation {
+    }
+  ): ContractInvocation {
     return {
       scriptHash,
       operation: 'get_edge_json',
-      args: [
-        { type: 'Integer', value: params.edgeId }
-      ],
+      args: [{ type: 'Integer', value: params.edgeId }],
     }
   }
 
@@ -127,7 +125,8 @@ export class QuestsAPI {
       description: string
       entryPoint: number
       exitPoint: number
-    }): ContractInvocation {
+    }
+  ): ContractInvocation {
     return {
       scriptHash,
       operation: 'create_edge',
@@ -135,24 +134,70 @@ export class QuestsAPI {
         { type: 'Integer', value: params.questId },
         { type: 'String', value: params.description },
         { type: 'Integer', value: params.entryPoint },
-        { type: 'Integer', value: params.exitPoint }
+        { type: 'Integer', value: params.exitPoint },
       ],
     }
   }
 
+  static setEdgeCondition(
+    scriptHash: string,
+    params: {
+      edgeId: number
+      conditionType: number
+      condition: EdgeConditionITEMPick
+    }
+  ): ContractInvocation {
+    let condition: Arg[] = []
+
+    switch (params.conditionType) {
+      case 1:
+        const tokens = params.condition.tokens.map(tokenId => {
+          return { type: 'Integer', value: tokenId }
+        })
+        condition = [
+          { type: 'Integer', value: params.condition.count },
+          { type: 'Array', value: tokens },
+        ]
+    }
+    return {
+      scriptHash,
+      operation: 'set_edge_condition',
+      args: [
+        { type: 'Integer', value: params.edgeId },
+        { type: 'Integer', value: params.conditionType },
+        { type: 'Array', value: condition },
+      ],
+    }
+  }
 
   static traverseEdge(
     scriptHash: string,
     params: {
       edgeId: number
-      resolution: []
-    }): ContractInvocation {
+      conditionType: number
+      resolution: EdgeResolutionITEMPick[]
+    }
+  ): ContractInvocation {
+    let resolution: Arg[] = []
+    switch (params.conditionType) {
+      case 1:
+        resolution = params.resolution.map(res => {
+          return {
+            type: 'Array',
+            value: [
+              { type: 'Integer', value: res.tokenId },
+              { type: 'ByteArray', value: u.hex2base64(res.msg) },
+              { type: 'ByteArray', value: u.hex2base64(res.sig) },
+            ],
+          }
+        })
+    }
     return {
       scriptHash,
       operation: 'traverse_edge',
       args: [
         { type: 'Integer', value: params.edgeId },
-        { type: 'Array', value: params.resolution }
+        { type: 'Array', value: resolution },
       ],
     }
   }
@@ -175,13 +220,12 @@ export class QuestsAPI {
     scriptHash: string,
     params: {
       nodeId: number
-    }): ContractInvocation {
+    }
+  ): ContractInvocation {
     return {
       scriptHash,
       operation: 'get_node',
-      args: [
-        { type: 'Integer', value: params.nodeId }
-      ],
+      args: [{ type: 'Integer', value: params.nodeId }],
     }
   }
 
@@ -189,13 +233,12 @@ export class QuestsAPI {
     scriptHash: string,
     params: {
       nodeId: number
-    }): ContractInvocation {
+    }
+  ): ContractInvocation {
     return {
       scriptHash,
       operation: 'get_node_json',
-      args: [
-        { type: 'Integer', value: params.nodeId }
-      ],
+      args: [{ type: 'Integer', value: params.nodeId }],
     }
   }
 
@@ -203,29 +246,29 @@ export class QuestsAPI {
     scriptHash: string,
     params: {
       label: string
-    }): ContractInvocation {
+    }
+  ): ContractInvocation {
     return {
       scriptHash,
       operation: 'create_node',
-      args: [
-        { type: 'String', value: params.label },
-      ],
+      args: [{ type: 'String', value: params.label }],
     }
   }
 
   static setNodePermissions(
     scriptHash: string,
     params: {
-      nodeId: number,
+      nodeId: number
       permissions: number
-    }): ContractInvocation {
+    }
+  ): ContractInvocation {
     return {
       scriptHash,
       operation: 'set_node_permissions',
       args: [
         { type: 'Integer', value: params.nodeId },
-        { type: 'Integer', value: params.permissions }
-      ]
+        { type: 'Integer', value: params.permissions },
+      ],
     }
   }
 
@@ -240,13 +283,14 @@ export class QuestsAPI {
     params: {
       address: string
       questId: number
-    }): ContractInvocation {
+    }
+  ): ContractInvocation {
     return {
       scriptHash,
       operation: 'get_quest_progress',
       args: [
         { type: 'Hash160', value: params.address },
-        { type: 'Integer', value: params.questId }
+        { type: 'Integer', value: params.questId },
       ],
     }
   }
@@ -255,13 +299,12 @@ export class QuestsAPI {
     scriptHash: string,
     params: {
       address: string
-    }): ContractInvocation {
+    }
+  ): ContractInvocation {
     return {
       scriptHash,
       operation: 'get_user_json',
-      args: [
-        { type: 'Hash160', value: params.address }
-      ],
+      args: [{ type: 'Hash160', value: params.address }],
     }
   }
 

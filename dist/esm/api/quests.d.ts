@@ -1,4 +1,5 @@
 import { ContractInvocation } from '@cityofzion/neo3-invoker';
+import { EdgeConditionITEMPick, EdgeResolutionITEMPick } from '../types';
 export declare class QuestsAPI {
     static totalQuests(scriptHash: string): ContractInvocation;
     static getQuest(scriptHash: string, params: {
@@ -29,9 +30,15 @@ export declare class QuestsAPI {
         entryPoint: number;
         exitPoint: number;
     }): ContractInvocation;
+    static setEdgeCondition(scriptHash: string, params: {
+        edgeId: number;
+        conditionType: number;
+        condition: EdgeConditionITEMPick;
+    }): ContractInvocation;
     static traverseEdge(scriptHash: string, params: {
         edgeId: number;
-        resolution: [];
+        conditionType: number;
+        resolution: EdgeResolutionITEMPick[];
     }): ContractInvocation;
     static totalNodes(scriptHash: string): ContractInvocation;
     static getNode(scriptHash: string, params: {

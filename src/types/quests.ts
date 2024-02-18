@@ -1,21 +1,24 @@
-import { toNumber } from "lodash";
-
-
 export enum NodePermissions {
   PUBLIC = 1,
-  RESTRICTED
+  RESTRICTED,
 }
 
 export enum QuestPermissions {
   PUBLIC = 1,
-  RESTRICTED
+  RESTRICTED,
 }
 
 export interface EdgeConditionITEMPick {
-  condition_type: number
-  label: string
+  condition_type?: number
+  label?: string
   count: number
-  tokens: [number]
+  tokens: number[]
+}
+
+export interface EdgeResolutionITEMPick {
+  tokenId: number
+  msg: string
+  sig: string
 }
 
 export interface NodeType {

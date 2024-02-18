@@ -7,10 +7,15 @@ export declare enum QuestPermissions {
     RESTRICTED = 2
 }
 export interface EdgeConditionITEMPick {
-    condition_type: number;
-    label: string;
+    condition_type?: number;
+    label?: string;
     count: number;
-    tokens: [number];
+    tokens: number[];
+}
+export interface EdgeResolutionITEMPick {
+    tokenId: number;
+    msg: string;
+    sig: string;
 }
 export interface NodeType {
     nodeId: number;

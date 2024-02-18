@@ -1,5 +1,4 @@
-import { SmartContractConfig, UserAccount } from './types';
-import { EdgeType, NodeType, QuestType } from "./types/quests";
+import { SmartContractConfig, UserAccount, EdgeConditionITEMPick, EdgeResolutionITEMPick, EdgeType, NodeType, QuestType } from './types';
 /**
 
  */
@@ -89,9 +88,15 @@ export declare class Quest {
         entryPoint: number;
         exitPoint: number;
     }): Promise<string>;
+    setEdgeCondition(params: {
+        edgeId: number;
+        conditionType: number;
+        condition: EdgeConditionITEMPick;
+    }): Promise<string>;
     traverseEdge(params: {
         edgeId: number;
-        resolution: [];
+        conditionType: number;
+        resolution: EdgeResolutionITEMPick[];
     }): Promise<string>;
     /**
      * Gets the total number of nodes being tracked by the system

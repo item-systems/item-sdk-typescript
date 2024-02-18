@@ -1,6 +1,13 @@
 import { QuestsAPI } from './api'
-import { SmartContractConfig, UserAccount } from './types'
-import { EdgeType, NodeType, QuestType } from "./types/quests";
+import {
+  SmartContractConfig,
+  UserAccount,
+  EdgeConditionITEMPick,
+  EdgeResolutionITEMPick,
+  EdgeType,
+  NodeType,
+  QuestType,
+} from './types'
 
 /**
 
@@ -9,9 +16,9 @@ import { EdgeType, NodeType, QuestType } from "./types/quests";
 // TODO - Parse ids
 // TODO - Parse addresses
 export class Quest {
-  static MAINNET = '0x707e8ece25870b67d285f1ab271f74c262c6613f'
-  static TESTNET = '0x707e8ece25870b67d285f1ab271f74c262c6613f'
-  static PRIVATENET = '0x707e8ece25870b67d285f1ab271f74c262c6613f'
+  static MAINNET = '0x2fa49f2db0a653f3d48acfd11ff0303c6ea3592c'
+  static TESTNET = '0x2fa49f2db0a653f3d48acfd11ff0303c6ea3592c'
+  static PRIVATENET = '0x2fa49f2db0a653f3d48acfd11ff0303c6ea3592c'
 
   private config: SmartContractConfig
 
@@ -88,14 +95,15 @@ export class Quest {
         permissions: 2,
         active: true,
         title: 'Visit 2 murals and get a free beer',
-        description: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Sed viverra ipsum nunc aliquet bibendum enim facilisis. Risus at ultrices mi tempus imperdiet. Sollicitudin aliquam ultrices sagittis orci. Fames ac turpis egestas maecenas pharetra convallis posuere morbi leo. Nulla posuere sollicitudin aliquam ultrices sagittis orci a scelerisque purus. Diam quam nulla porttitor massa id neque. In aliquam sem fringilla ut morbi. Arcu risus quis varius quam quisque id diam vel quam. Placerat duis ultricies lacus sed. Porttitor massa id neque aliquam vestibulum. Sed vulputate mi sit amet mauris commodo quis imperdiet massa. Integer enim neque volutpat ac tincidunt vitae. Dolor sit amet consectetur adipiscing elit ut aliquam purus. Amet consectetur adipiscing elit ut. Viverra nam libero justo laoreet sit amet cursus. Massa ultricies mi quis hendrerit dolor. Rutrum tellus pellentesque eu tincidunt. Senectus et netus et malesuada fames ac turpis egestas.\n' +
+        description:
+          'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Sed viverra ipsum nunc aliquet bibendum enim facilisis. Risus at ultrices mi tempus imperdiet. Sollicitudin aliquam ultrices sagittis orci. Fames ac turpis egestas maecenas pharetra convallis posuere morbi leo. Nulla posuere sollicitudin aliquam ultrices sagittis orci a scelerisque purus. Diam quam nulla porttitor massa id neque. In aliquam sem fringilla ut morbi. Arcu risus quis varius quam quisque id diam vel quam. Placerat duis ultricies lacus sed. Porttitor massa id neque aliquam vestibulum. Sed vulputate mi sit amet mauris commodo quis imperdiet massa. Integer enim neque volutpat ac tincidunt vitae. Dolor sit amet consectetur adipiscing elit ut aliquam purus. Amet consectetur adipiscing elit ut. Viverra nam libero justo laoreet sit amet cursus. Massa ultricies mi quis hendrerit dolor. Rutrum tellus pellentesque eu tincidunt. Senectus et netus et malesuada fames ac turpis egestas.\n' +
           '\n' +
           'Nisi quis eleifend quam adipiscing vitae. Id semper risus in hendrerit gravida rutrum quisque non. Porttitor lacus luctus accumsan tortor posuere ac ut consequat semper. Odio eu feugiat pretium nibh ipsum. Urna nec tincidunt praesent semper. Felis bibendum ut tristique et egestas. Elit ullamcorper dignissim cras tincidunt lobortis feugiat vivamus. Pharetra pharetra massa massa ultricies. In mollis nunc sed id semper risus in hendrerit gravida. Pulvinar mattis nunc sed blandit libero. Dictumst quisque sagittis purus sit amet. Magnis dis parturient montes nascetur ridiculus mus mauris vitae. Tortor dignissim convallis aenean et tortor.',
         completions: 0,
         max_completions: 5,
-        entry_nodes: [ 1 ],
-        exit_nodes: [ 1 ],
-        edges: [ 1 ]
+        entry_nodes: [1],
+        exit_nodes: [1],
+        edges: [1],
       }
     }
     const res = await this.config.invoker.testInvoke({
@@ -118,7 +126,7 @@ export class Quest {
    * @param params.description A description of the quest
    * @param params.maxCompletions The maximum number of times that the quest can be completed
    */
-  async createQuest(params: { title: string, description: string; maxCompletions: number }): Promise<string> {
+  async createQuest(params: { title: string; description: string; maxCompletions: number }): Promise<string> {
     return this.config.invoker.invokeFunction({
       invocations: [QuestsAPI.createQuest(this.config.scriptHash, params)],
       signers: [],
@@ -217,17 +225,27 @@ export class Quest {
     })
   }
 
+  async setEdgeCondition(params: {
+    edgeId: number
+    conditionType: number
+    condition: EdgeConditionITEMPick
+  }): Promise<string> {
+    return this.config.invoker.invokeFunction({
+      invocations: [QuestsAPI.setEdgeCondition(this.config.scriptHash, params)],
+      signers: [],
+    })
+  }
+
   async traverseEdge(params: {
-    edgeId: number,
-    resolution: []
+    edgeId: number
+    conditionType: number
+    resolution: EdgeResolutionITEMPick[]
   }): Promise<string> {
     return this.config.invoker.invokeFunction({
       invocations: [QuestsAPI.traverseEdge(this.config.scriptHash, params)],
       signers: [],
     })
   }
-
-
 
   /// ////////////////////////////////////////////////
   /// ////////////////////////////////////////////////
@@ -320,7 +338,7 @@ export class Quest {
   /// ////////////////////////////////////////////////
   /// ////////////////////////////////////////////////
 
-  async getQuestState(params: { address: string, questId: number }): Promise<UserAccount> {
+  async getQuestState(params: { address: string; questId: number }): Promise<UserAccount> {
     const res = await this.config.invoker.testInvoke({
       invocations: [QuestsAPI.getQuestProgress(this.config.scriptHash, params)],
       signers: [],
