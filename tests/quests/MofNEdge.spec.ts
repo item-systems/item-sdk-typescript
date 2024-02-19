@@ -6,10 +6,7 @@ import Neon from '@cityofzion/neon-core'
 import { assert } from 'chai'
 import { EdgeConditionITEMPick } from '../../dist/esm/types'
 
-// TODO - Mint and verify total supply change
-// TODO - Transfer tests
-
-describe('Basic loop quest workflow', function () {
+describe('M of N quest loop', function () {
   this.timeout(60000)
 
   const NODE = 'http://127.0.0.1:50012'
@@ -25,14 +22,32 @@ describe('Basic loop quest workflow', function () {
 
   let questId = -1
   const questMetadata = {
-    title: 'Visit 2 murals and get a free beer',
-    description: 'the quest details (M of N)',
+    title: 'Lorem ipsum',
+    description: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis ornare laoreet fringilla. Nunc facilisis tempus ante a imperdiet. Integer non volutpat nisl, vitae auctor leo. Etiam vel suscipit purus, id semper tellus. Cras aliquet cursus dui vitae consectetur. Nullam convallis arcu nunc, sit amet laoreet ipsum commodo sed. Donec condimentum dapibus dictum. Donec ut tempus ipsum. Integer tempus, massa et varius congue, libero tortor maximus nisl, non euismod libero nisi ut nulla. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Proin at sagittis ex, non tristique metus.\n' +
+      '\n' +
+      'Vestibulum imperdiet consequat nulla quis sollicitudin. Nullam sed ipsum ullamcorper, mattis felis sed, vestibulum neque. Proin pulvinar nisi a sodales pellentesque. Sed tincidunt aliquam enim, viverra congue ligula elementum nec. Donec nec eleifend magna. Vivamus posuere dolor placerat, maximus turpis in, iaculis magna. Maecenas finibus eu dui nec ultrices.',
     maxCompletions: 5,
   }
 
   const edgeConditions: EdgeConditionITEMPick = {
-    count: 1,
-    tokens: [1758],
+    count: 2,
+    tokens: [1743,
+      1744,
+      1745,
+      1746,
+      1747,
+      1748,
+      1749,
+      1750,
+      1751,
+      1752,
+      1753,
+      1754,
+      1755,
+      1756,
+      1757,
+      1758,
+      1759],
   }
 
   it('should get all the quests', async () => {

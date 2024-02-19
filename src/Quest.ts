@@ -16,9 +16,9 @@ import {
 // TODO - Parse ids
 // TODO - Parse addresses
 export class Quest {
-  static MAINNET = '0x2fa49f2db0a653f3d48acfd11ff0303c6ea3592c'
-  static TESTNET = '0x2fa49f2db0a653f3d48acfd11ff0303c6ea3592c'
-  static PRIVATENET = '0x2fa49f2db0a653f3d48acfd11ff0303c6ea3592c'
+  static MAINNET = '0xe7b2e6fbe8c2853a61f2bc8694bca7e9f14b996c'
+  static TESTNET = '0xe7b2e6fbe8c2853a61f2bc8694bca7e9f14b996c'
+  static PRIVATENET = '0xe7b2e6fbe8c2853a61f2bc8694bca7e9f14b996c'
 
   private config: SmartContractConfig
 

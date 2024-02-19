@@ -26,28 +26,24 @@ describe('Stateless Quests', function () {
   it('should get the total users', async() => {
     const quests = await getSDK()
     const res = await quests.totalAccounts()
-    console.log(res)
     assert.isAbove(res, 0)
   })
 
   it('should get the total quests', async() => {
     const quests = await getSDK()
     const res = await quests.totalQuests()
-    console.log(res)
     assert.isAtLeast(res, 0)
   })
 
   it('should get the total nodes', async() => {
     const quests = await getSDK()
     const res = await quests.totalNodes()
-    console.log(res)
     assert.isAbove(res, 0)
   })
 
   it('should get the total edges', async() => {
     const quests = await getSDK()
     const res = await quests.totalEdges()
-    console.log(res)
     assert.isAtLeast(res, 0)
   })
 
@@ -56,7 +52,6 @@ describe('Stateless Quests', function () {
     const res = await quests.getUserJSON({
       address: 'NbqrwJjunsTWkAJNz55saYSuYxDwCGgmVD'
     })
-    console.log(res)
     assert.exists(res.account_id)
     assert.exists(res.permissions)
 
@@ -70,7 +65,6 @@ describe('Stateless Quests', function () {
     const res = await quests.getNodeJSON({
       nodeId: 1
     })
-    console.log(res)
     assert.equal(res.nodeId, 1)
     assert.equal(res.label, 'origin')
     assert.isAtLeast(res.edges.length, 0)
