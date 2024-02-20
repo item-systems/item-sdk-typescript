@@ -1,6 +1,5 @@
-import { NeonInvoker } from '@cityofzion/neon-invoker'
 import { NeonParser } from '@cityofzion/neon-parser'
-import { Quest, Utils } from '../../dist/esm'
+import { constants, Quests, Utils } from "../../dist/esm";
 // @ts-ignore
 import Neon  from '@cityofzion/neon-core'
 import { assert } from 'chai'
@@ -11,17 +10,13 @@ import { assert } from 'chai'
 describe('Basic loop quest workflow', function () {
   this.timeout(60000)
 
-  const scriptHash = Quest.PRIVATENET
-  const NODE = 'http://127.0.0.1:50012'
-  const ACCOUNT = new Neon.wallet.Account('b319cdef7f5f30f55d3dabc3e99cfc820bf1ccac7db66b51e2a4b281b83e5079')
+  const account = new Neon.wallet.Account('b319cdef7f5f30f55d3dabc3e99cfc820bf1ccac7db66b51e2a4b281b83e5079')
 
-  const getSDK = async (account?: any) => {
-    return new Quest({
-      scriptHash,
-      invoker: await NeonInvoker.init(NODE, account),
-      parser: NeonParser,
-    })
-  }
+  const node = constants.NetworkOption.LocalNet
+  const quests = new Quests({
+    account,
+    node
+  })
 
   let quest
   let questId = -1
@@ -32,8 +27,6 @@ describe('Basic loop quest workflow', function () {
   }
 
   it('should create a quest and verify components', async () => {
-    const quests = await getSDK(ACCOUNT)
-
     const txid = await quests.createQuest(questMetadata)
     const log = await Utils.transactionCompletion(txid)
     questId = NeonParser.parseRpcResponse(log.executions[0].stack![0])
@@ -46,7 +39,6 @@ describe('Basic loop quest workflow', function () {
   })
 
   it('should set the quest as active and verify states', async () => {
-    const quests = await getSDK(ACCOUNT)
     const txid = await quests.setQuestActive({
       questId,
       state: true,
@@ -69,7 +61,6 @@ describe('Basic loop quest workflow', function () {
   })
 
   it('should traverse the quest edge and verify state', async () => {
-    const quests = await getSDK(ACCOUNT)
     const quest = await quests.getQuestJSON({
       questId,
     })
@@ -88,8 +79,6 @@ describe('Basic loop quest workflow', function () {
   })
 
   it('should burn the quest and verify that it cannot be overrun', async () => {
-    const quests = await getSDK(ACCOUNT)
-
     let quest = await quests.getQuestJSON({
       questId,
     })

@@ -1,6 +1,15 @@
 import { ItemAPI } from './api';
 import { Utils } from './helpers';
 import { u, wallet } from '@cityofzion/neon-core';
+import { NetworkOption } from "./constants";
+import { NeonParser } from "@cityofzion/neon-parser";
+import { NeonInvoker } from "@cityofzion/neon-invoker";
+const DEFAULT_OPTIONS = {
+    node: NetworkOption.MainNet,
+    scriptHash: '0x904deb56fdd9a87b48d89e0cc0ac3415f9207840',
+    parser: NeonParser,
+    account: undefined
+};
 /**
  * The ITEM class is the primary interface point for the digital twin of an NFI. Use this class to execute standard
  * non-fungible token interations as well as additional capabilities like authentication and configuration. WalletConnect 2.0
@@ -25,8 +34,9 @@ import { u, wallet } from '@cityofzion/neon-core';
  * ```
  */
 export class Item {
-    constructor(configOptions) {
-        this.config = configOptions;
+    constructor(configOptions = {}) {
+        this.initialized = 'invoker' in configOptions;
+        this.config = { ...DEFAULT_OPTIONS, ...configOptions };
     }
     /// ////////////////////////////////////////////////
     /// ////////////////////////////////////////////////
@@ -42,11 +52,19 @@ export class Item {
         }
         throw new Error('no scripthash defined');
     }
+    async init() {
+        if (!this.initialized) {
+            this.config.invoker = await NeonInvoker.init(this.config.node, this.config.account);
+            this.initialized = true;
+        }
+        return true;
+    }
     /**
      * Returns the token symbol for the digital twin "ITEM". This is a great test method and exist primarily to support
      * existing token standard.
      */
     async symbol() {
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [ItemAPI.symbol(this.config.scriptHash)],
             signers: [],
@@ -60,6 +78,7 @@ export class Item {
      * Returns the decimals supported by ITEMs. Currently, the ITEM contract does not support native fractional ownership.
      */
     async decimals() {
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [ItemAPI.decimals(this.config.scriptHash)],
             signers: [],
@@ -73,6 +92,7 @@ export class Item {
      * Gets the total number of ITEMS tracked in the contract.
      */
     async totalSupply() {
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [ItemAPI.totalSupply(this.config.scriptHash)],
             signers: [],
@@ -89,6 +109,7 @@ export class Item {
      * @returns an array of pointers to the items owned
      */
     async tokensOf(params) {
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [ItemAPI.tokensOf(this.config.scriptHash, params)],
             signers: [],
@@ -109,6 +130,7 @@ export class Item {
      * @param params.address the address of the requested entity
      */
     async balanceOf(params) {
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [ItemAPI.balanceOf(this.config.scriptHash, params)],
             signers: [],
@@ -129,6 +151,7 @@ export class Item {
      * @return the transaction id for lookup on (dora)[https://dora.coz.io]
      */
     async transfer(params) {
+        await this.init();
         return await this.config.invoker.invokeFunction({
             invocations: [ItemAPI.transfer(this.config.scriptHash, params)],
             signers: [],
@@ -145,6 +168,7 @@ export class Item {
      * @return boolean Was the transfer successful?
      */
     async transferConfirmed(params) {
+        await this.init();
         const txid = await this.transfer(params);
         const log = await Utils.transactionCompletion(txid);
         if (log.executions[0].stack.length === 0) {
@@ -160,6 +184,7 @@ export class Item {
      * @return the owning entity's address
      */
     async ownerOf(params) {
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [ItemAPI.ownerOf(this.config.scriptHash, params)],
             signers: [],
@@ -180,6 +205,7 @@ export class Item {
      * @return the list of globals ids for every NFI
      */
     async tokens() {
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [ItemAPI.tokens(this.config.scriptHash)],
             signers: [],
@@ -201,6 +227,7 @@ export class Item {
      * @param params.tokenId the global id for the NFI
      */
     async properties(params) {
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [ItemAPI.properties(this.config.scriptHash, params)],
             signers: [],
@@ -221,6 +248,7 @@ export class Item {
      * @param params.address the entity you are requesting information about
      */
     async getUserJSON(params) {
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [ItemAPI.getUserJSON(this.config.scriptHash, params)],
             signers: [],
@@ -235,6 +263,7 @@ export class Item {
      * @param params
      */
     async getUser(params) {
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [ItemAPI.getUser(this.config.scriptHash, params)],
             signers: [],
@@ -251,6 +280,7 @@ export class Item {
      * @param params.permissions the complete permission-set to update to
      */
     async setUserPermissions(params) {
+        await this.init();
         return await this.config.invoker.invokeFunction({
             invocations: [ItemAPI.setUserPermissions(this.config.scriptHash, params)],
             signers: [],
@@ -261,6 +291,7 @@ export class Item {
      * @return the number of accounts
      */
     async totalAccounts() {
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [ItemAPI.totalAccounts(this.config.scriptHash)],
             signers: [],
@@ -280,12 +311,14 @@ export class Item {
      * @param params
      */
     async createEpoch(params) {
+        await this.init();
         return await this.config.invoker.invokeFunction({
             invocations: [ItemAPI.createEpoch(this.config.scriptHash, params)],
             signers: [],
         });
     }
     async getEpochJSON(params) {
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [ItemAPI.getEpochJSON(this.config.scriptHash, params)],
             signers: [],
@@ -298,6 +331,7 @@ export class Item {
         });
     }
     async getEpoch(params) {
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [ItemAPI.getEpoch(this.config.scriptHash, params)],
             signers: [],
@@ -308,12 +342,14 @@ export class Item {
         return this.config.parser.parseRpcResponse(res.stack[0]);
     }
     async setMintFee(params) {
+        await this.init();
         return await this.config.invoker.invokeFunction({
             invocations: [ItemAPI.setMintFee(this.config.scriptHash, params)],
             signers: [],
         });
     }
     async totalEpochs() {
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [ItemAPI.totalEpochs(this.config.scriptHash)],
             signers: [],
@@ -325,6 +361,7 @@ export class Item {
     }
     // ITEM SCOPE
     async auth(params) {
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [ItemAPI.auth(this.config.scriptHash, params)],
             signers: [],
@@ -335,12 +372,14 @@ export class Item {
         return this.config.parser.parseRpcResponse(res.stack[0]);
     }
     async authCommit(params) {
+        await this.init();
         return await this.config.invoker.invokeFunction({
             invocations: [ItemAPI.auth(this.config.scriptHash, params)],
             signers: [],
         });
     }
     async authCommitConfirmed(params) {
+        await this.init();
         const txid = await this.authCommit(params);
         const log = await Utils.transactionCompletion(txid);
         if (log.executions[0].stack.length === 0) {
@@ -349,12 +388,14 @@ export class Item {
         return this.config.parser.parseRpcResponse(log.executions[0].stack[0]);
     }
     async bindItem(params) {
+        await this.init();
         return await this.config.invoker.invokeFunction({
             invocations: [ItemAPI.bindItem(this.config.scriptHash, params)],
             signers: [],
         });
     }
     async bindItemConfirmed(params, mock) {
+        await this.init();
         if (mock) {
             return true;
         }
@@ -372,6 +413,7 @@ export class Item {
         });
     }
     async claimBindOnPickupConfirmed(params) {
+        await this.init();
         const txid = await this.claimBindOnPickup(params);
         const log = await Utils.transactionCompletion(txid);
         if (log.executions[0].stack.length === 0) {
@@ -380,12 +422,14 @@ export class Item {
         return this.config.parser.parseRpcResponse(log.executions[0].stack[0]);
     }
     async setBindOnPickup(params) {
+        await this.init();
         return await this.config.invoker.invokeFunction({
             invocations: [ItemAPI.setBindOnPickup(this.config.scriptHash, params)],
             signers: [],
         });
     }
     async setBindOnPickupConfirmed(params) {
+        await this.init();
         const txid = await this.setBindOnPickup(params);
         const log = await Utils.transactionCompletion(txid);
         if (log.executions[0].stack.length === 0) {
@@ -394,6 +438,7 @@ export class Item {
         return this.config.parser.parseRpcResponse(log.executions[0].stack[0]);
     }
     async getAssetItemJSON(params) {
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [ItemAPI.getAssetItemJSON(this.config.scriptHash, params)],
             signers: [],
@@ -406,6 +451,7 @@ export class Item {
         });
     }
     async getItem(params) {
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [ItemAPI.getItem(this.config.scriptHash, params)],
             signers: [],
@@ -415,34 +461,8 @@ export class Item {
         }
         return this.config.parser.parseRpcResponse(res.stack[0]);
     }
-    async getItemJSON(params, mock) {
-        if (mock) {
-            return {
-                description: 'An ITEM',
-                image: 'https://props.coz.io/img/item/neo/2780587208/1.png',
-                name: 'ITEM',
-                asset: '0x9f0663cd392d918938a57de3d1318fca2c8130de',
-                owner: '0x8a4c7d4629a4e58715945510c0350ae1a5e5a403',
-                creator: '0x8a4c7d4629a4e58715945510c0350ae1a5e5a403',
-                bindOnPickup: 0,
-                seed: 'ÛØ0«[ýJcªãF\r\\Àa\x93',
-                tokenId: 1,
-                tokenURI: 'https://props.coz.io/tok/item/neo/2780587208/1',
-                epoch: {
-                    epochId: 1,
-                    label: 'Consensus 2023',
-                    authAge: 4,
-                    epochTokenId: 1,
-                    maxSupply: 100,
-                    totalSupply: 10,
-                    mintFee: 0,
-                    sysFee: 0,
-                },
-                traits: {
-                    color: 'white',
-                },
-            };
-        }
+    async getItemJSON(params) {
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [ItemAPI.getItemJSON(this.config.scriptHash, params)],
             signers: [],
@@ -455,6 +475,7 @@ export class Item {
         });
     }
     async getItemJSONFlat(params) {
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [ItemAPI.getItemJSONFlat(this.config.scriptHash, params)],
             signers: [],
@@ -465,12 +486,14 @@ export class Item {
         return this.config.parser.parseRpcResponse(res.stack[0]);
     }
     async offlineMint(params) {
+        await this.init();
         return await this.config.invoker.invokeFunction({
             invocations: [ItemAPI.offlineMint(this.config.scriptHash, params)],
             signers: [],
         });
     }
     async offlineMintConfirmed(params) {
+        await this.init();
         const txid = await this.offlineMint(params);
         const log = await Utils.transactionCompletion(txid);
         if (log.executions[0].stack.length === 0) {
@@ -479,37 +502,39 @@ export class Item {
         return this.config.parser.parseRpcResponse(log.executions[0].stack[0]);
     }
     async lock(params) {
+        await this.init();
         return await this.config.invoker.invokeFunction({
             invocations: [ItemAPI.lock(this.config.scriptHash, params)],
             signers: [],
         });
     }
     async setItemProperties(params) {
+        await this.init();
         return await this.config.invoker.invokeFunction({
             invocations: [ItemAPI.setItemProperties(this.config.scriptHash, params)],
             signers: [],
         });
     }
     async unbindToken(params) {
+        await this.init();
         return await this.config.invoker.invokeFunction({
             invocations: [ItemAPI.unbindToken(this.config.scriptHash, params)],
             signers: [],
         });
     }
     async unbindAsset(params) {
+        await this.init();
         return await this.config.invoker.invokeFunction({
             invocations: [ItemAPI.unbindAsset(this.config.scriptHash, params)],
             signers: [],
         });
     }
     async update(params) {
+        await this.init();
         return await this.config.invoker.invokeFunction({
             invocations: [ItemAPI.update(this.config.scriptHash, params)],
             signers: [],
         });
     }
 }
-Item.MAINNET = '0x904deb56fdd9a87b48d89e0cc0ac3415f9207840';
-Item.TESTNET = '0x904deb56fdd9a87b48d89e0cc0ac3415f9207840';
-Item.PRIVATENET = '0x904deb56fdd9a87b48d89e0cc0ac3415f9207840';
 //# sourceMappingURL=Item.js.map

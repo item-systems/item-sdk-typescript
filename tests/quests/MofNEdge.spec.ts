@@ -1,24 +1,20 @@
 import { NeonInvoker } from '@cityofzion/neon-invoker'
 import { NeonParser } from '@cityofzion/neon-parser'
-import { Quest, Utils } from '../../dist/esm'
+import { constants, Quests, Utils, types } from '../../dist/esm'
 // @ts-ignore
 import Neon from '@cityofzion/neon-core'
 import { assert } from 'chai'
-import { EdgeConditionITEMPick } from '../../dist/esm/types'
 
 describe('M of N quest loop', function () {
   this.timeout(60000)
 
-  const NODE = 'http://127.0.0.1:50012'
-  const ACCOUNT = new Neon.wallet.Account('b319cdef7f5f30f55d3dabc3e99cfc820bf1ccac7db66b51e2a4b281b83e5079')
+  const account = new Neon.wallet.Account('b319cdef7f5f30f55d3dabc3e99cfc820bf1ccac7db66b51e2a4b281b83e5079')
 
-  const getSDK = async (account?: any) => {
-    return new Quest({
-      scriptHash: Quest.PRIVATENET,
-      invoker: await NeonInvoker.init(NODE, account),
-      parser: NeonParser,
-    })
-  }
+  const node = constants.NetworkOption.LocalNet
+  const quests = new Quests({
+    account,
+    node
+  })
 
   let questId = -1
   const questMetadata = {
@@ -29,7 +25,7 @@ describe('M of N quest loop', function () {
     maxCompletions: 5,
   }
 
-  const edgeConditions: EdgeConditionITEMPick = {
+  const edgeConditions: types.EdgeConditionITEMPick = {
     count: 2,
     tokens: [1743,
       1744,
@@ -51,7 +47,6 @@ describe('M of N quest loop', function () {
   }
 
   it('should get all the quests', async () => {
-    const quests = await getSDK()
     const totalQuests = await quests.totalQuests()
     console.log(totalQuests)
     for (let i = 1; i <= totalQuests; i++) {
@@ -63,8 +58,6 @@ describe('M of N quest loop', function () {
   })
 
   it('should create a quest and set the edge condition', async () => {
-    const quests = await getSDK(ACCOUNT)
-
     let txid = await quests.createQuest(questMetadata)
     let log = await Utils.transactionCompletion(txid)
     console.log(txid, parseInt(log.executions[0].gasconsumed) / 10 ** 8)
@@ -93,7 +86,6 @@ describe('M of N quest loop', function () {
   })
 
   it('should set the quest as active and verify states', async () => {
-    const quests = await getSDK(ACCOUNT)
     const txid = await quests.setQuestActive({
       questId,
       state: true,
@@ -110,7 +102,6 @@ describe('M of N quest loop', function () {
   })
 
   it('should traverse the quest edge and verify state', async () => {
-    const quests = await getSDK(ACCOUNT)
     const quest = await quests.getQuestJSON({
       questId,
     })

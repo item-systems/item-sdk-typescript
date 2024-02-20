@@ -1,4 +1,4 @@
-import { EpochType, ItemType, SmartContractConfig, UserAccount } from './types';
+import { ConstructorOptions, EpochType, ItemType, UserAccount } from "./types";
 /**
  * The ITEM class is the primary interface point for the digital twin of an NFI. Use this class to execute standard
  * non-fungible token interations as well as additional capabilities like authentication and configuration. WalletConnect 2.0
@@ -23,15 +23,14 @@ import { EpochType, ItemType, SmartContractConfig, UserAccount } from './types';
  * ```
  */
 export declare class Item {
-    static MAINNET: string;
-    static TESTNET: string;
-    static PRIVATENET: string;
     private config;
-    constructor(configOptions: SmartContractConfig);
+    private initialized;
+    constructor(configOptions?: ConstructorOptions);
     /**
      * Gets the script hash of the smart contract.
      */
     get scriptHash(): string;
+    init(): Promise<boolean>;
     /**
      * Returns the token symbol for the digital twin "ITEM". This is a great test method and exist primarily to support
      * existing token standard.
@@ -229,7 +228,7 @@ export declare class Item {
     }): Promise<string>;
     getItemJSON(params: {
         tokenId: number;
-    }, mock?: boolean): Promise<ItemType>;
+    }): Promise<ItemType>;
     getItemJSONFlat(params: {
         tokenId: number;
     }): Promise<string>;

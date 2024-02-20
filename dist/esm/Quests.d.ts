@@ -1,17 +1,13 @@
-import { SmartContractConfig, UserAccount, EdgeConditionITEMPick, EdgeResolutionITEMPick, EdgeType, NodeType, QuestType } from './types';
-/**
-
- */
-export declare class Quest {
-    static MAINNET: string;
-    static TESTNET: string;
-    static PRIVATENET: string;
+import { UserAccount, EdgeConditionITEMPick, EdgeResolutionITEMPick, EdgeType, NodeType, QuestType, ConstructorOptions } from "./types";
+export declare class Quests {
     private config;
-    constructor(configOptions: SmartContractConfig);
+    private initialized;
+    constructor(configOptions?: ConstructorOptions);
     /**
      * Gets the script hash of the smart contract.
      */
     get scriptHash(): string;
+    init(): Promise<boolean>;
     /**
      * Gets the total number of quests being tracked by the system
      */

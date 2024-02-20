@@ -1,13 +1,17 @@
 import { QuestsAPI } from './api';
-/**
-
- */
-// TODO - Provide class overview with examples and recipes
-// TODO - Parse ids
-// TODO - Parse addresses
-export class Quest {
-    constructor(configOptions) {
-        this.config = configOptions;
+import { NetworkOption } from "./constants";
+import { NeonParser } from '@cityofzion/neon-parser';
+import { NeonInvoker } from "@cityofzion/neon-invoker";
+const DEFAULT_OPTIONS = {
+    node: NetworkOption.MainNet,
+    scriptHash: '0xe7b2e6fbe8c2853a61f2bc8694bca7e9f14b996c',
+    parser: NeonParser,
+    account: undefined
+};
+export class Quests {
+    constructor(configOptions = {}) {
+        this.initialized = 'invoker' in configOptions;
+        this.config = { ...DEFAULT_OPTIONS, ...configOptions };
     }
     /// ////////////////////////////////////////////////
     /// ////////////////////////////////////////////////
@@ -23,6 +27,13 @@ export class Quest {
         }
         throw new Error('no scripthash defined');
     }
+    async init() {
+        if (!this.initialized) {
+            this.config.invoker = await NeonInvoker.init(this.config.node, this.config.account);
+            this.initialized = true;
+        }
+        return true;
+    }
     /// ////////////////////////////////////////////////
     /// ////////////////////////////////////////////////
     /// /////////////// QUESTS SCOPE ///////////////////
@@ -32,6 +43,7 @@ export class Quest {
      * Gets the total number of quests being tracked by the system
      */
     async totalQuests() {
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [QuestsAPI.totalQuests(this.config.scriptHash)],
             signers: [],
@@ -47,6 +59,7 @@ export class Quest {
      * @param params.questId the unique identifier of the quest.
      */
     async getQuest(params) {
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [QuestsAPI.getQuest(this.config.scriptHash, params)],
             signers: [],
@@ -62,23 +75,7 @@ export class Quest {
      * @param params.questId the unique identifier of the quest
      */
     async getQuestJSON(params) {
-        if (params.questId === 0) {
-            return {
-                quest_id: 0,
-                creator: '0x5699cace59e49e70d1a2e10bb16a7cf2d621bbae',
-                permissions: 2,
-                active: true,
-                title: 'Visit 2 murals and get a free beer',
-                description: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Sed viverra ipsum nunc aliquet bibendum enim facilisis. Risus at ultrices mi tempus imperdiet. Sollicitudin aliquam ultrices sagittis orci. Fames ac turpis egestas maecenas pharetra convallis posuere morbi leo. Nulla posuere sollicitudin aliquam ultrices sagittis orci a scelerisque purus. Diam quam nulla porttitor massa id neque. In aliquam sem fringilla ut morbi. Arcu risus quis varius quam quisque id diam vel quam. Placerat duis ultricies lacus sed. Porttitor massa id neque aliquam vestibulum. Sed vulputate mi sit amet mauris commodo quis imperdiet massa. Integer enim neque volutpat ac tincidunt vitae. Dolor sit amet consectetur adipiscing elit ut aliquam purus. Amet consectetur adipiscing elit ut. Viverra nam libero justo laoreet sit amet cursus. Massa ultricies mi quis hendrerit dolor. Rutrum tellus pellentesque eu tincidunt. Senectus et netus et malesuada fames ac turpis egestas.\n' +
-                    '\n' +
-                    'Nisi quis eleifend quam adipiscing vitae. Id semper risus in hendrerit gravida rutrum quisque non. Porttitor lacus luctus accumsan tortor posuere ac ut consequat semper. Odio eu feugiat pretium nibh ipsum. Urna nec tincidunt praesent semper. Felis bibendum ut tristique et egestas. Elit ullamcorper dignissim cras tincidunt lobortis feugiat vivamus. Pharetra pharetra massa massa ultricies. In mollis nunc sed id semper risus in hendrerit gravida. Pulvinar mattis nunc sed blandit libero. Dictumst quisque sagittis purus sit amet. Magnis dis parturient montes nascetur ridiculus mus mauris vitae. Tortor dignissim convallis aenean et tortor.',
-                completions: 0,
-                max_completions: 5,
-                entry_nodes: [1],
-                exit_nodes: [1],
-                edges: [1],
-            };
-        }
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [QuestsAPI.getQuestJSON(this.config.scriptHash, params)],
             signers: [],
@@ -98,6 +95,7 @@ export class Quest {
      * @param params.maxCompletions The maximum number of times that the quest can be completed
      */
     async createQuest(params) {
+        await this.init();
         return this.config.invoker.invokeFunction({
             invocations: [QuestsAPI.createQuest(this.config.scriptHash, params)],
             signers: [],
@@ -108,6 +106,7 @@ export class Quest {
      * @param params
      */
     async setQuestActive(params) {
+        await this.init();
         return this.config.invoker.invokeFunction({
             invocations: [QuestsAPI.setQuestActive(this.config.scriptHash, params)],
             signers: [],
@@ -122,6 +121,7 @@ export class Quest {
      * Gets the total number of edges being tracked by the system
      */
     async totalEdges() {
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [QuestsAPI.totalEdges(this.config.scriptHash)],
             signers: [],
@@ -137,6 +137,7 @@ export class Quest {
      * @param params.edgeId the unique identifier of the edge.
      */
     async getEdge(params) {
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [QuestsAPI.getEdge(this.config.scriptHash, params)],
             signers: [],
@@ -152,6 +153,7 @@ export class Quest {
      * @param params.edgeId the unique identifier of the edge
      */
     async getEdgeJSON(params) {
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [QuestsAPI.getEdgeJSON(this.config.scriptHash, params)],
             signers: [],
@@ -174,18 +176,21 @@ export class Quest {
      * @param params.exitPoint the node that the edge exits to
      */
     async createEdge(params) {
+        await this.init();
         return this.config.invoker.invokeFunction({
             invocations: [QuestsAPI.createEdge(this.config.scriptHash, params)],
             signers: [],
         });
     }
     async setEdgeCondition(params) {
+        await this.init();
         return this.config.invoker.invokeFunction({
             invocations: [QuestsAPI.setEdgeCondition(this.config.scriptHash, params)],
             signers: [],
         });
     }
     async traverseEdge(params) {
+        await this.init();
         return this.config.invoker.invokeFunction({
             invocations: [QuestsAPI.traverseEdge(this.config.scriptHash, params)],
             signers: [],
@@ -200,6 +205,7 @@ export class Quest {
      * Gets the total number of nodes being tracked by the system
      */
     async totalNodes() {
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [QuestsAPI.totalNodes(this.config.scriptHash)],
             signers: [],
@@ -215,6 +221,7 @@ export class Quest {
      * @param params.nodeId the unique identifier of the node
      */
     async getNode(params) {
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [QuestsAPI.getNode(this.config.scriptHash, params)],
             signers: [],
@@ -230,6 +237,7 @@ export class Quest {
      * @param params.nodeId the unique identifier of the node
      */
     async getNodeJSON(params) {
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [QuestsAPI.getNodeJSON(this.config.scriptHash, params)],
             signers: [],
@@ -247,6 +255,7 @@ export class Quest {
      * @param params.label A label for the state that the node represents
      */
     async createNode(params) {
+        await this.init();
         return this.config.invoker.invokeFunction({
             invocations: [QuestsAPI.createNode(this.config.scriptHash, params)],
             signers: [],
@@ -260,6 +269,7 @@ export class Quest {
      * @param params.permissions the permission state to update the node to
      */
     async setNodePermissions(params) {
+        await this.init();
         return this.config.invoker.invokeFunction({
             invocations: [QuestsAPI.setNodePermissions(this.config.scriptHash, params)],
             signers: [],
@@ -271,6 +281,7 @@ export class Quest {
     /// ////////////////////////////////////////////////
     /// ////////////////////////////////////////////////
     async getQuestState(params) {
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [QuestsAPI.getQuestProgress(this.config.scriptHash, params)],
             signers: [],
@@ -286,6 +297,7 @@ export class Quest {
      * @param params.nodeId the unique identifier of the node
      */
     async getUserJSON(params) {
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [QuestsAPI.getUserJSON(this.config.scriptHash, params)],
             signers: [],
@@ -299,6 +311,7 @@ export class Quest {
      * Gets the total number of nodes being tracked by the system
      */
     async totalAccounts() {
+        await this.init();
         const res = await this.config.invoker.testInvoke({
             invocations: [QuestsAPI.totalAccounts(this.config.scriptHash)],
             signers: [],
@@ -309,7 +322,4 @@ export class Quest {
         return this.config.parser.parseRpcResponse(res.stack[0]);
     }
 }
-Quest.MAINNET = '0xe7b2e6fbe8c2853a61f2bc8694bca7e9f14b996c';
-Quest.TESTNET = '0xe7b2e6fbe8c2853a61f2bc8694bca7e9f14b996c';
-Quest.PRIVATENET = '0xe7b2e6fbe8c2853a61f2bc8694bca7e9f14b996c';
-//# sourceMappingURL=Quest.js.map
+//# sourceMappingURL=Quests.js.map

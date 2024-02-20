@@ -15,9 +15,7 @@ describe('Stateless Item', function () {
 
   const getSDK = async (account?: any) => {
     return new Item({
-      scriptHash,
-      invoker: await NeonInvoker.init(NODE, account),
-      parser: NeonParser,
+
     })
   }
 

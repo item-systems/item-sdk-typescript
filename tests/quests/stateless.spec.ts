@@ -1,6 +1,6 @@
 import { NeonInvoker } from "@cityofzion/neon-invoker";
 import { NeonParser } from "@cityofzion/neon-parser";
-import { Quest } from "../../dist/esm";
+import { Quests, constants } from "../../dist/esm";
 // @ts-ignore
 import Neon from "@cityofzion/neon-core";
 import { assert } from "chai";
@@ -12,46 +12,43 @@ import { NodePermissions } from "../../dist/esm/types/quests";
 describe('Stateless Quests', function () {
   this.timeout(60000)
 
-  const scriptHash = Quest.PRIVATENET
-  const NODE = 'http://127.0.0.1:50012'
-
-  const getSDK = async (account?: any) => {
-    return new Quest({
-      scriptHash,
-      invoker: await NeonInvoker.init(NODE, account),
-      parser: NeonParser,
-    })
-  }
-
-  it('should get the total users', async() => {
-    const quests = await getSDK()
-    const res = await quests.totalAccounts()
-    assert.isAbove(res, 0)
+  const node = constants.NetworkOption.LocalNet
+  const quests = new Quests({
+    node
   })
 
+
+  it('should get the total users', async() => {
+    const res = await quests.totalAccounts()
+    assert.isAbove(res, 0)
+
+    const questJSON = await quests.getQuestJSON({
+      questId: 1
+    })
+    console.log(questJSON)
+  })
+
+
   it('should get the total quests', async() => {
-    const quests = await getSDK()
     const res = await quests.totalQuests()
     assert.isAtLeast(res, 0)
   })
 
   it('should get the total nodes', async() => {
-    const quests = await getSDK()
     const res = await quests.totalNodes()
     assert.isAbove(res, 0)
   })
 
   it('should get the total edges', async() => {
-    const quests = await getSDK()
     const res = await quests.totalEdges()
     assert.isAtLeast(res, 0)
   })
 
   it('should get a user', async() => {
-    const quests = await getSDK()
     const res = await quests.getUserJSON({
       address: 'NbqrwJjunsTWkAJNz55saYSuYxDwCGgmVD'
     })
+    console.log(res)
     assert.exists(res.account_id)
     assert.exists(res.permissions)
 
@@ -61,7 +58,6 @@ describe('Stateless Quests', function () {
   })
 
   it('should get a node', async() => {
-    const quests = await getSDK()
     const res = await quests.getNodeJSON({
       nodeId: 1
     })
@@ -70,4 +66,5 @@ describe('Stateless Quests', function () {
     assert.isAtLeast(res.edges.length, 0)
     assert.equal(res.permissions, NodePermissions.PUBLIC)
   })
+
 })
