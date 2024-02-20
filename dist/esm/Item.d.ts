@@ -1,4 +1,4 @@
-import { ConstructorOptions, EpochType, ItemType, UserAccount } from "./types";
+import { ConstructorOptions, EpochType, ItemType, UserAccount } from './types';
 /**
  * The ITEM class is the primary interface point for the digital twin of an NFI. Use this class to execute standard
  * non-fungible token interations as well as additional capabilities like authentication and configuration. WalletConnect 2.0

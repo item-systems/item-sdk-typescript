@@ -1,14 +1,14 @@
 import { ItemAPI } from './api';
 import { Utils } from './helpers';
 import { u, wallet } from '@cityofzion/neon-core';
-import { NetworkOption } from "./constants";
-import { NeonParser } from "@cityofzion/neon-parser";
-import { NeonInvoker } from "@cityofzion/neon-invoker";
+import { NetworkOption } from './constants';
+import { NeonParser } from '@cityofzion/neon-parser';
+import { NeonInvoker } from '@cityofzion/neon-invoker';
 const DEFAULT_OPTIONS = {
     node: NetworkOption.MainNet,
     scriptHash: '0x904deb56fdd9a87b48d89e0cc0ac3415f9207840',
     parser: NeonParser,
-    account: undefined
+    account: undefined,
 };
 /**
  * The ITEM class is the primary interface point for the digital twin of an NFI. Use this class to execute standard

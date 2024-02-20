@@ -5,21 +5,18 @@ import {
   EdgeResolutionITEMPick,
   EdgeType,
   NodeType,
-  QuestType, ConstructorOptions
-} from "./types";
-import { NetworkOption } from "./constants";
+  QuestType,
+  ConstructorOptions,
+} from './types'
+import { NetworkOption } from './constants'
 import { NeonParser } from '@cityofzion/neon-parser'
-import Neon from "@cityofzion/neon-core";
-import { NeonInvoker } from "@cityofzion/neon-invoker";
-import { Neo3Invoker } from "@cityofzion/neo3-invoker";
-import { Neo3Parser } from "@cityofzion/neo3-parser";
-
+import { NeonInvoker } from '@cityofzion/neon-invoker'
 
 const DEFAULT_OPTIONS: ConstructorOptions = {
-  node:    NetworkOption.MainNet,
+  node: NetworkOption.MainNet,
   scriptHash: '0xe7b2e6fbe8c2853a61f2bc8694bca7e9f14b996c',
   parser: NeonParser,
-  account: undefined
+  account: undefined,
 }
 
 export class Quests {

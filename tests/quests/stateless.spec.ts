@@ -12,7 +12,7 @@ import { NodePermissions } from "../../dist/esm/types/quests";
 describe('Stateless Quests', function () {
   this.timeout(60000)
 
-  const node = constants.NetworkOption.LocalNet
+  const node = constants.NetworkOption.MainNet
   const quests = new Quests({
     node
   })

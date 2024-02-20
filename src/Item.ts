@@ -1,16 +1,16 @@
 import { ItemAPI } from './api'
-import { ConstructorOptions, EpochType, ItemType, UserAccount } from "./types";
+import { ConstructorOptions, EpochType, ItemType, UserAccount } from './types'
 import { Utils } from './helpers'
 import { u, wallet } from '@cityofzion/neon-core'
-import { NetworkOption } from "./constants";
-import { NeonParser } from "@cityofzion/neon-parser";
-import { NeonInvoker } from "@cityofzion/neon-invoker";
+import { NetworkOption } from './constants'
+import { NeonParser } from '@cityofzion/neon-parser'
+import { NeonInvoker } from '@cityofzion/neon-invoker'
 
 const DEFAULT_OPTIONS: ConstructorOptions = {
-  node:    NetworkOption.MainNet,
+  node: NetworkOption.MainNet,
   scriptHash: '0x904deb56fdd9a87b48d89e0cc0ac3415f9207840',
   parser: NeonParser,
-  account: undefined
+  account: undefined,
 }
 
 /**
@@ -68,7 +68,7 @@ export class Item {
     }
     return true
   }
-  
+
   /**
    * Returns the token symbol for the digital twin "ITEM". This is a great test method and exist primarily to support
    * existing token standard.

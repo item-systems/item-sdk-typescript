@@ -1,12 +1,12 @@
 import { QuestsAPI } from './api';
-import { NetworkOption } from "./constants";
+import { NetworkOption } from './constants';
 import { NeonParser } from '@cityofzion/neon-parser';
-import { NeonInvoker } from "@cityofzion/neon-invoker";
+import { NeonInvoker } from '@cityofzion/neon-invoker';
 const DEFAULT_OPTIONS = {
     node: NetworkOption.MainNet,
     scriptHash: '0xe7b2e6fbe8c2853a61f2bc8694bca7e9f14b996c',
     parser: NeonParser,
-    account: undefined
+    account: undefined,
 };
 export class Quests {
     constructor(configOptions = {}) {
