@@ -1,15 +1,17 @@
-import { QuestsAPI } from './api';
-import { NetworkOption } from './constants';
-import { NeonParser } from '@cityofzion/neon-parser';
-import { NeonInvoker } from '@cityofzion/neon-invoker';
-import { Item } from "./Item";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Quests = void 0;
+const api_1 = require("./api");
+const constants_1 = require("./constants");
+const neon_parser_1 = require("@cityofzion/neon-parser");
+const neon_invoker_1 = require("@cityofzion/neon-invoker");
 const DEFAULT_OPTIONS = {
-    node: NetworkOption.MainNet,
+    node: constants_1.NetworkOption.MainNet,
     scriptHash: '0xe7b2e6fbe8c2853a61f2bc8694bca7e9f14b996c',
-    parser: NeonParser,
+    parser: neon_parser_1.NeonParser,
     account: undefined,
 };
-export class Quests {
+class Quests {
     constructor(configOptions = {}) {
         this.initialized = 'invoker' in configOptions;
         this.config = { ...DEFAULT_OPTIONS, ...configOptions };
@@ -30,7 +32,7 @@ export class Quests {
     }
     async init() {
         if (!this.initialized) {
-            this.config.invoker = await NeonInvoker.init(this.config.node, this.config.account);
+            this.config.invoker = await neon_invoker_1.NeonInvoker.init(this.config.node, this.config.account);
             this.initialized = true;
         }
         return true;
@@ -46,7 +48,7 @@ export class Quests {
     async totalQuests() {
         await this.init();
         const res = await this.config.invoker.testInvoke({
-            invocations: [QuestsAPI.totalQuests(this.config.scriptHash)],
+            invocations: [api_1.QuestsAPI.totalQuests(this.config.scriptHash)],
             signers: [],
         });
         if (res.stack.length === 0) {
@@ -62,7 +64,7 @@ export class Quests {
     async getQuest(params) {
         await this.init();
         const res = await this.config.invoker.testInvoke({
-            invocations: [QuestsAPI.getQuest(this.config.scriptHash, params)],
+            invocations: [api_1.QuestsAPI.getQuest(this.config.scriptHash, params)],
             signers: [],
         });
         if (res.stack.length === 0) {
@@ -78,7 +80,7 @@ export class Quests {
     async getQuestJSON(params) {
         await this.init();
         const res = await this.config.invoker.testInvoke({
-            invocations: [QuestsAPI.getQuestJSON(this.config.scriptHash, params)],
+            invocations: [api_1.QuestsAPI.getQuestJSON(this.config.scriptHash, params)],
             signers: [],
         });
         if (res.stack.length === 0) {
@@ -98,7 +100,7 @@ export class Quests {
     async createQuest(params) {
         await this.init();
         return this.config.invoker.invokeFunction({
-            invocations: [QuestsAPI.createQuest(this.config.scriptHash, params)],
+            invocations: [api_1.QuestsAPI.createQuest(this.config.scriptHash, params)],
             signers: [],
         });
     }
@@ -109,7 +111,7 @@ export class Quests {
     async setQuestActive(params) {
         await this.init();
         return this.config.invoker.invokeFunction({
-            invocations: [QuestsAPI.setQuestActive(this.config.scriptHash, params)],
+            invocations: [api_1.QuestsAPI.setQuestActive(this.config.scriptHash, params)],
             signers: [],
         });
     }
@@ -124,7 +126,7 @@ export class Quests {
     async totalEdges() {
         await this.init();
         const res = await this.config.invoker.testInvoke({
-            invocations: [QuestsAPI.totalEdges(this.config.scriptHash)],
+            invocations: [api_1.QuestsAPI.totalEdges(this.config.scriptHash)],
             signers: [],
         });
         if (res.stack.length === 0) {
@@ -140,7 +142,7 @@ export class Quests {
     async getEdge(params) {
         await this.init();
         const res = await this.config.invoker.testInvoke({
-            invocations: [QuestsAPI.getEdge(this.config.scriptHash, params)],
+            invocations: [api_1.QuestsAPI.getEdge(this.config.scriptHash, params)],
             signers: [],
         });
         if (res.stack.length === 0) {
@@ -156,7 +158,7 @@ export class Quests {
     async getEdgeJSON(params) {
         await this.init();
         const res = await this.config.invoker.testInvoke({
-            invocations: [QuestsAPI.getEdgeJSON(this.config.scriptHash, params)],
+            invocations: [api_1.QuestsAPI.getEdgeJSON(this.config.scriptHash, params)],
             signers: [],
         });
         if (res.stack.length === 0) {
@@ -179,37 +181,21 @@ export class Quests {
     async createEdge(params) {
         await this.init();
         return this.config.invoker.invokeFunction({
-            invocations: [QuestsAPI.createEdge(this.config.scriptHash, params)],
+            invocations: [api_1.QuestsAPI.createEdge(this.config.scriptHash, params)],
             signers: [],
         });
     }
     async setEdgeCondition(params) {
         await this.init();
         return this.config.invoker.invokeFunction({
-            invocations: [QuestsAPI.setEdgeCondition(this.config.scriptHash, params)],
+            invocations: [api_1.QuestsAPI.setEdgeCondition(this.config.scriptHash, params)],
             signers: [],
         });
     }
     async traverseEdge(params) {
         await this.init();
-        const item = new Item({
-            node: this.config.node
-        });
-        // if the tokenIds are missing, get them
-        for (let i = 0; i < params.resolution.length; i++) {
-            const { pubKey, tokenId } = params.resolution[i];
-            if (pubKey && !tokenId) {
-                const itemJSON = await item.getAssetItemJSON({
-                    assetPubKey: pubKey,
-                });
-                params.resolution[i].tokenId = itemJSON.tokenId;
-            }
-            else if (!tokenId) {
-                throw new Error('Either a pubKey or tokenId must be provided for each entry');
-            }
-        }
         return this.config.invoker.invokeFunction({
-            invocations: [QuestsAPI.traverseEdge(this.config.scriptHash, params)],
+            invocations: [api_1.QuestsAPI.traverseEdge(this.config.scriptHash, params)],
             signers: [],
         });
     }
@@ -224,7 +210,7 @@ export class Quests {
     async totalNodes() {
         await this.init();
         const res = await this.config.invoker.testInvoke({
-            invocations: [QuestsAPI.totalNodes(this.config.scriptHash)],
+            invocations: [api_1.QuestsAPI.totalNodes(this.config.scriptHash)],
             signers: [],
         });
         if (res.stack.length === 0) {
@@ -240,7 +226,7 @@ export class Quests {
     async getNode(params) {
         await this.init();
         const res = await this.config.invoker.testInvoke({
-            invocations: [QuestsAPI.getNode(this.config.scriptHash, params)],
+            invocations: [api_1.QuestsAPI.getNode(this.config.scriptHash, params)],
             signers: [],
         });
         if (res.stack.length === 0) {
@@ -256,7 +242,7 @@ export class Quests {
     async getNodeJSON(params) {
         await this.init();
         const res = await this.config.invoker.testInvoke({
-            invocations: [QuestsAPI.getNodeJSON(this.config.scriptHash, params)],
+            invocations: [api_1.QuestsAPI.getNodeJSON(this.config.scriptHash, params)],
             signers: [],
         });
         if (res.stack.length === 0) {
@@ -274,7 +260,7 @@ export class Quests {
     async createNode(params) {
         await this.init();
         return this.config.invoker.invokeFunction({
-            invocations: [QuestsAPI.createNode(this.config.scriptHash, params)],
+            invocations: [api_1.QuestsAPI.createNode(this.config.scriptHash, params)],
             signers: [],
         });
     }
@@ -288,7 +274,7 @@ export class Quests {
     async setNodePermissions(params) {
         await this.init();
         return this.config.invoker.invokeFunction({
-            invocations: [QuestsAPI.setNodePermissions(this.config.scriptHash, params)],
+            invocations: [api_1.QuestsAPI.setNodePermissions(this.config.scriptHash, params)],
             signers: [],
         });
     }
@@ -300,7 +286,7 @@ export class Quests {
     async getQuestState(params) {
         await this.init();
         const res = await this.config.invoker.testInvoke({
-            invocations: [QuestsAPI.getQuestProgress(this.config.scriptHash, params)],
+            invocations: [api_1.QuestsAPI.getQuestProgress(this.config.scriptHash, params)],
             signers: [],
         });
         if (res.stack.length === 0) {
@@ -316,7 +302,7 @@ export class Quests {
     async getUserJSON(params) {
         await this.init();
         const res = await this.config.invoker.testInvoke({
-            invocations: [QuestsAPI.getUserJSON(this.config.scriptHash, params)],
+            invocations: [api_1.QuestsAPI.getUserJSON(this.config.scriptHash, params)],
             signers: [],
         });
         if (res.stack.length === 0) {
@@ -330,7 +316,7 @@ export class Quests {
     async totalAccounts() {
         await this.init();
         const res = await this.config.invoker.testInvoke({
-            invocations: [QuestsAPI.totalAccounts(this.config.scriptHash)],
+            invocations: [api_1.QuestsAPI.totalAccounts(this.config.scriptHash)],
             signers: [],
         });
         if (res.stack.length === 0) {
@@ -339,4 +325,5 @@ export class Quests {
         return this.config.parser.parseRpcResponse(res.stack[0]);
     }
 }
+exports.Quests = Quests;
 //# sourceMappingURL=Quests.js.map

@@ -1,6 +1,9 @@
-import { rpc, sc, u, wallet } from '@cityofzion/neon-core';
-import { experimental } from '@cityofzion/neon-js';
-export class Utils {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Utils = void 0;
+const neon_core_1 = require("@cityofzion/neon-core");
+const neon_js_1 = require("@cityofzion/neon-js");
+class Utils {
     static async transactionCompletion(txid, opts) {
         let options = {
             period: 500,
@@ -8,7 +11,7 @@ export class Utils {
             node: 'http://127.0.0.1:50012',
         };
         options = { ...options, ...opts };
-        const client = new rpc.RPCClient(options.node);
+        const client = new neon_core_1.rpc.RPCClient(options.node);
         for (let i = 0; i < Math.floor(options.timeout / options.period); i++) {
             try {
                 return await client.getApplicationLog(txid);
@@ -24,17 +27,17 @@ export class Utils {
             rpcAddress: node,
             account: signer,
         };
-        const nef = sc.NEF.fromBuffer(nefRaw);
-        const manifest = sc.ContractManifest.fromJson(manifestRaw);
-        const assembledScript = new sc.ScriptBuilder()
-            .emit(sc.OpCode.ABORT)
-            .emitPush(u.HexString.fromHex(signer.scriptHash))
+        const nef = neon_core_1.sc.NEF.fromBuffer(nefRaw);
+        const manifest = neon_core_1.sc.ContractManifest.fromJson(manifestRaw);
+        const assembledScript = new neon_core_1.sc.ScriptBuilder()
+            .emit(neon_core_1.sc.OpCode.ABORT)
+            .emitPush(neon_core_1.u.HexString.fromHex(signer.scriptHash))
             .emitPush(nef.checksum)
             .emitPush(manifest.name)
             .build();
-        const scriptHash = u.reverseHex(u.hash160(assembledScript));
+        const scriptHash = neon_core_1.u.reverseHex(neon_core_1.u.hash160(assembledScript));
         console.log(`deploying ${manifest.name} to 0x${scriptHash} ...`);
-        return experimental.deployContract(nef, manifest, config);
+        return neon_js_1.experimental.deployContract(nef, manifest, config);
     }
     static decodeNDEF(d) {
         if (d.indexOf('https://') === 0) {
@@ -44,14 +47,12 @@ export class Utils {
         d = d.split('_').join('/');
         d = d.split('-').join('=');
         const payload = Buffer.from(d, 'base64');
-        const pubKey = wallet.getPublicKeyEncoded(payload.slice(0, 65).toString('hex') || '');
-        const msg = payload.slice(65, 97).toString('hex') || '';
-        const sig = u.ab2hexstring(Utils.processDERSignature(payload.slice(97))) || '';
-        const validSignature = wallet.verify(msg, sig, pubKey);
+        const pubKey = neon_core_1.wallet.getPublicKeyEncoded(payload.slice(0, 65).toString('hex') || '');
+        const entropy = payload.slice(65, 97).toString('hex') || '';
+        const sig = neon_core_1.u.ab2hexstring(Utils.processDERSignature(payload.slice(97))) || '';
         return {
-            validSignature,
             pubKey,
-            msg,
+            entropy,
             sig,
         };
     }
@@ -90,4 +91,5 @@ export class Utils {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 }
+exports.Utils = Utils;
 //# sourceMappingURL=utils.js.map

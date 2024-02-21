@@ -109,18 +109,13 @@ describe('M of N quest loop', function () {
 
     const scanExample = [
       'https://itm.st/mp/2485?d=BGb1l5Pw4lSvEve..Kq.F_pJJzabDRFQUPA4qd6QgPzOQ4T35W4G98l5h6Wt1xBRgMZ3CYFeflqMHDN1jwXFjM.3v7CLkb8DwiWx5zbgamf223qwOgpJKQDTkbwy5MbaNDBEAiB9WGa9Hzj1KzReGn3VAuKV2I_69ouVRAAbZB0O8BVS_gIgfvE4K.egRVpAn3ZuKSUh21XB4wbLwpJD2wCVLi1Sen4-',
+      'https://itm.st/mp/2485?d=BCEwLkePue.aiLyiJp69F1N7C.2dNiqH6QeiE9WZnTlVD90yRRBXza3enVwJ6d4j7dx0dHYdLZhu.DTLwUWonrie19GQJtHeV25Bf8Uakly9pQouHFXlsXdmp.120aiocTBEAiB_ZtjifLOisaLXG2i.nvTWSjBSG5svVPX_ccPCSp2mGgIgMUxD56obiUc09xM6c3C4TyjzSwue9Po7XYPQ1Tx_01E-',
     ]
-    const tokens = [1758]
-    const resolution = []
 
-    for (let i = 0; i < scanExample.length; i++) {
-      const parsed = Utils.decodeNDEF(scanExample[i])
-      resolution.push({
-        tokenId: tokens[i],
-        msg: parsed.entropy,
-        sig: parsed.sig,
-      })
-    }
+    const resolution = scanExample.map((scan) => {
+      return Utils.decodeNDEF(scan)
+      }
+    )
 
     const txid = await quests.traverseEdge({
       edgeId: quest.edges[0],

@@ -16,7 +16,8 @@ export interface EdgeConditionITEMPick {
 }
 
 export interface EdgeResolutionITEMPick {
-  tokenId: number
+  tokenId?: number
+  pubKey?: string
   msg: string
   sig: string
 }

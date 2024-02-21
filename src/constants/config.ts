@@ -4,3 +4,7 @@ export enum NetworkOption {
   TestNet = 'https://testnet1.neo.coz.io:443',
   MainNet = 'https://mainnet1.neo.coz.io:443',
 }
+
+export enum EdgeConditionType {
+  MofN = 1
+}

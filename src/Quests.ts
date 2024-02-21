@@ -11,6 +11,7 @@ import {
 import { NetworkOption } from './constants'
 import { NeonParser } from '@cityofzion/neon-parser'
 import { NeonInvoker } from '@cityofzion/neon-invoker'
+import { Item } from "./Item";
 
 const DEFAULT_OPTIONS: ConstructorOptions = {
   node: NetworkOption.MainNet,
@@ -244,6 +245,24 @@ export class Quests {
     resolution: EdgeResolutionITEMPick[]
   }): Promise<string> {
     await this.init()
+
+    const item = new Item({
+      node: this.config.node
+    })
+
+    // if the tokenIds are missing, get them
+    for (let i = 0; i < params.resolution.length; i++) {
+      const { pubKey, tokenId } = params.resolution[i]
+      if (pubKey && !tokenId) {
+        const itemJSON = await item.getAssetItemJSON({
+          assetPubKey: pubKey,
+        })
+        params.resolution[i].tokenId = itemJSON.tokenId
+      } else if (!tokenId) {
+        throw new Error('Either a pubKey or tokenId must be provided for each entry')
+      }
+    }
+
     return this.config.invoker!.invokeFunction({
       invocations: [QuestsAPI.traverseEdge(this.config.scriptHash!, params)],
       signers: [],

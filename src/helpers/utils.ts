@@ -61,12 +61,14 @@ export class Utils {
     d = d.split('-').join('=')
     const payload = Buffer.from(d, 'base64')
     const pubKey = wallet.getPublicKeyEncoded(payload.slice(0, 65).toString('hex') || '')
-    const entropy = payload.slice(65, 97).toString('hex') || ''
+    const msg = payload.slice(65, 97).toString('hex') || ''
     const sig = u.ab2hexstring(Utils.processDERSignature(payload.slice(97))) || ''
 
+    const validSignature = wallet.verify(msg, sig, pubKey)
     return {
+      validSignature,
       pubKey,
-      entropy,
+      msg,
       sig,
     }
   }

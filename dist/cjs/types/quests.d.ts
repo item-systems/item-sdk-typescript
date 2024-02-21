@@ -13,8 +13,7 @@ export interface EdgeConditionITEMPick {
     tokens: number[];
 }
 export interface EdgeResolutionITEMPick {
-    tokenId?: number;
-    pubKey?: string;
+    tokenId: number;
     msg: string;
     sig: string;
 }
