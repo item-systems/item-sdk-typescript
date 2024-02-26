@@ -11,7 +11,7 @@ import {
 import { NetworkOption } from './constants'
 import { NeonParser } from '@cityofzion/neon-parser'
 import { NeonInvoker } from '@cityofzion/neon-invoker'
-import { Item } from "./Item";
+import { Item } from './Item'
 
 const DEFAULT_OPTIONS: ConstructorOptions = {
   node: NetworkOption.MainNet,
@@ -247,7 +247,7 @@ export class Quests {
     await this.init()
 
     const item = new Item({
-      node: this.config.node
+      node: this.config.node,
     })
 
     // if the tokenIds are missing, get them

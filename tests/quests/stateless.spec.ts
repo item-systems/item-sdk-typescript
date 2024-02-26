@@ -1,11 +1,11 @@
-import { NeonInvoker } from "@cityofzion/neon-invoker";
-import { NeonParser } from "@cityofzion/neon-parser";
-import { Quests, constants } from "../../dist/esm";
+import { NeonInvoker } from '@cityofzion/neon-invoker'
+import { NeonParser } from '@cityofzion/neon-parser'
+import { Quests, constants, Utils } from '../../dist/esm'
 // @ts-ignore
-import Neon from "@cityofzion/neon-core";
-import { assert } from "chai";
-import { AccountQuestPermissions } from "../../dist/esm/types";
-import { NodePermissions } from "../../dist/esm/types/quests";
+import Neon from '@cityofzion/neon-core'
+import { assert } from 'chai'
+import { AccountQuestPermissions } from '../../dist/esm/types'
+import { NodePermissions } from '../../dist/esm/types/quests'
 
 // TODO - Mint and verify total supply change
 // TODO - Transfer tests
@@ -14,39 +14,37 @@ describe('Stateless Quests', function () {
 
   const node = constants.NetworkOption.MainNet
   const quests = new Quests({
-    node
+    node,
   })
 
-
-  it('should get the total users', async() => {
+  it('should get the total users', async () => {
     const res = await quests.totalAccounts()
     assert.isAbove(res, 0)
 
     const questJSON = await quests.getQuestJSON({
-      questId: 1
+      questId: 1,
     })
     console.log(questJSON)
   })
 
-
-  it('should get the total quests', async() => {
+  it('should get the total quests', async () => {
     const res = await quests.totalQuests()
     assert.isAtLeast(res, 0)
   })
 
-  it('should get the total nodes', async() => {
+  it('should get the total nodes', async () => {
     const res = await quests.totalNodes()
     assert.isAbove(res, 0)
   })
 
-  it('should get the total edges', async() => {
+  it('should get the total edges', async () => {
     const res = await quests.totalEdges()
     assert.isAtLeast(res, 0)
   })
 
-  it('should get a user', async() => {
+  it('should get a user', async () => {
     const res = await quests.getUserJSON({
-      address: 'NbqrwJjunsTWkAJNz55saYSuYxDwCGgmVD'
+      address: 'NbqrwJjunsTWkAJNz55saYSuYxDwCGgmVD',
     })
     console.log(res)
     assert.exists(res.account_id)
@@ -57,9 +55,9 @@ describe('Stateless Quests', function () {
     assert.exists((res.permissions as AccountQuestPermissions).create_quest)
   })
 
-  it('should get a node', async() => {
+  it('should get a node', async () => {
     const res = await quests.getNodeJSON({
-      nodeId: 1
+      nodeId: 1,
     })
     assert.equal(res.nodeId, 1)
     assert.equal(res.label, 'origin')
@@ -67,4 +65,8 @@ describe('Stateless Quests', function () {
     assert.equal(res.permissions, NodePermissions.PUBLIC)
   })
 
+  it('', async () => {
+    const res = Neon.wallet.getPublicKeyUnencoded('0215b207e6aff3a5aaaab518960abe8e91252258c4b45aa538322412e04414f5ba')
+    console.log(res)
+  })
 })

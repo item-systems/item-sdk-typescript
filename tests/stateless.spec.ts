@@ -1,5 +1,3 @@
-import { NeonInvoker } from '@cityofzion/neon-invoker'
-import { NeonParser } from '@cityofzion/neon-parser'
 import { Item } from '../dist/esm'
 // @ts-ignore
 import Neon from '@cityofzion/neon-core'
@@ -10,14 +8,10 @@ import { assert } from 'chai'
 describe('Stateless Item', function () {
   this.timeout(60000)
 
-  const scriptHash = Item.PRIVATENET
-  const NODE = 'http://127.0.0.1:50012'
-
-  const getSDK = async (account?: any) => {
-    return new Item({
-
-    })
-  }
+  it('', async () => {
+    const a = new Neon.wallet.Account()
+    console.log(a.WIF)
+  })
 
   it('should get the NFT token symbol', async function () {
     const sdk = await getSDK()

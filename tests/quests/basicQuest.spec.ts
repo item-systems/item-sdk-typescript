@@ -1,7 +1,7 @@
 import { NeonParser } from '@cityofzion/neon-parser'
-import { constants, Quests, Utils } from "../../dist/esm";
+import { constants, Quests, Utils } from '../../dist/esm'
 // @ts-ignore
-import Neon  from '@cityofzion/neon-core'
+import Neon from '@cityofzion/neon-core'
 import { assert } from 'chai'
 
 // TODO - Mint and verify total supply change
@@ -15,7 +15,7 @@ describe('Basic loop quest workflow', function () {
   const node = constants.NetworkOption.LocalNet
   const quests = new Quests({
     account,
-    node
+    node,
   })
 
   let quest

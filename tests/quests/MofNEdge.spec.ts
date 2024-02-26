@@ -1,6 +1,6 @@
 import { NeonInvoker } from '@cityofzion/neon-invoker'
 import { NeonParser } from '@cityofzion/neon-parser'
-import { constants, Quests, Utils, types } from '../../dist/esm'
+import { constants, Quests, Utils, types, Item } from '../../dist/esm'
 // @ts-ignore
 import Neon from '@cityofzion/neon-core'
 import { assert } from 'chai'
@@ -10,40 +10,25 @@ describe('M of N quest loop', function () {
 
   const account = new Neon.wallet.Account('b319cdef7f5f30f55d3dabc3e99cfc820bf1ccac7db66b51e2a4b281b83e5079')
 
-  const node = constants.NetworkOption.LocalNet
+  const node = constants.NetworkOption.MainNet
   const quests = new Quests({
     account,
-    node
+    node,
   })
 
   let questId = -1
   const questMetadata = {
-    title: 'Lorem ipsum',
-    description: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis ornare laoreet fringilla. Nunc facilisis tempus ante a imperdiet. Integer non volutpat nisl, vitae auctor leo. Etiam vel suscipit purus, id semper tellus. Cras aliquet cursus dui vitae consectetur. Nullam convallis arcu nunc, sit amet laoreet ipsum commodo sed. Donec condimentum dapibus dictum. Donec ut tempus ipsum. Integer tempus, massa et varius congue, libero tortor maximus nisl, non euismod libero nisi ut nulla. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Proin at sagittis ex, non tristique metus.\n' +
+    title: 'FREE BEER for 2 SCANS',
+    description:
+      `Elevate your Denver web3 experience with our exclusive offer that brings together art, technology, and craft beer in a perfect harmony! Simply tap scan two ITEM Systems plaques seamlessly integrated into Denver Walls murals. These plaques not only showcase the city's artistic flair but also serve as a passport to celebrate the Smart Economy Podcast, where intellect meets innovation.\n` +
       '\n' +
-      'Vestibulum imperdiet consequat nulla quis sollicitudin. Nullam sed ipsum ullamcorper, mattis felis sed, vestibulum neque. Proin pulvinar nisi a sodales pellentesque. Sed tincidunt aliquam enim, viverra congue ligula elementum nec. Donec nec eleifend magna. Vivamus posuere dolor placerat, maximus turpis in, iaculis magna. Maecenas finibus eu dui nec ultrices.',
-    maxCompletions: 5,
+      `After completing your creative journey, head over to Ratio Beerworks to redeem your scanned plaques on-chain and enjoy a complimentary Colorado craft beer. Immerse yourself in the eclectic atmosphere of RiNo, surrounded by captivating street art, as you savor the local flavors of Ratio Beerworks' brews. It's a delightful fusion of art, technology, and the craft beer culture that defines Colorado. Don't miss out on this opportunity to celebrate the rich tapestry of Denver's culture while toasting to the spirit of innovation!`,
+    maxCompletions: 600,
   }
 
   const edgeConditions: types.EdgeConditionITEMPick = {
     count: 2,
-    tokens: [1743,
-      1744,
-      1745,
-      1746,
-      1747,
-      1748,
-      1749,
-      1750,
-      1751,
-      1752,
-      1753,
-      1754,
-      1755,
-      1756,
-      1757,
-      1758,
-      1759],
+    tokens: [1743, 1744, 1745, 1746, 1747, 1748, 1749, 1750, 1751, 1752, 1753, 1754, 1755, 1756, 1757, 1758, 1759],
   }
 
   it('should get all the quests', async () => {
@@ -59,7 +44,11 @@ describe('M of N quest loop', function () {
 
   it('should create a quest and set the edge condition', async () => {
     let txid = await quests.createQuest(questMetadata)
-    let log = await Utils.transactionCompletion(txid)
+    let log = await Utils.transactionCompletion(txid, {
+      period: 1000,
+      timeout: 60000,
+      node: constants.NetworkOption.MainNet,
+    })
     console.log(txid, parseInt(log.executions[0].gasconsumed) / 10 ** 8)
     questId = NeonParser.parseRpcResponse(log.executions[0].stack![0])
     const quest = await quests.getQuestJSON({
@@ -72,9 +61,12 @@ describe('M of N quest loop', function () {
       conditionType: 1,
       condition: edgeConditions,
     }
-    console.log(params)
     txid = await quests.setEdgeCondition(params)
-    log = await Utils.transactionCompletion(txid)
+    log = await Utils.transactionCompletion(txid, {
+      period: 1000,
+      timeout: 60000,
+      node: constants.NetworkOption.MainNet,
+    })
     console.log(txid, parseInt(log.executions[0].gasconsumed) / 10 ** 8)
     const res = NeonParser.parseRpcResponse(log.executions[0].stack![0])
     console.log(`res: ${res}`)
@@ -86,11 +78,16 @@ describe('M of N quest loop', function () {
   })
 
   it('should set the quest as active and verify states', async () => {
+    questId = 3
     const txid = await quests.setQuestActive({
       questId,
       state: true,
     })
-    const log = await Utils.transactionCompletion(txid)
+    const log = await Utils.transactionCompletion(txid, {
+      period: 1000,
+      timeout: 60000,
+      node: constants.NetworkOption.MainNet,
+    })
     console.log(txid, parseInt(log.executions[0].gasconsumed) / 10 ** 8)
     const res = NeonParser.parseRpcResponse(log.executions[0].stack![0])
     assert.equal(res, 1)
@@ -112,10 +109,9 @@ describe('M of N quest loop', function () {
       'https://itm.st/mp/2485?d=BCEwLkePue.aiLyiJp69F1N7C.2dNiqH6QeiE9WZnTlVD90yRRBXza3enVwJ6d4j7dx0dHYdLZhu.DTLwUWonrie19GQJtHeV25Bf8Uakly9pQouHFXlsXdmp.120aiocTBEAiB_ZtjifLOisaLXG2i.nvTWSjBSG5svVPX_ccPCSp2mGgIgMUxD56obiUc09xM6c3C4TyjzSwue9Po7XYPQ1Tx_01E-',
     ]
 
-    const resolution = scanExample.map((scan) => {
+    const resolution = scanExample.map(scan => {
       return Utils.decodeNDEF(scan)
-      }
-    )
+    })
 
     const txid = await quests.traverseEdge({
       edgeId: quest.edges[0],
@@ -129,5 +125,32 @@ describe('M of N quest loop', function () {
       questId,
     })
     assert.equal(quest.completions + 1, questAgain.completions)
+  })
+
+  it('', async () => {
+    const sigs = [
+      'https://itm.st/mp/1cf8?d=BMAp2UCX_vR93Ptzcy0IrJvrNWKGN.S8btSPPS.LieL1bZLzJT3Efvedc_i3DyqMASmsVN.9ZtMf.67FIts_icoAAAAABjBGAiEAlsiT3vVk69uvR.v.6Mna1nhKuVVXJGtFiSMgmopkAOcCIQCY7Fgc6wmlx_MimhXEEOYcpIztQrYrRHi6qr6p1JdVnw--',
+      'https://itm.st/mp/1cf8?d=BHOJFppgddHTSiIHDVtZSfLZJ4qRAuEX6Tp6dTpAR8xb5O5btJ3oxOIXTH2YAlC9wAzToOTBT8qsl5eqy2Wy2SoAAAAABjBFAiBHizKdzKSYklftBvLKfeIBpQhaikI7fjFNU2gBkYcsSAIhALqnBAse44QXi8L225PHgXVql9u7qrC7N.M0HDLAXrG5',
+      'https://itm.st/mp/1cf8?d=BKyfa7fTSA1mkMO6j9cjH_WFvHL8yFluOTuehF22mpBc_aBC8uy8bFJj8OvWiIq_gqCbj3zkKqIl5HM0jO2dXkMAAAAABTBFAiAB.Xy6t6oueYQTmXZF43YKXK6s7GJfGMRTn9hkGkJwbwIhAJrszpAJTFOXjcDV1ll0DEqCIFAuGT2_qjNPCR4Q96q6',
+      'https://itm.st/mp/1cf8?d=BKAgRVutfVudY0xKlByjyJx_1qs92f99zjpmFxV6IXxgG5eg4MsawtxkTkQZqmi0a6f9WPa2ZCFaW9acHjWm1vUAAAAABzBEAiAy.n3p0I1nFS5Rj2hTEK_PghmGAHWgDzEiiPVaCVU9KAIgO42X1HRmPPbIPyLoiSoyUnhitGBqaSzlxEHu3qDxLq4-',
+    ]
+    const item = new Item()
+    for (let i = 0; i < sigs.length; i++) {
+      const decode = Utils.decodeNDEF(sigs[i])
+      try {
+        const res = await item.auth({
+          mode: 'default',
+          assetPubKey: decode.pubKey,
+          message: decode.msg,
+          signature: decode.sig,
+          burn: false,
+        })
+        const encode = Utils.encodePublicKey(decode.pubKey)
+        console.log(decode.pubKey)
+        console.log(`https://itm.st/mp/1cf8?p=${encode}`)
+      } catch (e) {
+        console.log(false, decode.pubKey)
+      }
+    }
   })
 })

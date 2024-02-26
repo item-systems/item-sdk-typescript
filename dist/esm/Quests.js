@@ -2,7 +2,7 @@ import { QuestsAPI } from './api';
 import { NetworkOption } from './constants';
 import { NeonParser } from '@cityofzion/neon-parser';
 import { NeonInvoker } from '@cityofzion/neon-invoker';
-import { Item } from "./Item";
+import { Item } from './Item';
 const DEFAULT_OPTIONS = {
     node: NetworkOption.MainNet,
     scriptHash: '0xe7b2e6fbe8c2853a61f2bc8694bca7e9f14b996c',
@@ -193,7 +193,7 @@ export class Quests {
     async traverseEdge(params) {
         await this.init();
         const item = new Item({
-            node: this.config.node
+            node: this.config.node,
         });
         // if the tokenIds are missing, get them
         for (let i = 0; i < params.resolution.length; i++) {

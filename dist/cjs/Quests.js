@@ -5,6 +5,7 @@ const api_1 = require("./api");
 const constants_1 = require("./constants");
 const neon_parser_1 = require("@cityofzion/neon-parser");
 const neon_invoker_1 = require("@cityofzion/neon-invoker");
+const Item_1 = require("./Item");
 const DEFAULT_OPTIONS = {
     node: constants_1.NetworkOption.MainNet,
     scriptHash: '0xe7b2e6fbe8c2853a61f2bc8694bca7e9f14b996c',
@@ -194,6 +195,22 @@ class Quests {
     }
     async traverseEdge(params) {
         await this.init();
+        const item = new Item_1.Item({
+            node: this.config.node,
+        });
+        // if the tokenIds are missing, get them
+        for (let i = 0; i < params.resolution.length; i++) {
+            const { pubKey, tokenId } = params.resolution[i];
+            if (pubKey && !tokenId) {
+                const itemJSON = await item.getAssetItemJSON({
+                    assetPubKey: pubKey,
+                });
+                params.resolution[i].tokenId = itemJSON.tokenId;
+            }
+            else if (!tokenId) {
+                throw new Error('Either a pubKey or tokenId must be provided for each entry');
+            }
+        }
         return this.config.invoker.invokeFunction({
             invocations: [api_1.QuestsAPI.traverseEdge(this.config.scriptHash, params)],
             signers: [],

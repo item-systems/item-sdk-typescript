@@ -47,12 +47,17 @@ class Utils {
         d = d.split('_').join('/');
         d = d.split('-').join('=');
         const payload = Buffer.from(d, 'base64');
-        const pubKey = neon_core_1.wallet.getPublicKeyEncoded(payload.slice(0, 65).toString('hex') || '');
-        const entropy = payload.slice(65, 97).toString('hex') || '';
-        const sig = neon_core_1.u.ab2hexstring(Utils.processDERSignature(payload.slice(97))) || '';
+        // support for both v1 and v2 ndef formats
+        const pubKeyLength = 65;
+        const messageLength = payload.length > 150 ? 32 : 5;
+        const pubKey = neon_core_1.wallet.getPublicKeyEncoded(payload.slice(0, pubKeyLength).toString('hex') || '');
+        const msg = payload.slice(pubKeyLength, pubKeyLength + messageLength).toString('hex') || '';
+        const sig = neon_core_1.u.ab2hexstring(Utils.processDERSignature(payload.slice(pubKeyLength + messageLength))) || '';
+        const validSignature = neon_core_1.wallet.verify(msg, sig, pubKey);
         return {
+            validSignature,
             pubKey,
-            entropy,
+            msg,
             sig,
         };
     }
