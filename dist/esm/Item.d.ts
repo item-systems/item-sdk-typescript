@@ -91,6 +91,13 @@ export declare class Item {
         tokenId: number;
         data: any;
     }): Promise<string>;
+    transferFungible(params: {
+        tokenScriptHash: string;
+        transfers: {
+            address: string;
+            amount: number;
+        }[];
+    }): Promise<string>;
     /**
      * Gets the owner of the NFI.
      * @param params

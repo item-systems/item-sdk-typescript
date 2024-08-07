@@ -15,6 +15,13 @@ export interface EdgeConditionITEMPick {
   tokens: number[]
 }
 
+export interface EdgeConditionEpochPick {
+  condition_type?: number
+  label?: string
+  count: number
+  epochs: number[]
+}
+
 export interface EdgeResolutionITEMPick {
   tokenId?: number
   pubKey?: string
@@ -50,5 +57,5 @@ export interface EdgeType {
   description: string
   entry_node: number
   exit_node: number
-  condition: EdgeConditionITEMPick
+  condition: EdgeConditionITEMPick | EdgeConditionEpochPick
 }

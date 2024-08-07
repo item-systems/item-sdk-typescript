@@ -14,16 +14,9 @@ describe('Consensus 2023', function () {
   // populate with contract admin
   const ACCOUNT = new Neon.wallet.Account('')
 
-  const scriptHash = Item.MAINNET
+  const scriptHash = NetworkOption.MainNet
   const NODE = 'https://mainnet2.neo2.coz.io:443'
 
-  const getSDK = async (account?: any) => {
-    return new Item({
-      scriptHash,
-      invoker: await NeonInvoker.init(NODE, account),
-      parser: NeonParser,
-    })
-  }
 
   it('should get the generator', async function () {
     const generator = await new Generator({
@@ -31,7 +24,7 @@ describe('Consensus 2023', function () {
       network: NetworkOption.MainNet,
     })
     await generator.init()
-    const res = await generator.getGeneratorJSON(8)
+    const res = await generator.getGeneratorJSON(16)
     console.log(res)
   })
 
@@ -54,6 +47,7 @@ describe('Consensus 2023', function () {
     assert.isAbove(generatorInstanceId, 0)
   })
 
+  /*
   it('Should create an item epoch using the new generator instance', async function () {
     const maxSupply = 2000
     const generatorInstanceId = 14
@@ -137,7 +131,7 @@ describe('Consensus 2023', function () {
       address: ACCOUNT.address,
     })
     console.log(admin)
-    /*
+
     const txid = await sdk.offlineMint({
       epochId,
       address: testAccount.address
@@ -162,7 +156,7 @@ describe('Consensus 2023', function () {
     const res = NeonParser.parseRpcResponse(log.executions[0].stack![0])
     assert.equal(res, 1)
 
-     */
+
     const tokens = await sdk.tokensOf({
       address: testAccount.address,
     })
@@ -222,7 +216,7 @@ describe('Consensus 2023', function () {
       assert.fail()
     } catch(e){}
   })
-  */
+
 
   // fix me
   it('get the epoch', async function () {
@@ -389,4 +383,8 @@ describe('Consensus 2023', function () {
     const i = contestantsClean.indexOf(res[0])
     console.log(uniqueContestants[i])
   })
+
+
+   */
+
 })

@@ -1,6 +1,7 @@
 import { NeonInvoker } from '@cityofzion/neon-invoker'
 import { NeonParser } from '@cityofzion/neon-parser'
 import { Item } from '../dist/esm'
+import Neon from "@cityofzion/neon-core";
 
 // TODO - Mint and verify total supply change
 // TODO - Transfer tests
@@ -32,7 +33,11 @@ describe('Stateless Item', function () {
   })
 
   it('Should iterate over all the tokens', async function () {
-    const sdk = await getSDK()
+
+    const sdk = await getSDK({
+      account: ACCOUNT
+    })
+
     for (let i = 100; i < 110; i++) {
       console.log(i)
       const epoch = await sdk.getItemJSON({

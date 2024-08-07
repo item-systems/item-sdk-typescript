@@ -86,16 +86,25 @@ export class QuestsAPI {
         };
     }
     static setEdgeCondition(scriptHash, params) {
+        let constraints;
         let condition = [];
-        switch (params.conditionType) {
-            case 1:
-                const tokens = params.condition.tokens.map(tokenId => {
-                    return { type: 'Integer', value: tokenId };
-                });
-                condition = [
-                    { type: 'Integer', value: params.condition.count },
-                    { type: 'Array', value: tokens },
-                ];
+        if (params.conditionType === 1) {
+            constraints = params.condition.tokens.map(tokenId => {
+                return { type: 'Integer', value: tokenId };
+            });
+            condition = [
+                { type: 'Integer', value: params.condition.count },
+                { type: 'Array', value: constraints },
+            ];
+        }
+        else if (params.conditionType === 2) {
+            constraints = params.condition.epochs.map(epochId => {
+                return { type: 'Integer', value: epochId };
+            });
+            condition = [
+                { type: 'Integer', value: params.condition.count },
+                { type: 'Array', value: constraints },
+            ];
         }
         return {
             scriptHash,

@@ -1,6 +1,6 @@
 import { Arg, ContractInvocation } from '@cityofzion/neo3-invoker'
 import { u } from '@cityofzion/neon-core'
-import { EdgeConditionITEMPick, EdgeResolutionITEMPick } from '../types'
+import { EdgeConditionEpochPick, EdgeConditionITEMPick, EdgeResolutionITEMPick } from "../types";
 
 export class QuestsAPI {
   /*
@@ -144,20 +144,29 @@ export class QuestsAPI {
     params: {
       edgeId: number
       conditionType: number
-      condition: EdgeConditionITEMPick
+      condition: EdgeConditionITEMPick | EdgeConditionEpochPick
     }
   ): ContractInvocation {
+    let constraints
     let condition: Arg[] = []
 
-    switch (params.conditionType) {
-      case 1:
-        const tokens = params.condition.tokens.map(tokenId => {
-          return { type: 'Integer', value: tokenId }
-        })
-        condition = [
-          { type: 'Integer', value: params.condition.count },
-          { type: 'Array', value: tokens },
-        ]
+    if (params.conditionType === 1) {
+      constraints = (params.condition as EdgeConditionITEMPick).tokens.map(tokenId => {
+        return { type: 'Integer', value: tokenId }
+      })
+      condition  = [
+        { type: 'Integer', value: params.condition.count },
+        { type: 'Array', value: constraints },
+      ]
+    }
+    else if (params.conditionType === 2) {
+      constraints = (params.condition as EdgeConditionEpochPick).epochs.map(epochId => {
+        return { type: 'Integer', value: epochId}
+      })
+      condition  = [
+        { type: 'Integer', value: params.condition.count },
+        { type: 'Array', value: constraints },
+      ]
     }
     return {
       scriptHash,

@@ -41,7 +41,12 @@ class Utils {
     }
     static decodeNDEF(d) {
         if (d.indexOf('https://') === 0) {
-            d = d.split('?d=')[1];
+            if (d.indexOf('?d=') !== -1) {
+                d = d.split('?d=')[1];
+            }
+            else if (d.indexOf('?p=') !== -1) {
+                d = d.split('?p=')[1];
+            }
         }
         d = d.split('.').join('+');
         d = d.split('_').join('/');
@@ -50,12 +55,23 @@ class Utils {
         // support for both v1 and v2 ndef formats
         const pubKeyLength = 65;
         const messageLength = payload.length > 150 ? 32 : 5;
-        const pubKey = neon_core_1.wallet.getPublicKeyEncoded(payload.slice(0, pubKeyLength).toString('hex') || '');
+        const pubKeyUnencoded = payload.slice(0, pubKeyLength).toString('hex') || '';
+        const pubKey = neon_core_1.wallet.getPublicKeyEncoded(pubKeyUnencoded);
         const msg = payload.slice(pubKeyLength, pubKeyLength + messageLength).toString('hex') || '';
-        const sig = neon_core_1.u.ab2hexstring(Utils.processDERSignature(payload.slice(pubKeyLength + messageLength))) || '';
-        const validSignature = neon_core_1.wallet.verify(msg, sig, pubKey);
+        const sigRaw = payload.slice(pubKeyLength + messageLength);
+        const sig = neon_core_1.u.ab2hexstring(Utils.processDERSignature(sigRaw)) || '';
+        let validSignature;
+        try {
+            validSignature = neon_core_1.wallet.verify(msg, sig, pubKey);
+        }
+        catch (e) {
+            validSignature = false;
+        }
+        const uriPubKey = this.encodePublicKey(pubKeyUnencoded);
         return {
             validSignature,
+            uriPubKey,
+            pubKeyUnencoded,
             pubKey,
             msg,
             sig,
@@ -66,31 +82,73 @@ class Utils {
     }
     static processDERSignature(sigBytes) {
         // Drop the first three bytes. They are always `30 46 02`
-        let truncated = sigBytes.slice(3);
-        // Check length of r coordinate
-        if (truncated[0] === 0x21) {
-            truncated = truncated.slice(2); // skip the size byte and the zero byte that was prepended to the r coordinate
-        }
-        else {
-            // truncated [0] === 20
-            truncated = truncated.slice(1); // skip only the size byte
-        }
-        const r = truncated.slice(0, 32); // Read the r coordinate
-        // Skip the r coordinate and type byte
-        truncated = truncated.slice(32 + 1);
-        // Check length of s coordinate
-        if (truncated[0] === 0x21) {
-            truncated = truncated.slice(2); // skip the size byte and the zero byte that was prepended to the s coordinate
-        }
-        else {
-            // truncated [0] === 20
-            truncated = truncated.slice(1); // skip only the size byte
-        }
-        const s = truncated.slice(0, 32); // Read the s coordinate
-        const concat = new Uint8Array(r.length + s.length);
-        concat.set(r);
-        concat.set(s, r.length);
+        const header = {
+            structure: sigBytes[0],
+            length: sigBytes[1]
+        };
+        const bodyRaw = sigBytes.slice(2);
+        let rPointer = 0;
+        let body = {
+            rHeader: 0,
+            rLength: 0,
+            r: new Uint8Array(),
+            sHeader: 0,
+            sLength: 0,
+            s: new Uint8Array(),
+        };
+        body.rHeader = bodyRaw[rPointer];
+        rPointer += 1;
+        body.rLength = bodyRaw[rPointer];
+        rPointer += 1;
+        // account for "high r"
+        const rRaw = bodyRaw.slice(rPointer, rPointer + body.rLength);
+        body.r = (rRaw[0] === 0x00 && rRaw[1] > 0x7F) ? rRaw.slice(1) : rRaw;
+        rPointer += body.rLength;
+        body.sHeader = bodyRaw[rPointer];
+        rPointer += 1;
+        body.sLength = bodyRaw[rPointer];
+        rPointer += 1;
+        const sRaw = bodyRaw.slice(rPointer, rPointer + body.sLength);
+        body.s = (sRaw[0] === 0x00 && sRaw[1] > 0x7F) ? sRaw.slice(1) : sRaw;
+        const concat = new Uint8Array(body.r.length + body.s.length);
+        concat.set(body.r);
+        concat.set(body.s, body.r.length);
         return concat;
+    }
+    static isPublicKey(key, encoded) {
+        try {
+            let encodedKey;
+            switch (key.substr(0, 2)) {
+                case "04":
+                    if (encoded === true) {
+                        return false;
+                    }
+                    // Encode key
+                    encodedKey = neon_core_1.wallet.getPublicKeyEncoded(key);
+                    break;
+                case "02":
+                case "03":
+                    if (encoded === false) {
+                        return false;
+                    }
+                    encodedKey = key;
+                    break;
+                default:
+                    return false;
+            }
+            const unencoded = neon_core_1.wallet.getPublicKeyUnencoded(encodedKey);
+            const tail = parseInt(unencoded.substr(unencoded.length - 2, 2), 16);
+            if (encodedKey.substr(0, 2) === "02" && tail % 2 === 0) {
+                return true;
+            }
+            if (encodedKey.substr(0, 2) === "03" && tail % 2 === 1) {
+                return true;
+            }
+            return false;
+        }
+        catch (e) {
+            return false;
+        }
     }
     static async sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));

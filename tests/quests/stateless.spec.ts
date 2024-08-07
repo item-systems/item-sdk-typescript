@@ -1,6 +1,6 @@
 import { NeonInvoker } from '@cityofzion/neon-invoker'
 import { NeonParser } from '@cityofzion/neon-parser'
-import { Quests, constants, Utils } from '../../dist/esm'
+import { Quests, constants, Utils, types, Item } from "../../dist/esm";
 // @ts-ignore
 import Neon from '@cityofzion/neon-core'
 import { assert } from 'chai'
@@ -65,8 +65,35 @@ describe('Stateless Quests', function () {
     assert.equal(res.permissions, NodePermissions.PUBLIC)
   })
 
-  it('', async () => {
-    const res = Neon.wallet.getPublicKeyUnencoded('0215b207e6aff3a5aaaab518960abe8e91252258c4b45aa538322412e04414f5ba')
-    console.log(res)
+  it('Should get an edge', async () => {
+    const quest = await quests.getQuestJSON({
+      questId: 3
+    })
+
+    const edge = await quests.getEdgeJSON({
+      edgeId: quest.edges[0]
+    })
+    console.log(edge)
   })
+
+  it ('should get a token', async () => {
+    const item = new Item()
+    const start = 1763
+    const end = 1775
+    for (let i = start; i <= end; i++) {
+      const tok = await item.getItemJSON({
+        tokenId: i
+      })
+      console.log(tok)
+    }
+  })
+
+  it ('should parse NDEF', async () => {
+    const x = ['https://itm.st/ap/1cf8?d=BLunI5N43pi9RSvcMNy9oLCvK3jxlvn0vZVYjLvMks69bHtGVvR7iJnxV3THfDOOukezb1i030ZgiW_6_DuAu5wAAAAADDBFAiEAufWXO62OCkbmQmyb6JNMq1LPQCnwffHwsfV0fSw1PZMCIBAsShpwtgt1aiLAhbcUMi8GdKKuXJHQRjLNTy3ZRm8p'
+ ]
+  x.forEach((y) => {
+    console.log(Utils.decodeNDEF(y))
+  })
+  })
+
 })

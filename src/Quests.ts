@@ -6,8 +6,8 @@ import {
   EdgeType,
   NodeType,
   QuestType,
-  ConstructorOptions,
-} from './types'
+  ConstructorOptions, EdgeConditionEpochPick
+} from "./types";
 import { NetworkOption } from './constants'
 import { NeonParser } from '@cityofzion/neon-parser'
 import { NeonInvoker } from '@cityofzion/neon-invoker'
@@ -230,7 +230,7 @@ export class Quests {
   async setEdgeCondition(params: {
     edgeId: number
     conditionType: number
-    condition: EdgeConditionITEMPick
+    condition: EdgeConditionITEMPick | EdgeConditionEpochPick
   }): Promise<string> {
     await this.init()
     return this.config.invoker!.invokeFunction({

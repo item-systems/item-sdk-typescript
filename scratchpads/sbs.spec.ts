@@ -1,10 +1,10 @@
-import { NeonInvoker } from '@cityofzion/neon-invoker'
-import { NeonParser } from '@cityofzion/neon-parser'
-import { Item, Utils } from '../dist/esm'
-import { Collection, Generator, types } from '@cityofzion/props'
-import Neon, { u } from '@cityofzion/neon-core'
-import { assert } from 'chai'
-import { NetworkOption } from '@cityofzion/props/dist/interface'
+import { NeonInvoker } from "@cityofzion/neon-invoker";
+import { NeonParser } from "@cityofzion/neon-parser";
+import { Item, Utils, constants, types, Quests } from "../dist/esm";
+import { Collection, Generator } from "@cityofzion/props";
+import Neon from "@cityofzion/neon-core";
+import { assert } from "chai";
+import { NetworkOption } from "@cityofzion/props/dist/interface";
 
 // TODO - Mint and verify total supply change
 // TODO - Transfer tests
@@ -12,7 +12,7 @@ describe('Consensus 2023', function () {
   this.timeout(60000)
 
   // populate with contract admin
-  const ACCOUNT = new Neon.wallet.Account('')
+  const ACCOUNT = new Neon.wallet.Account('L5kx9QRKG9dwzSJF72pgps1d2scJZjnECWoKuUGVsz2D1WRBEaJ7')
   const poc = new Neon.wallet.Account('')
   console.log(poc.WIF, poc.address)
   const GENERATOR_ID = 12
@@ -23,14 +23,7 @@ describe('Consensus 2023', function () {
   const NODE = 'https://mainnet2.neo.coz.io:443'
   // const NODE = 'http://127.0.0.1:50012'
 
-  const getSDK = async (account?: any) => {
-    return new Item({
-      scriptHash,
-      invoker: await NeonInvoker.init(NODE, account),
-      parser: NeonParser,
-    })
-  }
-
+  /*
   it('should create a new collection', async function () {
     const collection = await new Collection({
       scriptHash: '0xf05651bc505fd5c7d36593f6e8409932342f9085',
@@ -207,10 +200,12 @@ describe('Consensus 2023', function () {
   it('Should create an item epoch using the new generator instance', async function () {
     this.timeout(0)
     const maxSupply = 30
-    const sdk = await getSDK(ACCOUNT)
+    const sdk = new Item({
+      account: ACCOUNT
+    })
 
     const txid = await sdk.createEpoch({
-      label: 'Shadow Brother Sunday Film Collection',
+      label: 'ITEM Systems Apparel',
       generatorInstanceId: GENERATOR_INSTANCE_ID,
       mintFee: 100 * 10 ** 9,
       sysFee: 30140620,
@@ -232,10 +227,11 @@ describe('Consensus 2023', function () {
     assert.isAbove(epochId, 0)
   })
 
+
   it('should get the epoch', async function () {
-    const sdk = await getSDK(ACCOUNT)
+    const sdk = new Item()
     const res = await sdk.getEpochJSON({
-      epochId: '1',
+      epochId: ITEM_EPOCH,
     })
     console.log(res)
   })
@@ -245,7 +241,7 @@ describe('Consensus 2023', function () {
 
     const authorizedContracts = [
       {
-        scriptHash,
+        scriptHash: '0x904deb56fdd9a87b48d89e0cc0ac3415f9207840',
         code: ITEM_EPOCH,
       },
     ]
@@ -264,57 +260,40 @@ describe('Consensus 2023', function () {
     })
     const res = NeonParser.parseRpcResponse(log.executions[0].stack![0])
     console.log(res)
-    assert.equal(res, 1)
 
     const r = await generator.getGeneratorInstanceJSON(GENERATOR_INSTANCE_ID)
     console.log(r)
   })
 
+
+   */
   it('Should mint', async function () {
     this.timeout(0)
-    const sdk = await getSDK(ACCOUNT)
-
-    const addressesRaw = `Nihv7FqvJb3Ajco7jtyS5xuLWrW3r8kedu`
-    const addresses = addressesRaw.split('\n').map(o => {
-      return o.trim()
+    const item = new Item({
+      account: ACCOUNT
     })
-    console.log(addresses)
 
-    const txids = []
-    for (let i = 0; i < addresses.length; i++) {
-      const txid = await sdk.offlineMint({
-        epochId: ITEM_EPOCH,
-        address: addresses[i],
-        // address: ACCOUNT.address,
-      })
-      console.log(i, txid)
-      txids.push(txid)
-    }
+    const address = ACCOUNT.address
 
-    for (let i = 0; i < txids.length; i++) {
-      const log = await Utils.transactionCompletion(txids[i], {
-        node: NODE,
-        period: 1000,
-        timeout: 60000,
-      })
-      const event = NeonParser.parseRpcResponse(log.executions[0].notifications![0].state, {
-        ByteStringToScriptHash: true,
-      })
-      const res = NeonParser.parseRpcResponse(log.executions[0].stack![0])
+    const txid = await item.offlineMint({
+      epochId: ITEM_EPOCH,
+      address: address,
+      bindOnPickup: false
+    })
+    console.log(txid)
 
-      console.log(event, res)
-    }
+    const log = await Utils.transactionCompletion(txid, {
+      node: NODE,
+      period: 1000,
+      timeout: 60000,
+    })
+    const event = NeonParser.parseRpcResponse(log.executions[0].notifications![0].state, {
+      ByteStringToScriptHash: true,
+    })
+    const res = NeonParser.parseRpcResponse(log.executions[0].stack![0])
 
-    for (let i = 0; i < addresses.length; i++) {
-      const tokens = await sdk.tokensOf({
-        address: addresses[i],
-      })
-      const token = await sdk.getItemJSON({
-        tokenId: tokens[0].toString(),
-      })
-      console.log(token)
-    }
-  })
+    console.log(event, res)
+    })
 
   it('should get the last token', async function () {
     const sdk = await getSDK(ACCOUNT)
@@ -338,4 +317,38 @@ describe('Consensus 2023', function () {
     console.log(u.hex2base64(u.str2hexstring(token.tokenId.toString())))
     console.log(token)
   })
+
+  it('Should get an edge', async () => {
+    const quests = new Quests({
+      account: ACCOUNT
+    })
+    const quest = await quests.getQuestJSON({
+      questId: 3
+    })
+
+    const edge = await quests.getEdgeJSON({
+      edgeId: quest.edges[0]
+    })
+    console.log(edge)
+
+    const edgeConditions: types.EdgeConditionITEMPick = {
+      count: 2,
+      tokens: edge.condition.tokens.filter(onlyUnique).concat([1767]),
+    }
+    console.log(edgeConditions)
+
+    const params = {
+      edgeId: quest.edges[0],
+      conditionType: 1,
+      condition: edgeConditions,
+    }
+    const txid = await quests.setEdgeCondition(params)
+    console.log(txid)
+
+  })
 })
+
+// @ts-ignore
+function onlyUnique(value, index, array) {
+  return array.indexOf(value) === index;
+}

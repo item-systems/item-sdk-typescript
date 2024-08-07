@@ -1,4 +1,4 @@
-import { UserAccount, EdgeConditionITEMPick, EdgeResolutionITEMPick, EdgeType, NodeType, QuestType, ConstructorOptions } from './types';
+import { UserAccount, EdgeConditionITEMPick, EdgeResolutionITEMPick, EdgeType, NodeType, QuestType, ConstructorOptions, EdgeConditionEpochPick } from "./types";
 export declare class Quests {
     private config;
     private initialized;
@@ -87,7 +87,7 @@ export declare class Quests {
     setEdgeCondition(params: {
         edgeId: number;
         conditionType: number;
-        condition: EdgeConditionITEMPick;
+        condition: EdgeConditionITEMPick | EdgeConditionEpochPick;
     }): Promise<string>;
     traverseEdge(params: {
         edgeId: number;

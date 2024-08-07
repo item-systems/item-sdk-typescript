@@ -176,6 +176,24 @@ export class Item {
         }
         return this.config.parser.parseRpcResponse(log.executions[0].stack[0]);
     }
+    async transferFungible(params) {
+        await this.init();
+        return await this.config.invoker.invokeFunction({
+            invocations: params.transfers.map((event) => {
+                return {
+                    scriptHash: params.tokenScriptHash,
+                    operation: 'transfer',
+                    args: [
+                        { type: 'Address', value: this.config.account?.address },
+                        { type: 'Address', value: event.address },
+                        { type: 'Integer', value: event.amount * 10 ** 8 },
+                        { type: 'Array', value: [] }
+                    ],
+                };
+            }),
+            signers: [],
+        });
+    }
     /**
      * Gets the owner of the NFI.
      * @param params
