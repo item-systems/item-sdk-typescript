@@ -65,3 +65,17 @@ export interface NdefDecodeType {
     msg: string;
     proof: string;
 }
+export interface AuthPayload {
+    message: string;
+    proof: string;
+    challenge: string;
+}
+export interface AuthItem {
+    tokenId: string;
+    auth: AuthPayload;
+    burn: boolean;
+}
+export interface ClaimItem {
+    tokenId: string;
+    auth: AuthPayload;
+}

@@ -157,5 +157,16 @@ describe('Basic Tests', function () {
       })
       console.log(nfi)
     })
+
+    it('should get token properties using the public key', async () => {
+      const decode = Utils.decodeNDEF(
+        'https://blockspirits.coz.io/?d=BG9c75Iv3vGxeBshtdWKs5SOwZEH4rMSQmWnepL.v4YZReaoeOb3qb5PuZgj.YzqqT61XbYzUmw.G1SapwLunR8AAAAAFTBGAiEA0PHSaLgprzCCccrJcXaJP6i2mjNmBZECb3LAZtD9LK0CIQCQsgcuxhedI4CD7ZaXqcDcLKGB.luj4N5Kg9MgOz5D5Q--'
+      )
+      console.log(decode)
+      const nfi = await item.tokenProperties({
+        assetPublicKey: decode.pubKey,
+      })
+      console.log(nfi)
+    })
   })
 })

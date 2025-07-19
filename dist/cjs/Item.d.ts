@@ -1,4 +1,4 @@
-import { AssetType, ConfigurationType, ConstructorOptions, EpochType, ItemType, UserType } from "./types";
+import { AssetType, ClaimItem, ConfigurationType, ConstructorOptions, EpochType, ItemType, UserType } from './types';
 import { NeoN3EllipticCurves } from './constants';
 /**
  * The ITEM class is the primary interface point for the digital twin of an NFI. Use this class to execute standard
@@ -185,4 +185,12 @@ export declare class Item {
         localAsid: number;
     }): Promise<string[]>;
     totalAssets(): Promise<number>;
+    tokenProperties(params: {
+        assetPublicKey: string;
+    }): Promise<any>;
+    isClaimable(params: {
+        assetPublicKey: string;
+    }): Promise<string[]>;
+    claimItem(params: ClaimItem): Promise<string>;
+    claimItemSync(params: ClaimItem, opts?: any): Promise<boolean>;
 }

@@ -1,15 +1,11 @@
 import { AdminAPI, AssetAPI, ConfigurationAPI, EpochAPI, ItemAPI, UserAPI } from './api/neoN3'
-import { AssetType, ConfigurationType, ConstructorOptions, EpochType, ItemType, UserType } from "./types";
+import { AssetType, ClaimItem, ConfigurationType, ConstructorOptions, EpochType, ItemType, UserType } from './types'
 import { Utils } from './helpers'
 import { NeoN3EllipticCurves, NeoN3NetworkOptions } from './constants'
 import { NeonParser, NeonInvoker, NeonEventListener } from '@cityofzion/neon-dappkit'
-import {
-  Neo3EventListener,
-  Neo3Invoker,
-  Neo3Parser,
-  RpcResponseStackItem,
-} from '@cityofzion/neon-dappkit-types'
+import { Neo3EventListener, Neo3Invoker, Neo3Parser, RpcResponseStackItem } from '@cityofzion/neon-dappkit-types'
 import { u, wallet } from '@cityofzion/neon-js'
+import { IS1API } from './api/neoN3/IS1'
 
 const DEFAULT_OPTIONS: ConstructorOptions = {
   node: NeoN3NetworkOptions.MainNet,
@@ -299,8 +295,6 @@ export class Item {
     return res[0]
   }
 
-
-
   async purgeItem(params: { localNfid: number; message: string; signature: string }): Promise<any> {
     return await this.invoker.invokeFunction({
       invocations: [ItemAPI.purgeItem(this.scriptHash, params)],
@@ -453,5 +447,38 @@ export class Item {
   async totalAssets(): Promise<number> {
     const res = await Utils.testInvoker(this.invoker, this.parser, [AssetAPI.totalAssets(this.scriptHash)])
     return res[0]
+  }
+
+  async tokenProperties(params: { assetPublicKey: string }): Promise<any> {
+    const item = await this.getItemWithKey(params)
+
+    const res = await Utils.testInvoker(this.invoker, this.parser, [
+      IS1API.properties(item.epoch.binding_script_hash, { tokenId: item.binding_token_id }),
+    ])
+    return res[0]
+  }
+
+  async isClaimable(params: { assetPublicKey: string }): Promise<string[]> {
+    const item = await this.getItemWithKey(params)
+
+    const res = await Utils.testInvoker(this.invoker, this.parser, [
+      IS1API.isClaimable(item.epoch.binding_script_hash, { tokenId: item.binding_token_id }),
+    ])
+    return res[0]
+  }
+
+  async claimItem(params: ClaimItem): Promise<string> {
+    return await this.invoker.invokeFunction({
+      invocations: [IS1API.claim(this.scriptHash, params)],
+      signers: [],
+    })
+  }
+
+  async claimItemSync(params: ClaimItem, opts?: any): Promise<boolean> {
+    const txId = await this.claimItem(params)
+    const resp = await this.listener.waitForApplicationLog(txId, opts?.timeout ?? TIMEOUT)
+
+    // @ts-ignore
+    return this.parser.parseRpcResponse(resp.executions[0].stack[0] as RpcResponseStackItem)
   }
 }

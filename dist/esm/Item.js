@@ -3,6 +3,7 @@ import { Utils } from './helpers';
 import { NeoN3NetworkOptions } from './constants';
 import { NeonParser, NeonInvoker, NeonEventListener } from '@cityofzion/neon-dappkit';
 import { u, wallet } from '@cityofzion/neon-js';
+import { IS1API } from './api/neoN3/IS1';
 const DEFAULT_OPTIONS = {
     node: NeoN3NetworkOptions.MainNet,
     scriptHash: '0x3491b358a9ddce38cb567e2bb8bd1bf783cd556d',
@@ -324,6 +325,32 @@ export class Item {
     async totalAssets() {
         const res = await Utils.testInvoker(this.invoker, this.parser, [AssetAPI.totalAssets(this.scriptHash)]);
         return res[0];
+    }
+    async tokenProperties(params) {
+        const item = await this.getItemWithKey(params);
+        const res = await Utils.testInvoker(this.invoker, this.parser, [
+            IS1API.properties(item.epoch.binding_script_hash, { tokenId: item.binding_token_id }),
+        ]);
+        return res[0];
+    }
+    async isClaimable(params) {
+        const item = await this.getItemWithKey(params);
+        const res = await Utils.testInvoker(this.invoker, this.parser, [
+            IS1API.isClaimable(item.epoch.binding_script_hash, { tokenId: item.binding_token_id }),
+        ]);
+        return res[0];
+    }
+    async claimItem(params) {
+        return await this.invoker.invokeFunction({
+            invocations: [IS1API.claim(this.scriptHash, params)],
+            signers: [],
+        });
+    }
+    async claimItemSync(params, opts) {
+        const txId = await this.claimItem(params);
+        const resp = await this.listener.waitForApplicationLog(txId, opts?.timeout ?? TIMEOUT);
+        // @ts-ignore
+        return this.parser.parseRpcResponse(resp.executions[0].stack[0]);
     }
 }
 //# sourceMappingURL=Item.js.map
