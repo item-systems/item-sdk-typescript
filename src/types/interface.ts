@@ -1,11 +1,11 @@
-import { Neo3Invoker } from '@cityofzion/neo3-invoker'
-import { Neo3Parser } from '@cityofzion/neo3-parser'
 import Neon from '@cityofzion/neon-core'
+import { Neo3EventListener, Neo3Invoker, Neo3Parser } from '@cityofzion/neon-dappkit-types'
 
 export interface ConstructorOptions {
   node?: string
   scriptHash?: string
   invoker?: Neo3Invoker
+  listener?: Neo3EventListener
   parser?: Neo3Parser
   account?: Neon.wallet.Account | undefined
 }
@@ -29,36 +29,49 @@ export interface AccountQuestPermissions {
   create_quest: boolean
 }
 
-export interface UserAccount {
-  balance?: number
-  account_id: string
-  permissions: AccountITEMPermissions | AccountQuestPermissions
+export interface UserType {
+  id: number
+  address: Neon.wallet.Account
 }
 
 export interface EpochType {
-  author?: string
-  epochId?: number
-  generatorInstanceId?: number
-  label: string
-  epochTokenId?: number
-  authAge: number
-  maxSupply: number
-  totalSupply?: number
-  mintFee: number
-  sysFee: number
+  id: number
+  vendor: number
+  binding_script_hash: string
 }
 
 export interface ItemType {
-  description: string
-  image: string
-  name: string
-  asset: string | undefined
-  owner: string
-  creator: string
-  bindOnPickup: number
-  seed: string
-  tokenId: number
-  tokenURI: string
+  id: number
   epoch: EpochType
-  traits: any
+  seed: string
+  state: string
+  binding_token_id: string
+  assets: number[]
+}
+
+export interface AssetType {
+  id: number
+  configuration: number
+  item: number
+  public_key: string
+  active: boolean
+  elliptic_curve: number
+  purge_heights: {
+    ils: number
+    htls: number
+  }
+}
+
+export interface ConfigurationType {
+  id: number
+  manufacturer: number
+}
+
+export interface NdefDecodeType {
+  validSignature: boolean
+  uriPubKey: string
+  pubKeyUnencoded: string
+  pubKey: string
+  msg: string
+  proof: string
 }

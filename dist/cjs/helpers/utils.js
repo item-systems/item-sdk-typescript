@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Utils = void 0;
 const neon_core_1 = require("@cityofzion/neon-core");
 const neon_js_1 = require("@cityofzion/neon-js");
+const neon_dappkit_1 = require("@cityofzion/neon-dappkit");
 class Utils {
     static async transactionCompletion(txid, opts) {
         let options = {
@@ -59,10 +60,10 @@ class Utils {
         const pubKey = neon_core_1.wallet.getPublicKeyEncoded(pubKeyUnencoded);
         const msg = payload.slice(pubKeyLength, pubKeyLength + messageLength).toString('hex') || '';
         const sigRaw = payload.slice(pubKeyLength + messageLength);
-        const sig = neon_core_1.u.ab2hexstring(Utils.processDERSignature(sigRaw)) || '';
+        const proof = neon_core_1.u.ab2hexstring(Utils.processDERSignature(sigRaw)) || '';
         let validSignature;
         try {
-            validSignature = neon_core_1.wallet.verify(msg, sig, pubKey);
+            validSignature = neon_core_1.wallet.verify(msg, proof, pubKey);
         }
         catch (e) {
             validSignature = false;
@@ -74,7 +75,7 @@ class Utils {
             pubKeyUnencoded,
             pubKey,
             msg,
-            sig,
+            proof,
         };
     }
     static encodePublicKey(pubKey) {
@@ -82,13 +83,9 @@ class Utils {
     }
     static processDERSignature(sigBytes) {
         // Drop the first three bytes. They are always `30 46 02`
-        const header = {
-            structure: sigBytes[0],
-            length: sigBytes[1]
-        };
         const bodyRaw = sigBytes.slice(2);
         let rPointer = 0;
-        let body = {
+        const body = {
             rHeader: 0,
             rLength: 0,
             r: new Uint8Array(),
@@ -102,14 +99,14 @@ class Utils {
         rPointer += 1;
         // account for "high r"
         const rRaw = bodyRaw.slice(rPointer, rPointer + body.rLength);
-        body.r = (rRaw[0] === 0x00 && rRaw[1] > 0x7F) ? rRaw.slice(1) : rRaw;
+        body.r = rRaw[0] === 0x00 && rRaw[1] > 0x7f ? rRaw.slice(1) : rRaw;
         rPointer += body.rLength;
         body.sHeader = bodyRaw[rPointer];
         rPointer += 1;
         body.sLength = bodyRaw[rPointer];
         rPointer += 1;
         const sRaw = bodyRaw.slice(rPointer, rPointer + body.sLength);
-        body.s = (sRaw[0] === 0x00 && sRaw[1] > 0x7F) ? sRaw.slice(1) : sRaw;
+        body.s = sRaw[0] === 0x00 && sRaw[1] > 0x7f ? sRaw.slice(1) : sRaw;
         const concat = new Uint8Array(body.r.length + body.s.length);
         concat.set(body.r);
         concat.set(body.s, body.r.length);
@@ -119,15 +116,15 @@ class Utils {
         try {
             let encodedKey;
             switch (key.substr(0, 2)) {
-                case "04":
+                case '04':
                     if (encoded === true) {
                         return false;
                     }
                     // Encode key
                     encodedKey = neon_core_1.wallet.getPublicKeyEncoded(key);
                     break;
-                case "02":
-                case "03":
+                case '02':
+                case '03':
                     if (encoded === false) {
                         return false;
                     }
@@ -138,10 +135,10 @@ class Utils {
             }
             const unencoded = neon_core_1.wallet.getPublicKeyUnencoded(encodedKey);
             const tail = parseInt(unencoded.substr(unencoded.length - 2, 2), 16);
-            if (encodedKey.substr(0, 2) === "02" && tail % 2 === 0) {
+            if (encodedKey.substr(0, 2) === '02' && tail % 2 === 0) {
                 return true;
             }
-            if (encodedKey.substr(0, 2) === "03" && tail % 2 === 1) {
+            if (encodedKey.substr(0, 2) === '03' && tail % 2 === 1) {
                 return true;
             }
             return false;
@@ -149,6 +146,42 @@ class Utils {
         catch (e) {
             return false;
         }
+    }
+    static async testInvoker(invoker, parser, invocations) {
+        const res = await invoker.testInvoke({
+            invocations,
+            signers: [],
+        });
+        if (res.stack.length === 0) {
+            throw new Error(res.exception ?? 'unrecognized response');
+        }
+        return res.stack.map(result => {
+            return parser.parseRpcResponse(result);
+        });
+    }
+    static async handleIterator(res, invoker, parser) {
+        if (!res.stack) {
+            return [];
+        }
+        const items = [];
+        const count = 20;
+        let traversedAll = false;
+        while (!traversedAll) {
+            const iteratorList = await invoker.traverseIterator(res.session, res.stack[0].id, count);
+            iteratorList.forEach(item => {
+                if (neon_dappkit_1.TypeChecker.isRpcResponseStackItem(item)) {
+                    const parsedItem = parser.parseRpcResponse(item, { type: 'ByteArray' });
+                    items.push(parsedItem);
+                }
+                else {
+                    throw new Error('unrecognized response');
+                }
+            });
+            if (iteratorList.length < count) {
+                traversedAll = true;
+            }
+        }
+        return items;
     }
     static async sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
