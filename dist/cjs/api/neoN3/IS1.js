@@ -65,6 +65,13 @@ class IS1API {
             args: [{ type: 'ByteArray', value: params.tokenId }],
         };
     }
+    static tokensOf(scriptHash, params) {
+        return {
+            scriptHash,
+            operation: 'tokensOf',
+            args: [{ type: 'Hash160', value: params.address }],
+        };
+    }
 }
 exports.IS1API = IS1API;
 //# sourceMappingURL=IS1.js.map

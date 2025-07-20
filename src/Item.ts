@@ -1,5 +1,14 @@
 import { AdminAPI, AssetAPI, ConfigurationAPI, EpochAPI, ItemAPI, UserAPI } from './api/neoN3'
-import { AssetType, ClaimItem, ConfigurationType, ConstructorOptions, EpochType, ItemType, UserType } from './types'
+import {
+  AssetType,
+  ClaimItem,
+  ConfigurationType,
+  ConstructorOptions,
+  EpochType,
+  ItemType,
+  RemoteToken,
+  UserType
+} from "./types";
 import { Utils } from './helpers'
 import { NeoN3EllipticCurves, NeoN3NetworkOptions } from './constants'
 import { NeonParser, NeonInvoker, NeonEventListener } from '@cityofzion/neon-dappkit'
@@ -168,7 +177,7 @@ export class Item {
     return item
   }
 
-  async getItemWithKey(params: { assetPublicKey: string }): Promise<ItemType> {
+  async getItemWithKey(params: { pubKey: string }): Promise<ItemType> {
     const res = await Utils.testInvoker(this.invoker, this.parser, [ItemAPI.getItemWithKey(this.scriptHash, params)])
     const item = res[0]
     item.epoch.binding_script_hash = '0x' + u.reverseHex(u.base642hex(item.epoch.binding_script_hash))
@@ -214,7 +223,7 @@ export class Item {
   async bindItem(params: {
     localNfid: number
     localCid: number
-    assetPubKey: string
+    pubKey: string
     assetEllipticCurve: NeoN3EllipticCurves
   }): Promise<string> {
     return await this.invoker.invokeFunction({
@@ -227,7 +236,7 @@ export class Item {
     params: {
       localNfid: number
       localCid: number
-      assetPubKey: string
+      pubKey: string
       assetEllipticCurve: NeoN3EllipticCurves
     },
     opts?: any
@@ -330,7 +339,9 @@ export class Item {
 
   async getEpoch(params: { localEid: number }): Promise<EpochType> {
     const res = await Utils.testInvoker(this.invoker, this.parser, [EpochAPI.getEpoch(this.scriptHash, params)])
-    return res[0]
+    const result = res[0]
+    result.binding_script_hash = '0x' + u.reverseHex(u.base642hex(result.binding_script_hash))
+    return result
   }
 
   async getEpochItems(params: { localEid: number }): Promise<number[]> {
@@ -449,7 +460,7 @@ export class Item {
     return res[0]
   }
 
-  async tokenProperties(params: { assetPublicKey: string }): Promise<any> {
+  async tokenProperties(params: { pubKey: string }): Promise<any> {
     const item = await this.getItemWithKey(params)
 
     const res = await Utils.testInvoker(this.invoker, this.parser, [
@@ -458,7 +469,46 @@ export class Item {
     return res[0]
   }
 
-  async isClaimable(params: { assetPublicKey: string }): Promise<string[]> {
+  async tokenPropertiesWithNfid(params: { localNfid: number }): Promise<any> {
+    const item = await this.getItem(params)
+    const res = await Utils.testInvoker(this.invoker, this.parser, [
+      IS1API.properties(item.epoch.binding_script_hash, { tokenId: item.binding_token_id }),
+    ])
+    return res[0]
+  }
+
+  // TODO - This needs to be done in a better way using the smart contract or dora and can be parallelized
+  async itemsOf(params: { address: string }): Promise<RemoteToken[]> {
+    const totalEpochs = await this.totalEpochs()
+
+    const items: RemoteToken[] = []
+    const contracts: string[] = []
+    for (let localEid = 1; localEid <= totalEpochs; localEid++) {
+      const epoch = await this.getEpoch({ localEid })
+      if (contracts.indexOf(epoch.binding_script_hash) === -1) {
+        contracts.push(epoch.binding_script_hash)
+      }
+    }
+
+    for (let i = 0; i < contracts.length; i++) {
+      console.log(contracts[i], params)
+      const res = await this.invoker.testInvoke({
+        invocations: [IS1API.tokensOf(contracts[i], params)],
+        signers: []
+      })
+      const tokenIds: string[] = await Utils.handleIterator(res, this.invoker, this.parser)
+      tokenIds.forEach((tokenId: string) => {
+        items.push({
+          scriptHash: contracts[i],
+          tokenId,
+        })
+      })
+
+    }
+    return items
+  }
+
+  async isClaimable(params: { pubKey: string }): Promise<string[]> {
     const item = await this.getItemWithKey(params)
 
     const res = await Utils.testInvoker(this.invoker, this.parser, [
@@ -468,8 +518,12 @@ export class Item {
   }
 
   async claimItem(params: ClaimItem): Promise<string> {
+    const item = await this.getItemWithKey({ pubKey: params.pubKey })
+
     return await this.invoker.invokeFunction({
-      invocations: [IS1API.claim(this.scriptHash, params)],
+      invocations: [
+        IS1API.claim(item.epoch.binding_script_hash, { tokenId: item.binding_token_id, auth: params.auth }),
+      ],
       signers: [],
     })
   }

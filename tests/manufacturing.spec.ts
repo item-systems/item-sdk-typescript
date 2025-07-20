@@ -7,7 +7,7 @@ import Neon from '@cityofzion/neon-core'
 describe('Basic Tests', function () {
   this.timeout(60000)
   let item: Item
-  const node = 'http://127.0.0.1:50012'
+  const node = 'http://seed2.neo.org:10332'
   const account = new wallet.Account()
   const mockNFI = new wallet.Account('ce2905e4d3630a2628103661d8171b6174d1239e68dfcaf78017920fc126ed9c')
   before(async function () {
@@ -61,7 +61,7 @@ describe('Basic Tests', function () {
       const asid = await item.bindItemSync({
         localNfid: 16,
         localCid: 1,
-        assetPubKey: mockNFI.publicKey,
+        pubKey: mockNFI.publicKey,
         assetEllipticCurve: NeoN3EllipticCurves.SECP256R1SHA256,
       })
 
@@ -102,7 +102,7 @@ describe('Basic Tests', function () {
       console.log(decode)
 
       const nfi = await item.getItemWithKey({
-        assetPublicKey: decode.pubKey
+        pubKey: decode.pubKey
       })
       console.log(nfi)
 
@@ -153,7 +153,7 @@ describe('Basic Tests', function () {
       )
       console.log(decode)
       const nfi = await item.getItemWithKey({
-        assetPublicKey: decode.pubKey,
+        pubKey: decode.pubKey,
       })
       console.log(nfi)
     })
@@ -164,9 +164,16 @@ describe('Basic Tests', function () {
       )
       console.log(decode)
       const nfi = await item.tokenProperties({
-        assetPublicKey: decode.pubKey,
+        pubKey: decode.pubKey,
       })
       console.log(nfi)
+    })
+
+    it('should get all of the remote tokens', async () => {
+      const items = await item.itemsOf({
+        address: 'NaZwraSdJv9BYwYzZryiZcydaPDof56beK'
+      })
+      console.log(items)
     })
   })
 })

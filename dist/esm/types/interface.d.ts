@@ -33,6 +33,10 @@ export interface EpochType {
     vendor: number;
     binding_script_hash: string;
 }
+export interface RemoteToken {
+    scriptHash: string;
+    tokenId: string;
+}
 export interface ItemType {
     id: number;
     epoch: EpochType;
@@ -76,6 +80,6 @@ export interface AuthItem {
     burn: boolean;
 }
 export interface ClaimItem {
-    tokenId: string;
+    pubKey: string;
     auth: AuthPayload;
 }

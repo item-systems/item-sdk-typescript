@@ -233,7 +233,9 @@ class Item {
     }
     async getEpoch(params) {
         const res = await helpers_1.Utils.testInvoker(this.invoker, this.parser, [neoN3_1.EpochAPI.getEpoch(this.scriptHash, params)]);
-        return res[0];
+        const result = res[0];
+        result.binding_script_hash = '0x' + neon_js_1.u.reverseHex(neon_js_1.u.base642hex(result.binding_script_hash));
+        return result;
     }
     async getEpochItems(params) {
         const res = await this.invoker.testInvoke({
@@ -336,6 +338,40 @@ class Item {
         ]);
         return res[0];
     }
+    async tokenPropertiesWithNfid(params) {
+        const item = await this.getItem(params);
+        const res = await helpers_1.Utils.testInvoker(this.invoker, this.parser, [
+            IS1_1.IS1API.properties(item.epoch.binding_script_hash, { tokenId: item.binding_token_id }),
+        ]);
+        return res[0];
+    }
+    // TODO - This needs to be done in a better way using the smart contract or dora and can be parallelized
+    async itemsOf(params) {
+        const totalEpochs = await this.totalEpochs();
+        const items = [];
+        const contracts = [];
+        for (let localEid = 1; localEid <= totalEpochs; localEid++) {
+            const epoch = await this.getEpoch({ localEid });
+            if (contracts.indexOf(epoch.binding_script_hash) === -1) {
+                contracts.push(epoch.binding_script_hash);
+            }
+        }
+        for (let i = 0; i < contracts.length; i++) {
+            console.log(contracts[i], params);
+            const res = await this.invoker.testInvoke({
+                invocations: [IS1_1.IS1API.tokensOf(contracts[i], params)],
+                signers: []
+            });
+            const tokenIds = await helpers_1.Utils.handleIterator(res, this.invoker, this.parser);
+            tokenIds.forEach((tokenId) => {
+                items.push({
+                    scriptHash: contracts[i],
+                    tokenId,
+                });
+            });
+        }
+        return items;
+    }
     async isClaimable(params) {
         const item = await this.getItemWithKey(params);
         const res = await helpers_1.Utils.testInvoker(this.invoker, this.parser, [
@@ -344,8 +380,11 @@ class Item {
         return res[0];
     }
     async claimItem(params) {
+        const item = await this.getItemWithKey({ pubKey: params.pubKey });
         return await this.invoker.invokeFunction({
-            invocations: [IS1_1.IS1API.claim(this.scriptHash, params)],
+            invocations: [
+                IS1_1.IS1API.claim(item.epoch.binding_script_hash, { tokenId: item.binding_token_id, auth: params.auth }),
+            ],
             signers: [],
         });
     }

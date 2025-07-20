@@ -1,4 +1,4 @@
-import { AssetType, ClaimItem, ConfigurationType, ConstructorOptions, EpochType, ItemType, UserType } from './types';
+import { AssetType, ClaimItem, ConfigurationType, ConstructorOptions, EpochType, ItemType, RemoteToken, UserType } from "./types";
 import { NeoN3EllipticCurves } from './constants';
 /**
  * The ITEM class is the primary interface point for the digital twin of an NFI. Use this class to execute standard
@@ -66,7 +66,7 @@ export declare class Item {
         localNfid: number;
     }): Promise<ItemType>;
     getItemWithKey(params: {
-        assetPublicKey: string;
+        pubKey: string;
     }): Promise<ItemType>;
     getItemWithTac(params: {
         tacScriptHash: string;
@@ -88,13 +88,13 @@ export declare class Item {
     bindItem(params: {
         localNfid: number;
         localCid: number;
-        assetPubKey: string;
+        pubKey: string;
         assetEllipticCurve: NeoN3EllipticCurves;
     }): Promise<string>;
     bindItemSync(params: {
         localNfid: number;
         localCid: number;
-        assetPubKey: string;
+        pubKey: string;
         assetEllipticCurve: NeoN3EllipticCurves;
     }, opts?: any): Promise<number>;
     lockItem(params: {
@@ -186,10 +186,16 @@ export declare class Item {
     }): Promise<string[]>;
     totalAssets(): Promise<number>;
     tokenProperties(params: {
-        assetPublicKey: string;
+        pubKey: string;
     }): Promise<any>;
+    tokenPropertiesWithNfid(params: {
+        localNfid: number;
+    }): Promise<any>;
+    itemsOf(params: {
+        address: string;
+    }): Promise<RemoteToken[]>;
     isClaimable(params: {
-        assetPublicKey: string;
+        pubKey: string;
     }): Promise<string[]>;
     claimItem(params: ClaimItem): Promise<string>;
     claimItemSync(params: ClaimItem, opts?: any): Promise<boolean>;

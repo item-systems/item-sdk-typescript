@@ -18,7 +18,7 @@ export class ItemAPI {
         return {
             scriptHash,
             operation: 'getItemWithKey',
-            args: [{ type: 'ByteArray', value: params.assetPublicKey }],
+            args: [{ type: 'ByteArray', value: params.pubKey }],
         };
     }
     static getItemWithTac(scriptHash, params) {
@@ -63,7 +63,7 @@ export class ItemAPI {
             args: [
                 { type: 'Integer', value: params.localNfid.toString() },
                 { type: 'Integer', value: params.localCid.toString() },
-                { type: 'ByteArray', value: u.hex2base64(params.assetPubKey) },
+                { type: 'ByteArray', value: u.hex2base64(params.pubKey) },
                 { type: 'Integer', value: params.assetEllipticCurve.toString() },
             ],
         };

@@ -8,7 +8,7 @@ export declare class ItemAPI {
         localNfid: number;
     }): ContractInvocation;
     static getItemWithKey(scriptHash: string, params: {
-        assetPublicKey: string;
+        pubKey: string;
     }): ContractInvocation;
     static getItemWithTac(scriptHash: string, params: {
         tacScriptHash: string;
@@ -26,7 +26,7 @@ export declare class ItemAPI {
     static bindItem(scriptHash: string, params: {
         localNfid: number;
         localCid: number;
-        assetPubKey: string;
+        pubKey: string;
         assetEllipticCurve: NeoN3EllipticCurves;
     }): ContractInvocation;
     static lockItem(scriptHash: string, params: {

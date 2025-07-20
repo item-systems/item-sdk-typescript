@@ -1,6 +1,6 @@
 import { Arg, ContractInvocation } from '@cityofzion/neon-dappkit-types'
 import { u } from '@cityofzion/neon-js'
-import { AuthItem, ClaimItem } from '../../types'
+import { AuthItem, AuthPayload, ClaimItem } from "../../types";
 
 export class IS1API {
   static isClaimable(scriptHash: string, params: { tokenId: string }): ContractInvocation {
@@ -22,7 +22,7 @@ export class IS1API {
     }
   }
 
-  static claim(scriptHash: string, params: ClaimItem): ContractInvocation {
+  static claim(scriptHash: string, params: { tokenId: string; auth: AuthPayload }): ContractInvocation {
 
     const authPayload: Arg[] = [
       { type: 'ByteArray', value: u.hex2base64(params.auth.message) },
@@ -72,6 +72,14 @@ export class IS1API {
       scriptHash,
       operation: 'properties',
       args: [{ type: 'ByteArray', value: params.tokenId }],
+    }
+  }
+
+  static tokensOf(scriptHash: string, params: { address: string }): ContractInvocation {
+    return {
+      scriptHash,
+      operation: 'tokensOf',
+      args: [{ type: 'Hash160', value: params.address }],
     }
   }
 }
