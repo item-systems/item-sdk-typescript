@@ -56,6 +56,7 @@ export class IS1API {
         };
     }
     static properties(scriptHash, params) {
+        console.log(scriptHash, params);
         return {
             scriptHash,
             operation: 'properties',

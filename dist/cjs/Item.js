@@ -138,7 +138,7 @@ class Item {
         const res = await helpers_1.Utils.testInvoker(this.invoker, this.parser, [neoN3_1.ItemAPI.getItemWithKey(this.scriptHash, params)]);
         const item = res[0];
         item.epoch.binding_script_hash = '0x' + neon_js_1.u.reverseHex(neon_js_1.u.base642hex(item.epoch.binding_script_hash));
-        item.binding_token_id = neon_js_1.u.str2hexstring(item.binding_token_id);
+        item.binding_token_id = neon_js_1.u.base642hex(item.binding_token_id);
         item.seed = neon_js_1.u.base642hex(item.seed);
         return item;
     }
@@ -333,6 +333,8 @@ class Item {
     }
     async tokenProperties(params) {
         const item = await this.getItemWithKey(params);
+        console.log(item);
+        console.log(parseInt(item.binding_token_id, 16), parseInt(neon_js_1.u.reverseHex(item.binding_token_id), 16));
         const res = await helpers_1.Utils.testInvoker(this.invoker, this.parser, [
             IS1_1.IS1API.properties(item.epoch.binding_script_hash, { tokenId: item.binding_token_id }),
         ]);

@@ -181,7 +181,7 @@ export class Item {
     const res = await Utils.testInvoker(this.invoker, this.parser, [ItemAPI.getItemWithKey(this.scriptHash, params)])
     const item = res[0]
     item.epoch.binding_script_hash = '0x' + u.reverseHex(u.base642hex(item.epoch.binding_script_hash))
-    item.binding_token_id = u.str2hexstring(item.binding_token_id)
+    item.binding_token_id = u.base642hex(item.binding_token_id)
     item.seed = u.base642hex(item.seed)
 
     return item
@@ -462,7 +462,6 @@ export class Item {
 
   async tokenProperties(params: { pubKey: string }): Promise<any> {
     const item = await this.getItemWithKey(params)
-
     const res = await Utils.testInvoker(this.invoker, this.parser, [
       IS1API.properties(item.epoch.binding_script_hash, { tokenId: item.binding_token_id }),
     ])
