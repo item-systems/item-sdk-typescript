@@ -490,7 +490,6 @@ export class Item {
     }
 
     for (let i = 0; i < contracts.length; i++) {
-      console.log(contracts[i], params)
       const res = await this.invoker.testInvoke({
         invocations: [IS1API.tokensOf(contracts[i], params)],
         signers: []
@@ -516,6 +515,15 @@ export class Item {
     return res[0]
   }
 
+  async isClaimableWithNfid(params: { localNfid: number }): Promise<string[]> {
+    const item = await this.getItem(params)
+
+    const res = await Utils.testInvoker(this.invoker, this.parser, [
+      IS1API.isClaimable(item.epoch.binding_script_hash, { tokenId: item.binding_token_id }),
+    ])
+    return res[0]
+  }
+
   async claimItem(params: ClaimItem): Promise<string> {
     const item = await this.getItemWithKey({ pubKey: params.pubKey })
 
@@ -533,5 +541,14 @@ export class Item {
 
     // @ts-ignore
     return this.parser.parseRpcResponse(resp.executions[0].stack[0] as RpcResponseStackItem)
+  }
+
+  async ownerOf(params: { localNfid: number}): Promise<string> {
+    const item = await this.getItem(params)
+
+    const res = await Utils.testInvoker(this.invoker, this.parser, [
+      IS1API.ownerOf(item.epoch.binding_script_hash, { tokenId: item.binding_token_id }),
+    ])
+    return wallet.getAddressFromScriptHash(u.reverseHex(u.base642hex(res[0])))
   }
 }

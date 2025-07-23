@@ -82,4 +82,12 @@ export class IS1API {
       args: [{ type: 'Hash160', value: params.address }],
     }
   }
+
+  static ownerOf(scriptHash: string, params: { tokenId: string }): ContractInvocation {
+    return {
+      scriptHash,
+      operation: 'ownerOf',
+      args: [{ type: 'ByteArray', value: params.tokenId }],
+    }
+  }
 }

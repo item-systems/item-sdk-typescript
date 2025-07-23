@@ -330,8 +330,6 @@ export class Item {
     }
     async tokenProperties(params) {
         const item = await this.getItemWithKey(params);
-        console.log(item);
-        console.log(parseInt(item.binding_token_id, 16), parseInt(u.reverseHex(item.binding_token_id), 16));
         const res = await Utils.testInvoker(this.invoker, this.parser, [
             IS1API.properties(item.epoch.binding_script_hash, { tokenId: item.binding_token_id }),
         ]);
@@ -356,7 +354,6 @@ export class Item {
             }
         }
         for (let i = 0; i < contracts.length; i++) {
-            console.log(contracts[i], params);
             const res = await this.invoker.testInvoke({
                 invocations: [IS1API.tokensOf(contracts[i], params)],
                 signers: []
@@ -378,6 +375,13 @@ export class Item {
         ]);
         return res[0];
     }
+    async isClaimableWithNfid(params) {
+        const item = await this.getItem(params);
+        const res = await Utils.testInvoker(this.invoker, this.parser, [
+            IS1API.isClaimable(item.epoch.binding_script_hash, { tokenId: item.binding_token_id }),
+        ]);
+        return res[0];
+    }
     async claimItem(params) {
         const item = await this.getItemWithKey({ pubKey: params.pubKey });
         return await this.invoker.invokeFunction({
@@ -392,6 +396,13 @@ export class Item {
         const resp = await this.listener.waitForApplicationLog(txId, opts?.timeout ?? TIMEOUT);
         // @ts-ignore
         return this.parser.parseRpcResponse(resp.executions[0].stack[0]);
+    }
+    async ownerOf(params) {
+        const item = await this.getItem(params);
+        const res = await Utils.testInvoker(this.invoker, this.parser, [
+            IS1API.ownerOf(item.epoch.binding_script_hash, { tokenId: item.binding_token_id }),
+        ]);
+        return wallet.getAddressFromScriptHash(u.reverseHex(u.base642hex(res[0])));
     }
 }
 //# sourceMappingURL=Item.js.map

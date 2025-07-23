@@ -72,6 +72,13 @@ class IS1API {
             args: [{ type: 'Hash160', value: params.address }],
         };
     }
+    static ownerOf(scriptHash, params) {
+        return {
+            scriptHash,
+            operation: 'ownerOf',
+            args: [{ type: 'ByteArray', value: params.tokenId }],
+        };
+    }
 }
 exports.IS1API = IS1API;
 //# sourceMappingURL=IS1.js.map

@@ -197,6 +197,12 @@ export declare class Item {
     isClaimable(params: {
         pubKey: string;
     }): Promise<string[]>;
+    isClaimableWithNfid(params: {
+        localNfid: number;
+    }): Promise<string[]>;
     claimItem(params: ClaimItem): Promise<string>;
     claimItemSync(params: ClaimItem, opts?: any): Promise<boolean>;
+    ownerOf(params: {
+        localNfid: number;
+    }): Promise<string>;
 }

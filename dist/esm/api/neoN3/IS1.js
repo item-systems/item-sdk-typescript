@@ -56,7 +56,6 @@ export class IS1API {
         };
     }
     static properties(scriptHash, params) {
-        console.log(scriptHash, params);
         return {
             scriptHash,
             operation: 'properties',
@@ -68,6 +67,13 @@ export class IS1API {
             scriptHash,
             operation: 'tokensOf',
             args: [{ type: 'Hash160', value: params.address }],
+        };
+    }
+    static ownerOf(scriptHash, params) {
+        return {
+            scriptHash,
+            operation: 'ownerOf',
+            args: [{ type: 'ByteArray', value: params.tokenId }],
         };
     }
 }

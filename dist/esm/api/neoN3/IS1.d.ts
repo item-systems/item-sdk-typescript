@@ -22,4 +22,7 @@ export declare class IS1API {
     static tokensOf(scriptHash: string, params: {
         address: string;
     }): ContractInvocation;
+    static ownerOf(scriptHash: string, params: {
+        tokenId: string;
+    }): ContractInvocation;
 }

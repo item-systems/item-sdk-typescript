@@ -37,6 +37,12 @@ describe('Basic Tests', function () {
       console.log(user)
     })
 
+    it('Should get the total item supply', async() => {
+      const ts = await item.totalItems()
+      console.log(ts)
+
+    })
+
     it('Should get a configuration', async () => {
       const config = await item.getConfiguration({
         localCid: 1,
@@ -67,6 +73,20 @@ describe('Basic Tests', function () {
 
       console.log(asid)
     })
+    it('should get an item with the tac', async () => {
+      const nfi = await item.getItem({
+        localNfid: 1,
+      })
+      console.log(nfi)
+      console.log(nfi)
+
+      const nfiTac = await item.getItemWithTac({
+        tacScriptHash: nfi.epoch.binding_script_hash,
+        tokenId: nfi.binding_token_id,
+      })
+      console.log(nfiTac)
+    })
+
     it('should get an item', async () => {
       const nfi = await item.getItem({
         localNfid: 1,
@@ -81,11 +101,11 @@ describe('Basic Tests', function () {
       console.log(nfiTac)
     })
 
-    it('should get an asset', async () => {
-      const asset = await item.getAsset({
-        localAsid: 1,
+    it('should get the owner of an item', async () => {
+      const owner = await item.ownerOf({
+        localNfid: 1,
       })
-      console.log(asset)
+      console.log(owner)
     })
 
     it('should get all of the assets in a configuration', async () => {
@@ -93,6 +113,17 @@ describe('Basic Tests', function () {
         localCid: 1,
       })
       console.log(assets)
+    })
+
+    it('should verify an proof', async() => {
+      const attempt = {
+        "localNfid": 190,
+        "message": "0000000008",
+        "proof": "7a811313f7de6c2a00c16716a99ed53b0c0208813fb8e65c6166a5f45012512edf6e7535cb54bfc01e4dea5c671005a7b069aa1ef621efd34b7a4dcbef3303f6",
+        "challenge": "01"
+      }
+      const res = await item.isAuthValid(attempt)
+      console.log(res)
     })
 
     it('should auth', async () => {
