@@ -529,7 +529,7 @@ export class Item {
 
     return await this.invoker.invokeFunction({
       invocations: [
-        IS1API.claim(item.epoch.binding_script_hash, { tokenId: item.binding_token_id, auth: params.auth }),
+        IS1API.claim(item.epoch.binding_script_hash, { tokenId: item.binding_token_id, auth: params.auth, receiverAccount: params.receiverAccount }),
       ],
       signers: [],
     })

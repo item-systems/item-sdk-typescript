@@ -29,6 +29,7 @@ export class IS1API {
             args: [
                 { type: 'ByteArray', value: params.tokenId },
                 { type: 'Array', value: authPayload },
+                ...(params.receiverAccount ? [{ type: 'Hash160', value: params.receiverAccount }] : []),
             ],
         };
     }

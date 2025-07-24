@@ -6,7 +6,7 @@ import { wallet } from '@cityofzion/neon-js'
 
 // TODO - Mint and verify total supply change
 // TODO - Transfer tests
-describe('It should deploy', function () {
+describe('It should run ops', function () {
   this.timeout(60000)
   let item: Item
   const node = 'http://127.0.0.1:50012'

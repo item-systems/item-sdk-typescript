@@ -11,6 +11,7 @@ export declare class IS1API {
     static claim(scriptHash: string, params: {
         tokenId: string;
         auth: AuthPayload;
+        receiverAccount?: string;
     }): ContractInvocation;
     static authItem(scriptHash: string, params: AuthItem): ContractInvocation;
     static getItem(scriptHash: string, params: {

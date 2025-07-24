@@ -22,7 +22,7 @@ export class IS1API {
     }
   }
 
-  static claim(scriptHash: string, params: { tokenId: string; auth: AuthPayload }): ContractInvocation {
+  static claim(scriptHash: string, params: { tokenId: string; auth: AuthPayload, receiverAccount?: string }): ContractInvocation {
 
     const authPayload: Arg[] = [
       { type: 'ByteArray', value: u.hex2base64(params.auth.message) },
@@ -36,6 +36,7 @@ export class IS1API {
       args: [
         { type: 'ByteArray', value: params.tokenId },
         { type: 'Array', value: authPayload },
+        ...(params.receiverAccount ? ([{ type: 'Hash160', value: params.receiverAccount }] as Arg[]) : []),
       ],
     }
   }

@@ -96,4 +96,5 @@ export interface AuthItem {
 export interface ClaimItem {
   pubKey: string
   auth: AuthPayload
+  receiverAccount?: string
 }
