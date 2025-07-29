@@ -144,7 +144,7 @@ export class Utils {
             return false;
         }
     }
-    static async testInvoker(invoker, parser, invocations) {
+    static async testInvokerRaw(invoker, invocations) {
         const res = await invoker.testInvoke({
             invocations,
             signers: [],
@@ -152,6 +152,10 @@ export class Utils {
         if (res.stack.length === 0) {
             throw new Error(res.exception ?? 'unrecognized response');
         }
+        return res;
+    }
+    static async testInvoker(invoker, parser, invocations) {
+        const res = await this.testInvokerRaw(invoker, invocations);
         return res.stack.map(result => {
             return parser.parseRpcResponse(result);
         });
