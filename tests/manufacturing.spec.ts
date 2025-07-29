@@ -37,10 +37,9 @@ describe('Basic Tests', function () {
       console.log(user)
     })
 
-    it('Should get the total item supply', async() => {
+    it('Should get the total item supply', async () => {
       const ts = await item.totalItems()
       console.log(ts)
-
     })
 
     it('Should get a configuration', async () => {
@@ -115,12 +114,13 @@ describe('Basic Tests', function () {
       console.log(assets)
     })
 
-    it('should verify an proof', async() => {
+    it('should verify an proof', async () => {
       const attempt = {
-        "localNfid": 190,
-        "message": "0000000008",
-        "proof": "7a811313f7de6c2a00c16716a99ed53b0c0208813fb8e65c6166a5f45012512edf6e7535cb54bfc01e4dea5c671005a7b069aa1ef621efd34b7a4dcbef3303f6",
-        "challenge": "01"
+        localNfid: 190,
+        message: '0000000008',
+        proof:
+          '7a811313f7de6c2a00c16716a99ed53b0c0208813fb8e65c6166a5f45012512edf6e7535cb54bfc01e4dea5c671005a7b069aa1ef621efd34b7a4dcbef3303f6',
+        challenge: '01',
       }
       const res = await item.isAuthValid(attempt)
       console.log(res)
@@ -133,7 +133,7 @@ describe('Basic Tests', function () {
       console.log(decode)
 
       const nfi = await item.getItemWithKey({
-        pubKey: decode.pubKey
+        pubKey: decode.pubKey,
       })
       console.log(nfi)
 
@@ -144,8 +144,6 @@ describe('Basic Tests', function () {
         proof: decode.proof,
       })
       console.log(res)
-
-
 
       /*
       console.log('light auth')
@@ -202,7 +200,7 @@ describe('Basic Tests', function () {
 
     it('should get all of the remote tokens', async () => {
       const items = await item.itemsOf({
-        address: 'NaZwraSdJv9BYwYzZryiZcydaPDof56beK'
+        address: 'NaZwraSdJv9BYwYzZryiZcydaPDof56beK',
       })
       console.log(items)
     })

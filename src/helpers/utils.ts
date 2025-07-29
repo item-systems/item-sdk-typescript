@@ -1,7 +1,13 @@
 import { rpc, sc, u, wallet } from '@cityofzion/neon-core'
-import { NdefDecodeType, pollingOptions } from "../types";
+import { NdefDecodeType, pollingOptions } from '../types'
 import { experimental } from '@cityofzion/neon-js'
-import { ContractInvocation, Neo3Invoker, Neo3Parser } from '@cityofzion/neon-dappkit-types'
+import {
+  ContractInvocation,
+  InvokeResult,
+  Neo3Invoker,
+  Neo3Parser,
+  RpcResponseStackItem,
+} from '@cityofzion/neon-dappkit-types'
 import { TypeChecker } from '@cityofzion/neon-dappkit'
 
 export class Utils {
