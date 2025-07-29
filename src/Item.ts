@@ -184,8 +184,19 @@ export class Item {
   }
 
   async getItemWithKey(params: { pubKey: string }): Promise<ItemType> {
-    const res = await Utils.testInvoker(this.invoker, this.parser, [ItemAPI.getItemWithKey(this.scriptHash, params)])
-    const item = res[0]
+    const resRaw = await Utils.testInvokerRaw(this.invoker, [ItemAPI.getItemWithKey(this.scriptHash, params)])
+    const itemRaw = resRaw.stack[0]
+    if (!TypeChecker.isStackTypeMap(itemRaw)) {
+      throw new Error(`unrecognized response. Got ${itemRaw.type} instead of Map`)
+    }
+
+    const item = this.parser.parseRpcResponse(itemRaw)
+
+    const bindingTokenIdRaw = itemRaw.value.filter((pair: any) => {
+      return pair.key.value === this.parser.strToBase64('binding_token_id')
+    })[0].value
+    item.binding_token_id = this.parser.parseRpcResponse(bindingTokenIdRaw, { type: 'ByteArray' })
+
     item.epoch.binding_script_hash = '0x' + u.reverseHex(u.base642hex(item.epoch.binding_script_hash))
     item.seed = u.base642hex(item.seed)
 

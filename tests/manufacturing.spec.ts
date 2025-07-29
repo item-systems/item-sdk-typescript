@@ -185,6 +185,9 @@ describe('Basic Tests', function () {
         pubKey: decode.pubKey,
       })
       console.log(nfi)
+
+      assert.equal(nfi.id, 615)
+      assert.equal(nfi.binding_token_id, '6702')
     })
 
     it('should get token properties using the public key', async () => {

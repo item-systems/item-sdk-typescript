@@ -181,11 +181,10 @@ export class Utils {
     }
   }
 
-  static async testInvoker(
+  static async testInvokerRaw(
     invoker: Neo3Invoker,
-    parser: Neo3Parser,
     invocations: ContractInvocation[]
-  ): Promise<any[]> {
+  ): Promise<InvokeResult<RpcResponseStackItem>> {
     const res = await invoker.testInvoke({
       invocations,
       signers: [],
@@ -193,6 +192,16 @@ export class Utils {
     if (res.stack.length === 0) {
       throw new Error(res.exception ?? 'unrecognized response')
     }
+
+    return res
+  }
+
+  static async testInvoker(
+    invoker: Neo3Invoker,
+    parser: Neo3Parser,
+    invocations: ContractInvocation[]
+  ): Promise<any[]> {
+    const res = await this.testInvokerRaw(invoker, invocations)
 
     return res.stack.map(result => {
       return parser.parseRpcResponse(result)
