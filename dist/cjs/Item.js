@@ -5,6 +5,7 @@ const neoN3_1 = require("./api/neoN3");
 const helpers_1 = require("./helpers");
 const constants_1 = require("./constants");
 const neon_dappkit_1 = require("@cityofzion/neon-dappkit");
+const neon_dappkit_types_1 = require("@cityofzion/neon-dappkit-types");
 const neon_js_1 = require("@cityofzion/neon-js");
 const IS1_1 = require("./api/neoN3/IS1");
 const DEFAULT_OPTIONS = {
@@ -135,10 +136,17 @@ class Item {
         return item;
     }
     async getItemWithKey(params) {
-        const res = await helpers_1.Utils.testInvoker(this.invoker, this.parser, [neoN3_1.ItemAPI.getItemWithKey(this.scriptHash, params)]);
-        const item = res[0];
+        const resRaw = await helpers_1.Utils.testInvokerRaw(this.invoker, [neoN3_1.ItemAPI.getItemWithKey(this.scriptHash, params)]);
+        const itemRaw = resRaw.stack[0];
+        if (!neon_dappkit_types_1.TypeChecker.isStackTypeMap(itemRaw)) {
+            throw new Error(`unrecognized response. Got ${itemRaw.type} instead of Map`);
+        }
+        const item = this.parser.parseRpcResponse(itemRaw);
+        const bindingTokenIdRaw = itemRaw.value.filter((pair) => {
+            return pair.key.value === this.parser.strToBase64('binding_token_id');
+        })[0].value;
+        item.binding_token_id = this.parser.parseRpcResponse(bindingTokenIdRaw, { type: 'ByteArray' });
         item.epoch.binding_script_hash = '0x' + neon_js_1.u.reverseHex(neon_js_1.u.base642hex(item.epoch.binding_script_hash));
-        item.binding_token_id = neon_js_1.u.base642hex(item.binding_token_id);
         item.seed = neon_js_1.u.base642hex(item.seed);
         return item;
     }
@@ -359,7 +367,7 @@ class Item {
         for (let i = 0; i < contracts.length; i++) {
             const res = await this.invoker.testInvoke({
                 invocations: [IS1_1.IS1API.tokensOf(contracts[i], params)],
-                signers: []
+                signers: [],
             });
             const tokenIds = await helpers_1.Utils.handleIterator(res, this.invoker, this.parser);
             tokenIds.forEach((tokenId) => {
@@ -389,7 +397,11 @@ class Item {
         const item = await this.getItemWithKey({ pubKey: params.pubKey });
         return await this.invoker.invokeFunction({
             invocations: [
-                IS1_1.IS1API.claim(item.epoch.binding_script_hash, { tokenId: item.binding_token_id, auth: params.auth, receiverAccount: params.receiverAccount }),
+                IS1_1.IS1API.claim(item.epoch.binding_script_hash, {
+                    tokenId: item.binding_token_id,
+                    auth: params.auth,
+                    receiverAccount: params.receiverAccount,
+                }),
             ],
             signers: [],
         });

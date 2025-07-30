@@ -2,6 +2,7 @@ import { AdminAPI, AssetAPI, ConfigurationAPI, EpochAPI, ItemAPI, UserAPI } from
 import { Utils } from './helpers';
 import { NeoN3NetworkOptions } from './constants';
 import { NeonParser, NeonInvoker, NeonEventListener } from '@cityofzion/neon-dappkit';
+import { TypeChecker, } from '@cityofzion/neon-dappkit-types';
 import { u, wallet } from '@cityofzion/neon-js';
 import { IS1API } from './api/neoN3/IS1';
 const DEFAULT_OPTIONS = {
@@ -132,10 +133,17 @@ export class Item {
         return item;
     }
     async getItemWithKey(params) {
-        const res = await Utils.testInvoker(this.invoker, this.parser, [ItemAPI.getItemWithKey(this.scriptHash, params)]);
-        const item = res[0];
+        const resRaw = await Utils.testInvokerRaw(this.invoker, [ItemAPI.getItemWithKey(this.scriptHash, params)]);
+        const itemRaw = resRaw.stack[0];
+        if (!TypeChecker.isStackTypeMap(itemRaw)) {
+            throw new Error(`unrecognized response. Got ${itemRaw.type} instead of Map`);
+        }
+        const item = this.parser.parseRpcResponse(itemRaw);
+        const bindingTokenIdRaw = itemRaw.value.filter((pair) => {
+            return pair.key.value === this.parser.strToBase64('binding_token_id');
+        })[0].value;
+        item.binding_token_id = this.parser.parseRpcResponse(bindingTokenIdRaw, { type: 'ByteArray' });
         item.epoch.binding_script_hash = '0x' + u.reverseHex(u.base642hex(item.epoch.binding_script_hash));
-        item.binding_token_id = u.base642hex(item.binding_token_id);
         item.seed = u.base642hex(item.seed);
         return item;
     }
@@ -356,7 +364,7 @@ export class Item {
         for (let i = 0; i < contracts.length; i++) {
             const res = await this.invoker.testInvoke({
                 invocations: [IS1API.tokensOf(contracts[i], params)],
-                signers: []
+                signers: [],
             });
             const tokenIds = await Utils.handleIterator(res, this.invoker, this.parser);
             tokenIds.forEach((tokenId) => {
@@ -386,7 +394,11 @@ export class Item {
         const item = await this.getItemWithKey({ pubKey: params.pubKey });
         return await this.invoker.invokeFunction({
             invocations: [
-                IS1API.claim(item.epoch.binding_script_hash, { tokenId: item.binding_token_id, auth: params.auth, receiverAccount: params.receiverAccount }),
+                IS1API.claim(item.epoch.binding_script_hash, {
+                    tokenId: item.binding_token_id,
+                    auth: params.auth,
+                    receiverAccount: params.receiverAccount,
+                }),
             ],
             signers: [],
         });

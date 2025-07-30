@@ -1,7 +1,13 @@
 import { rpc, sc, u, wallet } from '@cityofzion/neon-core'
-import { NdefDecodeType, pollingOptions } from "../types";
+import { NdefDecodeType, pollingOptions } from '../types'
 import { experimental } from '@cityofzion/neon-js'
-import { ContractInvocation, Neo3Invoker, Neo3Parser } from '@cityofzion/neon-dappkit-types'
+import {
+  ContractInvocation,
+  InvokeResult,
+  Neo3Invoker,
+  Neo3Parser,
+  RpcResponseStackItem,
+} from '@cityofzion/neon-dappkit-types'
 import { TypeChecker } from '@cityofzion/neon-dappkit'
 
 export class Utils {
@@ -175,11 +181,10 @@ export class Utils {
     }
   }
 
-  static async testInvoker(
+  static async testInvokerRaw(
     invoker: Neo3Invoker,
-    parser: Neo3Parser,
     invocations: ContractInvocation[]
-  ): Promise<any[]> {
+  ): Promise<InvokeResult<RpcResponseStackItem>> {
     const res = await invoker.testInvoke({
       invocations,
       signers: [],
@@ -187,6 +192,16 @@ export class Utils {
     if (res.stack.length === 0) {
       throw new Error(res.exception ?? 'unrecognized response')
     }
+
+    return res
+  }
+
+  static async testInvoker(
+    invoker: Neo3Invoker,
+    parser: Neo3Parser,
+    invocations: ContractInvocation[]
+  ): Promise<any[]> {
+    const res = await this.testInvokerRaw(invoker, invocations)
 
     return res.stack.map(result => {
       return parser.parseRpcResponse(result)

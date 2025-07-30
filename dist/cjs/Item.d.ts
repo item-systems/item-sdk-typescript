@@ -1,4 +1,4 @@
-import { AssetType, ClaimItem, ConfigurationType, ConstructorOptions, EpochType, ItemType, RemoteToken, UserType } from "./types";
+import { AssetType, ClaimItem, ConfigurationType, ConstructorOptions, EpochType, ItemType, RemoteToken, UserType } from './types';
 import { NeoN3EllipticCurves } from './constants';
 /**
  * The ITEM class is the primary interface point for the digital twin of an NFI. Use this class to execute standard
