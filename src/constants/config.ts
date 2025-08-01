@@ -11,6 +11,4 @@ export enum NeoN3EllipticCurves {
   SECP256R1KECCAK256 = 123,
 }
 
-export enum Challenges {
-
-}
+export enum Challenges {}

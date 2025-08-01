@@ -45,7 +45,7 @@ export class IS1API {
             args: [
                 { type: 'ByteArray', value: params.tokenId },
                 { type: 'Array', value: authPayload },
-                { type: 'Boolean', value: params.burn }
+                { type: 'Boolean', value: params.burn },
             ],
         };
     }

@@ -41,7 +41,7 @@ export interface EpochType {
 }
 
 export interface RemoteToken {
-  scriptHash: string,
+  scriptHash: string
   tokenId: string
 }
 

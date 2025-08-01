@@ -128,10 +128,17 @@ class Item {
         return this.parser.parseRpcResponse(resp.executions[0].stack[0]);
     }
     async getItem(params) {
-        const res = await helpers_1.Utils.testInvoker(this.invoker, this.parser, [neoN3_1.ItemAPI.getItem(this.scriptHash, params)]);
-        const item = res[0];
+        const resRaw = await helpers_1.Utils.testInvokerRaw(this.invoker, [neoN3_1.ItemAPI.getItem(this.scriptHash, params)]);
+        const itemRaw = resRaw.stack[0];
+        if (!neon_dappkit_types_1.TypeChecker.isStackTypeMap(itemRaw)) {
+            throw new Error(`unrecognized response. Got ${itemRaw.type} instead of Map`);
+        }
+        const item = this.parser.parseRpcResponse(itemRaw);
+        const bindingTokenIdRaw = itemRaw.value.filter((pair) => {
+            return pair.key.value === this.parser.strToBase64('binding_token_id');
+        })[0].value;
+        item.binding_token_id = this.parser.parseRpcResponse(bindingTokenIdRaw, { type: 'ByteArray' });
         item.epoch.binding_script_hash = '0x' + neon_js_1.u.reverseHex(neon_js_1.u.base642hex(item.epoch.binding_script_hash));
-        item.binding_token_id = neon_js_1.u.str2hexstring(item.binding_token_id);
         item.seed = neon_js_1.u.base642hex(item.seed);
         return item;
     }
@@ -151,10 +158,17 @@ class Item {
         return item;
     }
     async getItemWithTac(params) {
-        const res = await helpers_1.Utils.testInvoker(this.invoker, this.parser, [neoN3_1.ItemAPI.getItemWithTac(this.scriptHash, params)]);
-        const item = res[0];
+        const resRaw = await helpers_1.Utils.testInvokerRaw(this.invoker, [neoN3_1.ItemAPI.getItemWithTac(this.scriptHash, params)]);
+        const itemRaw = resRaw.stack[0];
+        if (!neon_dappkit_types_1.TypeChecker.isStackTypeMap(itemRaw)) {
+            throw new Error(`unrecognized response. Got ${itemRaw.type} instead of Map`);
+        }
+        const item = this.parser.parseRpcResponse(itemRaw);
+        const bindingTokenIdRaw = itemRaw.value.filter((pair) => {
+            return pair.key.value === this.parser.strToBase64('binding_token_id');
+        })[0].value;
+        item.binding_token_id = this.parser.parseRpcResponse(bindingTokenIdRaw, { type: 'ByteArray' });
         item.epoch.binding_script_hash = '0x' + neon_js_1.u.reverseHex(neon_js_1.u.base642hex(item.epoch.binding_script_hash));
-        item.binding_token_id = neon_js_1.u.str2hexstring(item.binding_token_id);
         item.seed = neon_js_1.u.base642hex(item.seed);
         return item;
     }
