@@ -1,6 +1,6 @@
 import { Arg, ContractInvocation } from '@cityofzion/neon-dappkit-types'
 import { u } from '@cityofzion/neon-js'
-import { AuthItem, AuthPayload, ClaimItem } from "../../types";
+import { AuthItem, AuthPayload, ClaimItem } from '../../types'
 
 export class IS1API {
   static isClaimable(scriptHash: string, params: { tokenId: string }): ContractInvocation {
@@ -22,8 +22,10 @@ export class IS1API {
     }
   }
 
-  static claim(scriptHash: string, params: { tokenId: string; auth: AuthPayload, receiverAccount?: string }): ContractInvocation {
-
+  static claim(
+    scriptHash: string,
+    params: { tokenId: string; auth: AuthPayload; receiverAccount?: string }
+  ): ContractInvocation {
     const authPayload: Arg[] = [
       { type: 'ByteArray', value: u.hex2base64(params.auth.message) },
       { type: 'ByteArray', value: u.hex2base64(params.auth.proof) },
@@ -42,7 +44,6 @@ export class IS1API {
   }
 
   static authItem(scriptHash: string, params: AuthItem): ContractInvocation {
-
     const authPayload: Arg[] = [
       { type: 'ByteArray', value: u.hex2base64(params.auth.message) },
       { type: 'ByteArray', value: u.hex2base64(params.auth.proof) },
@@ -55,7 +56,7 @@ export class IS1API {
       args: [
         { type: 'ByteArray', value: params.tokenId },
         { type: 'Array', value: authPayload },
-        { type: 'Boolean', value: params.burn }
+        { type: 'Boolean', value: params.burn },
       ],
     }
   }
