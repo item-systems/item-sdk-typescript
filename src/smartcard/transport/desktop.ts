@@ -20,9 +20,8 @@ export class DesktopTransport extends Transport {
 
   async transmit(rawCommandAPDU: Uint8Array): Promise<Uint8Array> {
     if (!this._card) {
-      // TODO: return proper error code
-      console.log('trying to transmit but no card present')
-      return Uint8Array.of(0x00, 0x00)
+      console.error('trying to transmit but no card present')
+      return Uint8Array.of(0x6f, 0x00)
     }
     return this._card.transmit(rawCommandAPDU)
   }
