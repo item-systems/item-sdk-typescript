@@ -1,7 +1,7 @@
 import { NeonInvoker } from '@cityofzion/neon-invoker'
 import { NeonParser } from '@cityofzion/neon-parser'
-import { Item } from '../src'
-import { ITEM_PRIVATENET } from '../src/tests/common'
+import { Item } from '../../index'
+import { ITEM_PRIVATENET } from '../common'
 
 // TODO - Mint and verify total supply change
 // TODO - Transfer tests
