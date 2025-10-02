@@ -11,7 +11,7 @@ export abstract class Transport {
 
   /**
    * Establish a connection with the card.
-   * @returns true if established. false on any error or failure to establish
+   * @returns true is established. false on any error or failure to establish
    */
   abstract connect(): Promise<boolean>
 }

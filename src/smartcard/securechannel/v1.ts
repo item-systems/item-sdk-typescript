@@ -8,7 +8,7 @@ import * as u from '../utils'
 import { createCipheriv, createDecipheriv } from 'node:crypto'
 import { CBCBlockCipherMac } from '../crypto'
 import { StatusWord } from '../statusword'
-import { uint8ToHex } from "../utils";
+import { uint8ToHex } from '../utils'
 
 /**
  * This SecureChannel implementation is valid for products with the firmware
