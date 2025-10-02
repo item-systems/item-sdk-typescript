@@ -1,6 +1,6 @@
 import { NeonParser } from '@cityofzion/neon-parser'
 import { Item, Utils, types, Quests } from '../src'
-import Neon, { u } from "@cityofzion/neon-core";
+import Neon, { u } from '@cityofzion/neon-core'
 import { NetworkOption } from '@cityofzion/props/dist/interface'
 import { NeonInvoker } from '@cityofzion/neon-invoker'
 
@@ -339,8 +339,6 @@ describe('Consensus 2023', function () {
       edgeId: quest.edges[0],
     })
     console.log(edge)
-
-
 
     const edgeConditions: types.EdgeConditionITEMPick = {
       count: 2,
