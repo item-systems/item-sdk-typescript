@@ -10,6 +10,11 @@ export interface CardReader {
   connect(): Promise<boolean>
 
   /**
+   * End a connection.
+   */
+  disconnect(): Promise<void>
+
+  /**
    * Returns if the connection is currently active.
    */
   connected(): boolean
@@ -51,6 +56,10 @@ export class Reader implements CardReader {
   async connect(): Promise<boolean> {
     this._connected = await this._transport.connect()
     return this._connected
+  }
+
+  async disconnect(): Promise<void> {
+    await this._transport.disconnect()
   }
 
   public connected(): boolean {

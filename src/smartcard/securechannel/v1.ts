@@ -1,8 +1,8 @@
 import { CardReader, Reader } from '../reader'
 import { Uint8 } from '../byte'
 import { CommandApdu, MutuallyAuthenticate, OpenSecureChannel } from '../command-apdu'
-import { secp256r1 } from '@noble/curves/p256'
-import { sha512 } from '@noble/hashes/sha2'
+import { p256 } from '@noble/curves/nist.js'
+import { sha512 } from '@noble/hashes/sha2.js'
 import { ResponseAPDU } from '../reponse-apdu'
 import * as u from '../utils'
 import { createCipheriv, createDecipheriv } from 'node:crypto'
@@ -44,10 +44,10 @@ export class SecureChannelV1 implements CardReader {
     if (__privateKey !== undefined) {
       this._privateKey = __privateKey
     } else {
-      this._privateKey = secp256r1.utils.randomPrivateKey()
+      this._privateKey = p256.utils.randomSecretKey()
     }
-    this._publicKey = secp256r1.getPublicKey(this._privateKey, false)
-    this._sharedSecret = secp256r1.getSharedSecret(this._privateKey, publicKey).slice(1) // drop the format byte
+    this._publicKey = p256.getPublicKey(this._privateKey, false)
+    this._sharedSecret = p256.getSharedSecret(this._privateKey, publicKey).slice(1) // drop the format byte
   }
 
   async connect(): Promise<boolean> {
@@ -55,6 +55,12 @@ export class SecureChannelV1 implements CardReader {
       return true
     }
     return await this._reader.connect()
+  }
+
+  async disconnect(): Promise<void> {
+    if (this.connected()) {
+      await this._reader.disconnect()
+    }
   }
 
   connected(): boolean {

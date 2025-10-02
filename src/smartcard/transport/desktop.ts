@@ -48,6 +48,13 @@ export class DesktopTransport extends Transport {
     return Promise.race([polling(), timeoutPromise])
   }
 
+  async disconnect(): Promise<void> {
+    if (this._card !== undefined) {
+      await this._card.disconnect(CardDisposition.RESET)
+      this._client.stop()
+    }
+  }
+
   // Do not change this to a normal function. The arrow function is done to preserve
   // the correct `this` instance such that `connect()` can poll the card state.
   private onReader = (reader: pcsc.Reader) => {

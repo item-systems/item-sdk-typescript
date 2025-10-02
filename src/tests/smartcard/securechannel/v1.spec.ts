@@ -7,7 +7,7 @@ import { DesktopTransport } from '../../../smartcard/transport/desktop'
 import { SelectCommand, SignCommand } from '../../../smartcard/command-apdu'
 import { concatUint8, hexToUint8 } from '../../../smartcard/utils'
 import { createCipheriv } from 'node:crypto'
-import { secp256r1 } from '@noble/curves/p256'
+import { p256 } from '@noble/curves/nist'
 import { sha256 } from '@noble/hashes/sha2'
 import { SelectResponse, SignResponse } from '../../../smartcard/reponse-apdu'
 
@@ -65,9 +65,10 @@ describe('SecureChannel DK1', () => {
     expect(response.getSW()).to.equal(0x9000)
 
     const signResponse = new SignResponse(response.toArray())
-    expect(
-      secp256r1.verify(signResponse.getSignature(), msgHash, signResponse.getPublicKey(), { prehash: false })
-    ).to.equal(true)
+    expect(p256.verify(signResponse.getSignature(), msgHash, signResponse.getPublicKey(), { prehash: false })).to.equal(
+      true
+    )
+    await reader.disconnect()
   })
 })
 
@@ -91,7 +92,7 @@ describe('internal implementation tests', () => {
     const cardPublicKey = hexToUint8(
       '04e6182b2e12ac69b3d288d54f9fc07ebc305988141fc0274637ae36cf771e3057114ae752355f2fdb1cc52883c5b17d19c8afd47806478428b6ce877eb07baa96'
     )
-    const sharedSecret = secp256r1.getSharedSecret(privateKey, cardPublicKey).slice(1)
+    const sharedSecret = p256.getSharedSecret(privateKey, cardPublicKey).slice(1)
     const expectedSecret = hexToUint8('58b4f840e0efab7cc16c0c048255af7c6a51f31bfe066b94819e95622ff25262')
     expect(sharedSecret).to.deep.equal(expectedSecret)
   })
@@ -104,6 +105,6 @@ describe('internal implementation tests', () => {
     const pk = hexToUint8(
       '0414b2b16f4d4fdf1dba184d5a28556fbe41b0f47d84fa906fe43509989bded400a6c8d1b49a933e66fc637c5495dd8ffa79d6f2b5f4a0020f0a99e03cc0b26084'
     )
-    expect(secp256r1.verify(sig, msgHash, pk, { prehash: false })).to.equal(true)
+    expect(p256.verify(sig, msgHash, pk, { prehash: false })).to.equal(true)
   })
 })

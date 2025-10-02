@@ -1,5 +1,4 @@
-import { bytesToHex, hexToBytes, concatBytes } from '@noble/curves/abstract/utils'
-import { randomBytes as NobleRandomBytes } from '@noble/hashes/utils'
+import { bytesToHex, hexToBytes, concatBytes, randomBytes as NobleRandomBytes } from '@noble/curves/utils'
 
 /**
  * Convert a Uint8Array into a hex string.

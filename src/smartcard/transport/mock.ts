@@ -19,4 +19,6 @@ export class MockTransport extends Transport {
   async connect(): Promise<boolean> {
     return true
   }
+
+  async disconnect(): Promise<void> {}
 }
