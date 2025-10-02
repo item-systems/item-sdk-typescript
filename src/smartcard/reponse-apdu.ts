@@ -37,6 +37,7 @@ export class SelectResponse extends ResponseAPDU {
   // TAG + LEN + 3 bytes of semver data
   private static APPLET_VERSION_LENGTH = 5
   private static TAG_V2_LENGTH = SelectResponse.TAG_DK1_V100_LENGTH + SelectResponse.APPLET_VERSION_LENGTH
+
   constructor(apdu: Uint8Array) {
     super(apdu)
   }
@@ -66,6 +67,7 @@ export class SignResponse extends ResponseAPDU {
 
   constructor(apdu: Uint8Array) {
     super(apdu)
+
     if (this.getSW() !== StatusWord.OK) {
       throw new Error(`Failed to create SignResponse: wrong status word 0x${this.getSW().toString(16)}`)
     }
@@ -75,6 +77,7 @@ export class SignResponse extends ResponseAPDU {
     if (data.length <= 2 + 2 + 65) {
       throw new Error('Insufficient data')
     }
+
     if (data[0] !== SignResponse.TAG_SIGNATURE_PUBLIC_KEY) {
       throw new Error('did not find signature tag')
     }
@@ -87,6 +90,7 @@ export class SignResponse extends ResponseAPDU {
     }
 
     this.publicKey = data.slice(data.length - 65)
+
     // offset is the place where the signature data starts
     let offset = 2
     if (data[1] === 0x81) {

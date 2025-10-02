@@ -3,6 +3,7 @@ import { Transport } from './transport'
 export class MockTransport extends Transport {
   private readonly _responses: Uint8Array[]
   private _idx = 0
+
   constructor(responses: Uint8Array[]) {
     super()
     this._responses = responses

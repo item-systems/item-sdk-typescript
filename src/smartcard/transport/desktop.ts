@@ -12,6 +12,7 @@ export class DesktopTransport extends Transport {
   private _client: pcsc.Client
   private _card: pcsc.Card | undefined
   private _reader: pcsc.Reader | undefined
+
   constructor() {
     super()
     // @ts-ignore
