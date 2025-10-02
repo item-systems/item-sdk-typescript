@@ -40,7 +40,7 @@ describe('SecureChannel DK1', () => {
     }
   })
 
-  it('should work with a real Desktop reader', async () => {
+  it.skip('should work with a real Desktop reader', async () => {
     const reader = new Reader(new DesktopTransport())
     await reader.connect()
 
