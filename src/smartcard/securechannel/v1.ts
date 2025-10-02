@@ -23,7 +23,7 @@ export class SecureChannelV1 implements CardReader {
   private _privateKey: Uint8Array
   private _publicKey: Uint8Array
   private _sharedSecret: Uint8Array
-  private _iv = new Uint8Array()
+  private _iv: Uint8Array = new Uint8Array()
   private _keyRandomData = new Uint8Array()
   private _sessionEncryptionKey = new Uint8Array()
   private _sessionMacKey = new Uint8Array()
