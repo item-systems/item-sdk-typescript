@@ -1,6 +1,6 @@
 import { expect } from 'chai'
-import { hexToUint8 } from '../utils'
-import { SignResponse } from '../reponse-apdu'
+import { hexToUint8 } from '../../smartcard/utils'
+import { SignResponse } from '../../smartcard/reponse-apdu'
 
 describe('SignResponse', () => {
   it('should decode', () => {

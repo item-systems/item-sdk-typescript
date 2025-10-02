@@ -1,15 +1,15 @@
-import * as u from '../../utils'
-import { MockTransport } from '../../transport/mock'
-import { Reader } from '../../reader'
+import * as u from '../../../smartcard/utils'
+import { MockTransport } from '../../../smartcard/transport/mock'
+import { Reader } from '../../../smartcard/reader'
 import { expect } from 'chai'
-import { ISO7816Padding, SecureChannelV1 } from '../../securechannel/v1'
-import { DesktopTransport } from '../../transport/desktop'
-import { SelectCommand, SignCommand } from '../../command-apdu'
-import { concatUint8, hexToUint8 } from '../../utils'
+import { ISO7816Padding, SecureChannelV1 } from '../../../smartcard/securechannel/v1'
+import { DesktopTransport } from '../../../smartcard/transport/desktop'
+import { SelectCommand, SignCommand } from '../../../smartcard/command-apdu'
+import { concatUint8, hexToUint8 } from '../../../smartcard/utils'
 import { createCipheriv } from 'node:crypto'
 import { secp256r1 } from '@noble/curves/p256'
 import { sha256 } from '@noble/hashes/sha2'
-import { SelectResponse, SignResponse } from '../../reponse-apdu'
+import { SelectResponse, SignResponse } from '../../../smartcard/reponse-apdu'
 
 describe('SecureChannel DK1', () => {
   it('can establish mutual authentication', async () => {

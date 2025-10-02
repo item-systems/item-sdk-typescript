@@ -1,6 +1,6 @@
-import { CommandApdu } from '../command-apdu'
+import { CommandApdu } from '../../smartcard/command-apdu'
 import { expect } from 'chai'
-import { Uint8 } from '../byte'
+import { Uint8 } from '../../smartcard/byte'
 
 export class TestCommand extends CommandApdu {
   static readonly CLA = 0x00
