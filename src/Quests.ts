@@ -6,8 +6,9 @@ import {
   EdgeType,
   NodeType,
   QuestType,
-  ConstructorOptions, EdgeConditionEpochPick
-} from "./types";
+  ConstructorOptions,
+  EdgeConditionEpochPick,
+} from './types'
 import { NetworkOption } from './constants'
 import { NeonParser } from '@cityofzion/neon-parser'
 import { NeonInvoker } from '@cityofzion/neon-invoker'

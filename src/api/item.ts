@@ -137,7 +137,7 @@ export class ItemAPI {
     scriptHash: string,
     params: {
       address: string
-      permissions: {}
+      permissions: object
     }
   ): ContractInvocation {
     return {

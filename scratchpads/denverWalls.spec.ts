@@ -1,21 +1,20 @@
-import { Item, Quests, Utils } from "../dist/esm";
+import { Item, Utils } from '../src'
 import { wallet } from '@cityofzion/neon-core'
-import { assert } from "chai";
 
 describe('Denver Walls Scratchpad', function () {
   this.timeout(60000)
 
   it('should decode a wall', async function () {
-
     const scans = [
       'https://itm.st/ap/1cf8?d=BDzrgmAwaG7krtu5TcO9ZHb2JidDiogEwzIa1XmWmRGsLqoZoPJfcOHw4hBU2r.cc4G2gtSpQd2hY_.npG63w0AAAAAABTBGAiEAivtwfPaBVs.rhQJ1tNSzvC7JQVnZUY_mOAu7YWUDH_0CIQCOtnAJHYqPV_lwSa.VDMaCxRr.g.GMKD0Sb9rplC3lqA--',
-      //'https://itm.st/ap/1cf8?d=BF1wPBfP0Cvay06EOcIr7FG.JM20881YTRvYGYY9WtOqnGe4CngEw_Pw1oh3hVfEa8qrv3G6.oy0USuWo1cLxk8AAAAAADBGAiEA2rczGQ7pFwYs4qSqoKCtP5K6HJJltA5q0_rUv0PxulMCIQCKUHtgMRBk5fjkE6VXI7tSDfsRVTW0.o87xtouPWUjdA--',
-      //'https://itm.st/ap/1cf8?d=BDh4JZVjiOcMqeB1IUoSEVqVF9cWT_ZwUbWzRna84zmXRWScbnNb374z9IPshpY5Mrn9tntfr6Mkhla56By_EZYAAAAABTBGAiEAknTKANcYT0aAelncW628tMvaYAdzJJGD6ljfBo0HPkQCIQC49VjD21oekRyDNuh0_zbjgiUtmsjgPGlAQUqPUxp4LQ--',
-    //'https://itm.st/ap/1cf8?d=BNKCTh1sqZyV61h._6U889wmhyCwjCrKOT4GlufGzmvzKqNRhh171x4FqQbjpv09zr.fXXMo9V2LI7_TjHmOnU0AAAAABjBEAiAdVVAVgMY6a7g4_UVIsyKzUowi74KOF3xyia2lgzMBoQIgbyrFSTmiD5tRpvfGVIDcw8oKgz.s51md2qjhUtTR0PQ-',
-      //'https://itm.st/ap/1cf8?d=BDXCx14WKM4G1TQOd198N7a_w61xJFXpM3iAfcA9NLosG5x2Qu0KJVc5kMXZii6kuvp0eh9MWq8GciDEL5zfwdsAAAAABjBEAiAQsot3TO_uHsskwSGLK1mFk6vkHTsPXh7sf9uMo.rIhAIgHuAMzHHBXYvHZ94UEpwe7gWhWsIgHte3yLNgCT.Wjs8-',
-        //'https://itm.st/ap/1cf8?d=BFh3BvcaJOi7cJokiYorqHd8bwzp9Ka9hHIT7VtYg2gS9dLutcTebrmPcj3fsjFQ_DBrqBLlsgVqHr_WpJkxDgEAAAAABzBEAiA4Ra92zBK1PniC5eHuk7IKlHutM4p0pX4cZp.EL4J2VQIgCJshutmeBDLvlnSIsjsxoGw0KfEm0UE4WWZBMNJ1gkw-'
-
+      // 'https://itm.st/ap/1cf8?d=BF1wPBfP0Cvay06EOcIr7FG.JM20881YTRvYGYY9WtOqnGe4CngEw_Pw1oh3hVfEa8qrv3G6.oy0USuWo1cLxk8AAAAAADBGAiEA2rczGQ7pFwYs4qSqoKCtP5K6HJJltA5q0_rUv0PxulMCIQCKUHtgMRBk5fjkE6VXI7tSDfsRVTW0.o87xtouPWUjdA--',
+      // 'https://itm.st/ap/1cf8?d=BDh4JZVjiOcMqeB1IUoSEVqVF9cWT_ZwUbWzRna84zmXRWScbnNb374z9IPshpY5Mrn9tntfr6Mkhla56By_EZYAAAAABTBGAiEAknTKANcYT0aAelncW628tMvaYAdzJJGD6ljfBo0HPkQCIQC49VjD21oekRyDNuh0_zbjgiUtmsjgPGlAQUqPUxp4LQ--',
+      // 'https://itm.st/ap/1cf8?d=BNKCTh1sqZyV61h._6U889wmhyCwjCrKOT4GlufGzmvzKqNRhh171x4FqQbjpv09zr.fXXMo9V2LI7_TjHmOnU0AAAAABjBEAiAdVVAVgMY6a7g4_UVIsyKzUowi74KOF3xyia2lgzMBoQIgbyrFSTmiD5tRpvfGVIDcw8oKgz.s51md2qjhUtTR0PQ-',
+      // 'https://itm.st/ap/1cf8?d=BDXCx14WKM4G1TQOd198N7a_w61xJFXpM3iAfcA9NLosG5x2Qu0KJVc5kMXZii6kuvp0eh9MWq8GciDEL5zfwdsAAAAABjBEAiAQsot3TO_uHsskwSGLK1mFk6vkHTsPXh7sf9uMo.rIhAIgHuAMzHHBXYvHZ94UEpwe7gWhWsIgHte3yLNgCT.Wjs8-',
+      // 'https://itm.st/ap/1cf8?d=BFh3BvcaJOi7cJokiYorqHd8bwzp9Ka9hHIT7VtYg2gS9dLutcTebrmPcj3fsjFQ_DBrqBLlsgVqHr_WpJkxDgEAAAAABzBEAiA4Ra92zBK1PniC5eHuk7IKlHutM4p0pX4cZp.EL4J2VQIgCJshutmeBDLvlnSIsjsxoGw0KfEm0UE4WWZBMNJ1gkw-'
     ]
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const item = new Item()
 
     for (let i = 0; i < scans.length; i++) {
@@ -33,10 +32,9 @@ describe('Denver Walls Scratchpad', function () {
 
        */
     }
-
   })
 
-  it('fucks', async function() {
+  it('fucks', async function () {
     const keys = `0x0439ad97ed3aba972576e85f31b6fa5ae26f5b856c0ca7491ac2b7a97e082616525a1cd7250b76fc0e3b274a3a0ffb60deffe641ccf579a32b0c2eb7e5498cdeaf;0x045358477936d5f9a447ed5f0b79131d8aee1ba7882b745a6e40f4eb320e934d894ad17b581c5992d459177c18fae696490b886a66fb3da4573018cab1090e611d
 0x047897733054c21bd9b2b2269d9d7b81cd1000c1c16f83a56e6b58d21c00a1c23e717f3bb31bca72c5d4cc81eceb8e20e8f3e676fd26634f090ba6003fdf7f7377;0x048f00cb237e7f06063bc759e51e3f66bb4620a1c5a2d591d550b0a29cd36f90cff6859ebb6123a37b866dba34bebca66d383e47b32cdf18526835d3e1bee09070
 0x044387d4f35dec927dd1a2ba1b03c1955abe109ece9e881cb0155cca245e9382695caa9fb8f9f44b834b2b543085cdf65b5818c5398611ab99c734e79a802e5a8e;0x0490d61291ecca5756b0d9bca5d28caf76ff91effbf27d4243a41f498e88db71dda4ed344392d48329ebcfd0f6247266a8b845e5b8f8e0932642ab050a2d966477
@@ -126,8 +124,8 @@ describe('Denver Walls Scratchpad', function () {
 0x043f117b82cbe51040a927891265c5c6ddfdd5e53418e22d0106bffef550d0718b5c76c32ba889442f6c6e75c972c2dcaf3e556cd2532d85a64666a9d43fbc03d5;0x042d7231daba16b583bde87dd3b75e25e490cc3b5f2453280fa003c52f8e43b6ea44c0dd9288ded4af3c30e19d63879b818d76866ad1d8d40e715472bfdaf0768c
 0x043ec19e8b647e046707976251dafa16591785759b0adb268a87ecb554c6d87bb380669b9ee4d59ee8715ae71cf461296663ba37ae913c4f02cab8cbe70060b037;0x04587706f71a24e8bb709a24898a2ba8777c6f0ce9f4a6bd847213ed5b58836812f5d2eeb5c4de6eb98f723ddfb23150fc306ba812e5b2056a1ebfd6a499310e01
 0x04cf675104314f8227328d48768ef4d7306cd040c243d8c2421e3c488018c8a54ca35fe515e6c0c595b4745c177665f5a019c208b32f039d0ad017035dd3372bee;0x04775c38e87416c36bbf99a9b6a2bb759adfd3a0db832538e07c37f17ee142a5fc2d95220a7819020f78129b7034dc8c4230499576ef3f63667b3741b4187ff027`
-    const keysSplit = keys.split('\n').forEach( (row, n) => {
-      const res = row.split(';').map((val) => {
+    keys.split('\n').forEach((row, n) => {
+      const res = row.split(';').map(val => {
         return wallet.isPublicKey(val.slice(2))
       })
       console.log(n, res[0] && res[1], res)

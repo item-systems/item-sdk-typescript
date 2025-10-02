@@ -1,14 +1,14 @@
 import { NeonInvoker } from '@cityofzion/neon-invoker'
 import { NeonParser } from '@cityofzion/neon-parser'
-import { Item } from '../dist/esm'
-import Neon from "@cityofzion/neon-core";
+import { Item } from '../src'
+import { ITEM_PRIVATENET } from '../src/tests/common'
 
 // TODO - Mint and verify total supply change
 // TODO - Transfer tests
 describe('Stateless Item', function () {
   this.timeout(60000)
-
-  const scriptHash = Item.PRIVATENET
+  const ACCOUNT = ''
+  const scriptHash = ITEM_PRIVATENET
   const NODE = 'http://127.0.0.1:50012'
 
   const getSDK = async (account?: any) => {
@@ -33,9 +33,8 @@ describe('Stateless Item', function () {
   })
 
   it('Should iterate over all the tokens', async function () {
-
     const sdk = await getSDK({
-      account: ACCOUNT
+      account: ACCOUNT,
     })
 
     for (let i = 100; i < 110; i++) {

@@ -1,10 +1,8 @@
-import { NeonInvoker } from "@cityofzion/neon-invoker";
-import { NeonParser } from "@cityofzion/neon-parser";
-import { Item, Utils, constants, types, Quests } from "../dist/esm";
-import { Collection, Generator } from "@cityofzion/props";
-import Neon from "@cityofzion/neon-core";
-import { assert } from "chai";
-import { NetworkOption } from "@cityofzion/props/dist/interface";
+import { NeonParser } from '@cityofzion/neon-parser'
+import { Item, Utils, types, Quests } from '../src'
+import Neon, { u } from "@cityofzion/neon-core";
+import { NetworkOption } from '@cityofzion/props/dist/interface'
+import { NeonInvoker } from '@cityofzion/neon-invoker'
 
 // TODO - Mint and verify total supply change
 // TODO - Transfer tests
@@ -15,13 +13,24 @@ describe('Consensus 2023', function () {
   const ACCOUNT = new Neon.wallet.Account('L5kx9QRKG9dwzSJF72pgps1d2scJZjnECWoKuUGVsz2D1WRBEaJ7')
   const poc = new Neon.wallet.Account('')
   console.log(poc.WIF, poc.address)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const GENERATOR_ID = 12
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const GENERATOR_INSTANCE_ID = 16
   const ITEM_EPOCH = 7
-  const scriptHash = Item.MAINNET
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const scriptHash = '' // Item.MAINNET
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const NETWORK = NetworkOption.MainNet
   const NODE = 'https://mainnet2.neo.coz.io:443'
-  // const NODE = 'http://127.0.0.1:50012'
+
+  const getSDK = async (account?: any) => {
+    return new Item({
+      scriptHash,
+      invoker: await NeonInvoker.init(NODE, account),
+      parser: NeonParser,
+    })
+  }
 
   /*
   it('should create a new collection', async function () {
@@ -270,15 +279,15 @@ describe('Consensus 2023', function () {
   it('Should mint', async function () {
     this.timeout(0)
     const item = new Item({
-      account: ACCOUNT
+      account: ACCOUNT,
     })
 
     const address = ACCOUNT.address
 
     const txid = await item.offlineMint({
       epochId: ITEM_EPOCH,
-      address: address,
-      bindOnPickup: false
+      address,
+      bindOnPickup: false,
     })
     console.log(txid)
 
@@ -293,14 +302,14 @@ describe('Consensus 2023', function () {
     const res = NeonParser.parseRpcResponse(log.executions[0].stack![0])
 
     console.log(event, res)
-    })
+  })
 
   it('should get the last token', async function () {
     const sdk = await getSDK(ACCOUNT)
     const ts = await sdk.totalSupply()
 
     const lastToken = await sdk.getItemJSON({
-      tokenId: ts.toString(),
+      tokenId: ts,
     })
     console.log(lastToken)
   })
@@ -312,7 +321,7 @@ describe('Consensus 2023', function () {
     })
 
     const token = await sdk.getItemJSON({
-      tokenId: tokens[0].toString(),
+      tokenId: tokens[0],
     })
     console.log(u.hex2base64(u.str2hexstring(token.tokenId.toString())))
     console.log(token)
@@ -320,20 +329,22 @@ describe('Consensus 2023', function () {
 
   it('Should get an edge', async () => {
     const quests = new Quests({
-      account: ACCOUNT
+      account: ACCOUNT,
     })
     const quest = await quests.getQuestJSON({
-      questId: 3
+      questId: 3,
     })
 
     const edge = await quests.getEdgeJSON({
-      edgeId: quest.edges[0]
+      edgeId: quest.edges[0],
     })
     console.log(edge)
 
+
+
     const edgeConditions: types.EdgeConditionITEMPick = {
       count: 2,
-      tokens: edge.condition.tokens.filter(onlyUnique).concat([1767]),
+      tokens: [], // edge.condition.tokens.filter(onlyUnique).concat([1767]), // tokens doesn't exist on EdgeType
     }
     console.log(edgeConditions)
 
@@ -344,11 +355,11 @@ describe('Consensus 2023', function () {
     }
     const txid = await quests.setEdgeCondition(params)
     console.log(txid)
-
   })
 })
 
 // @ts-ignore
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function onlyUnique(value, index, array) {
-  return array.indexOf(value) === index;
+  return array.indexOf(value) === index
 }

@@ -1,12 +1,10 @@
-import { NeonInvoker } from '@cityofzion/neon-invoker'
 import { NeonParser } from '@cityofzion/neon-parser'
-import { constants, Item, Utils } from "../dist/esm";
-import { Generator, Collection, types } from '@cityofzion/props'
-import Neon, { u } from "@cityofzion/neon-core";
+import { constants, Item, Utils } from '../src'
+import { Generator } from '@cityofzion/props'
+import Neon, { u } from '@cityofzion/neon-core'
 import { assert } from 'chai'
 import { NetworkOption } from '@cityofzion/props/dist/interface'
-import { ItemAPI } from "../src/api";
-import axios from "axios";
+import axios from 'axios'
 
 // TODO - Mint and verify total supply change
 // TODO - Transfer tests
@@ -18,21 +16,21 @@ describe('Consensus 2023', function () {
   const node = constants.NetworkOption.MainNet
   const network = NetworkOption.MainNet
 
-  it('should get the generator', async function() {
-    const generator = await new Generator({
+  it('should get the generator', async function () {
+    const generator = new Generator({
       scriptHash: '0x0e312c70ce6ed18d5702c6c5794c493d9ef46dc9',
-      network
+      network,
     })
     await generator.init()
     const res = await generator.getGeneratorJSON(16)
     console.log(res)
   })
 
-  it('should create a new generator instance', async function() {
+  it('should create a new generator instance', async function () {
     console.log(ACCOUNT.address)
-    const generator = await new Generator({
+    const generator = new Generator({
       scriptHash: '0x0e312c70ce6ed18d5702c6c5794c493d9ef46dc9',
-      network
+      network,
     })
     await generator.init()
 
@@ -47,14 +45,13 @@ describe('Consensus 2023', function () {
     assert.isAbove(generatorInstanceId, 0)
   })
 
-
-  it('Should create an item epoch using the new generator instance', async function() {
+  it('Should create an item epoch using the new generator instance', async function () {
     const maxSupply = 350
     const generatorInstanceId = 22
 
     const item = new Item({
       account: ACCOUNT,
-      node
+      node,
     })
 
     const txid = await item.createEpoch({
@@ -80,20 +77,19 @@ describe('Consensus 2023', function () {
     assert.isAbove(epochId, 0)
   })
 
-  it('Should get the epochs', async function() {
+  it('Should get the epochs', async function () {
     const item = new Item({
-      node
+      node,
     })
 
     const total = await item.totalEpochs()
     console.log(total)
-    for (let i = 1; i<= total; i++) {
+    for (let i = 1; i <= total; i++) {
       const epoch = await item.getEpochJSON({
-        epochId: i
+        epochId: i,
       })
       console.log(epoch)
     }
-
   })
 
   it('Should set use permissions for the generator instance', async function () {
@@ -147,7 +143,7 @@ describe('Consensus 2023', function () {
    */
   it('Should decode NDEF', async function () {
     const draw = `https://itm.st/pp/1cf8?d=BAIKMzXwzSAgtb6Un_xeWVBhVbxtuf8Ubb4CRiCNgzWGBAeIqApEao8feFWbXcmBYbjjJfFJ5a22OkRIJ_Hc16wAAAAABjBFAiALD0WzOTRT4WG5UqAS_.E4.qmljDWNmNiPBKLe1FYLkgIhAISJ_jBP9FzR3FRrDYuYwxUa98zt5SgzQ98cp4RzJTYC`
-    draw.split('\n').forEach((d) => {
+    draw.split('\n').forEach(d => {
       const res = Utils.decodeNDEF(d)
       console.log(res.pubKey, res.validSignature)
     })
@@ -156,9 +152,9 @@ describe('Consensus 2023', function () {
   it('Should mint', async function () {
     const epochId = 10
 
-    const item = new Item( {
+    const item = new Item({
       account: ACCOUNT,
-      node
+      node,
     })
     const admin = await item.getUserJSON({
       address: ACCOUNT.address,
@@ -169,18 +165,15 @@ describe('Consensus 2023', function () {
       const txid = await item.offlineMint({
         epochId,
         address: ACCOUNT.address,
-        bindOnPickup: true
+        bindOnPickup: true,
       })
       console.log(i, txid)
     }
 
-
-
-
-    const log = await Utils.transactionCompletion('txid',{
+    const log = await Utils.transactionCompletion('txid', {
       node,
       period: 1000,
-      timeout: 30000
+      timeout: 30000,
     })
     console.log(log)
     /*
@@ -198,7 +191,6 @@ describe('Consensus 2023', function () {
 
 
      */
-
   })
 
   /*
@@ -733,31 +725,29 @@ NeE8F7ZLhnFbMk3f8ZFV33kmvbA7JR1gek`
    */
   it('should get a token', async function () {
     const item = new Item({
-      account: ACCOUNT
-      }
-    )
+      account: ACCOUNT,
+    })
     const tokenId = 1700
 
     // claim the asset
     const token = await item.getItemJSON({
-      tokenId
+      tokenId,
     })
     console.log(token)
 
-
-    //const txid = await item.unbindToken({
+    // const txid = await item.unbindToken({
     //  tokenId
-    //})
-
-
+    // })
   })
 
-  it('should decode a scan and bind', async function() {
-    const scan = 'https://itm.st/ap/1cf8?d=BCE2OoyqWiQ5B7GXmvqEo3Fw.kA6jnR4vwDtYGW5OBXEB6y4Azw7TS.Qr5wkUJC_rsGMAr7ejXyqiFOSBaO_0rcAAAAABTBFAiEAuDMnjze.0McjJAXhCd3FI3qR5qghWkzwGjp5hZ0oxz4CIFPq0DX4s3u1ele3Cs.c4Y2bk1ElMudz89B3itzciIkE'
+  it('should decode a scan and bind', async function () {
+    const scan =
+      'https://itm.st/ap/1cf8?d=BCE2OoyqWiQ5B7GXmvqEo3Fw.kA6jnR4vwDtYGW5OBXEB6y4Azw7TS.Qr5wkUJC_rsGMAr7ejXyqiFOSBaO_0rcAAAAABTBFAiEAuDMnjze.0McjJAXhCd3FI3qR5qghWkzwGjp5hZ0oxz4CIFPq0DX4s3u1ele3Cs.c4Y2bk1ElMudz89B3itzciIkE'
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const item = new Item({
       account: ACCOUNT,
-      node
+      node,
     })
 
     const decoded = Utils.decodeNDEF(scan)
@@ -771,13 +761,13 @@ NeE8F7ZLhnFbMk3f8ZFV33kmvbA7JR1gek`
 
      */
   })
-  it ('should bind', async () => {
+  it('should bind', async () => {
     const raw = `02b2de11fb3dcedbd93e82c963ff7333705a85195bdaa7d927a925a8d9b50850f8`
     const startingTokenId = 2140
 
     const item = new Item({
       account: ACCOUNT,
-      node
+      node,
     })
 
     const txids = []
@@ -788,13 +778,11 @@ NeE8F7ZLhnFbMk3f8ZFV33kmvbA7JR1gek`
 
       const txid = await item.bindItem({
         tokenId: startingTokenId + i,
-        assetPubKey: key
+        assetPubKey: key,
       })
       txids.push(txid)
 
       console.log(startingTokenId + i, key, txid)
-
-
     }
     /*
 
@@ -812,23 +800,21 @@ NeE8F7ZLhnFbMk3f8ZFV33kmvbA7JR1gek`
      */
   })
 
-  it('should hammer ghostmarket', async function() {
-    const item = new Item({}
-    )
+  it('should hammer ghostmarket', async function () {
+    const item = new Item({})
     const ts = await item.totalSupply()
 
     for (let i = 1700; i <= ts; i++) {
       const tokenId = u.hex2base64(u.reverseHex(u.int2hex(i)))
 
-      const data: any = { "data": { "chain": "n3", "contract": "0x904deb56fdd9a87b48d89e0cc0ac3415f9207840", tokenId}}
+      const data: any = { data: { chain: 'n3', contract: '0x904deb56fdd9a87b48d89e0cc0ac3415f9207840', tokenId } }
       try {
-        const res = await axios.patch('https://api.ghostmarket.io/api/v2/metadataRefresh', data)
+        await axios.patch('https://api.ghostmarket.io/api/v2/metadataRefresh', data)
         console.log(i, tokenId)
       } catch (e) {
         // @ts-ignore
         console.log('   ', e.response.data)
       }
-
     }
   })
   /*
@@ -1048,5 +1034,4 @@ NeE8F7ZLhnFbMk3f8ZFV33kmvbA7JR1gek`
 
 
    */
-
 })

@@ -1,12 +1,10 @@
-import { NeonInvoker } from '@cityofzion/neon-invoker'
 import { NeonParser } from '@cityofzion/neon-parser'
-import { constants, Item, Utils } from "../dist/esm";
-import { Generator, Collection, types } from '@cityofzion/props'
-import Neon, { u } from "@cityofzion/neon-core";
+import { Item, Utils } from '../src'
+import { Generator } from '@cityofzion/props'
+import Neon, { u } from '@cityofzion/neon-core'
 import { assert } from 'chai'
 import { NetworkOption } from '@cityofzion/props/dist/interface'
-import { ItemAPI } from "../src/api";
-import axios from "axios";
+import axios from 'axios'
 
 // TODO - Mint and verify total supply change
 // TODO - Transfer tests
@@ -18,21 +16,21 @@ describe('Consensus 2023', function () {
   const node = 'http://seed4.neo.org:10332'
   const network = NetworkOption.MainNet
 
-  it('should get the generator', async function() {
-    const generator = await new Generator({
+  it('should get the generator', async function () {
+    const generator = new Generator({
       scriptHash: '0x0e312c70ce6ed18d5702c6c5794c493d9ef46dc9',
-      network
+      network,
     })
     await generator.init()
     const res = await generator.getGeneratorJSON(16)
     console.log(res)
   })
 
-  it('should create a new generator instance', async function() {
+  it('should create a new generator instance', async function () {
     console.log(ACCOUNT.address)
-    const generator = await new Generator({
+    const generator = new Generator({
       scriptHash: '0x0e312c70ce6ed18d5702c6c5794c493d9ef46dc9',
-      network
+      network,
     })
     await generator.init()
 
@@ -47,14 +45,13 @@ describe('Consensus 2023', function () {
     assert.isAbove(generatorInstanceId, 0)
   })
 
-
-  it('Should create an item epoch using the new generator instance', async function() {
+  it('Should create an item epoch using the new generator instance', async function () {
     const maxSupply = 10000
     const generatorInstanceId = 23
 
     const item = new Item({
       account: ACCOUNT,
-      node
+      node,
     })
 
     const txid = await item.createEpoch({
@@ -80,39 +77,36 @@ describe('Consensus 2023', function () {
     assert.isAbove(epochId, 0)
   })
 
-  it('Should get the epochs', async function() {
+  it('Should get the epochs', async function () {
     const item = new Item({
-      node
+      node,
     })
 
     const total = await item.totalEpochs()
     console.log(total)
-    for (let i = 1; i<= total; i++) {
+    for (let i = 1; i <= total; i++) {
       const epoch = await item.getEpochJSON({
-        epochId: i
+        epochId: i,
       })
       console.log(epoch.epochId, epoch.label, epoch.generatorInstanceId)
     }
-
   })
 
   it('Should set use permissions for the generator instance', async function () {
     const epochId = 16
     const generatorInstanceId = 23
 
-
     const authorizedContracts = [
       {
         scriptHash: '0x904deb56fdd9a87b48d89e0cc0ac3415f9207840',
         code: epochId,
-      }
+      },
     ]
-    const generator = await new Generator({
+    const generator = new Generator({
       scriptHash: '0x0e312c70ce6ed18d5702c6c5794c493d9ef46dc9',
       network,
     })
     await generator.init()
-
 
     const txid = await generator.setInstanceAuthorizedContracts(generatorInstanceId, authorizedContracts, ACCOUNT)
     console.log(txid)
@@ -127,14 +121,12 @@ describe('Consensus 2023', function () {
 
     const r = await generator.getGeneratorInstanceJSON(generatorInstanceId)
     console.log(r)
-
   })
 
   it('it should get the item with the public key', async function () {
     const item = new Item({
-        account: ACCOUNT
-      }
-    )
+      account: ACCOUNT,
+    })
     const i = await item.getAssetItemJSON({
       assetPubKey: '03dbecb91c7187b90133beda7aedbff4d7da3e02ef5782d90c3e2f9dddd6f228a2',
     })
@@ -143,19 +135,17 @@ describe('Consensus 2023', function () {
 
   it('should get the user', async function () {
     const item = new Item({
-        account: ACCOUNT
-      }
-    )
+      account: ACCOUNT,
+    })
     const res = await item.getUserJSON({
       address: ACCOUNT.address,
     })
     console.log(res)
   })
 
-
   it('Should decode NDEF', async function () {
     const draw = `https://itm.st/ap/1cf8?d=BLbwwkdTUXiuRF9Wklo_.AU3IzbRyaCIBvdxnWL5BYeT.vjkAGKMHUUzAJ99yk0D_GUwsDQ2OAczFPRHr6HcI4gAAAAACzBGAiEA4hmraLDLt_SBhhbcaNK2DVEGZQJPdv6wCArBYwZEuCQCIQCWas9wv6cKSvwG4YIiK_VFAalP89NSMCY3ZzovbET7AA--`
-    draw.split('\n').forEach((d) => {
+    draw.split('\n').forEach(d => {
       const res = Utils.decodeNDEF(d)
       console.log(res.pubKey, res.validSignature)
     })
@@ -164,9 +154,9 @@ describe('Consensus 2023', function () {
   it('Should mint', async function () {
     const epochId = 24
 
-    const item = new Item( {
+    const item = new Item({
       account: ACCOUNT,
-      node
+      node,
     })
     const admin = await item.getUserJSON({
       address: ACCOUNT.address,
@@ -177,15 +167,15 @@ describe('Consensus 2023', function () {
       const txid = await item.offlineMint({
         epochId,
         address: ACCOUNT.address,
-        bindOnPickup: true
+        bindOnPickup: true,
       })
       console.log(i, txid)
     }
 
-    const log = await Utils.transactionCompletion('txid',{
+    const log = await Utils.transactionCompletion('txid', {
       node,
       period: 1000,
-      timeout: 30000
+      timeout: 30000,
     })
     console.log(log)
     /*
@@ -203,21 +193,19 @@ describe('Consensus 2023', function () {
 
 
      */
-
   })
 
   it('Should toggle bind on pickup', async function () {
     const tokenId = 2305
     const item = new Item({
-        account: ACCOUNT,
-        node
-      }
-    )
+      account: ACCOUNT,
+      node,
+    })
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const token = await item.setBindOnPickup({
       tokenId,
-      state: false
+      state: false,
     })
-
   })
 
   /*
@@ -753,44 +741,41 @@ NeE8F7ZLhnFbMk3f8ZFV33kmvbA7JR1gek`
   it('should get a token', async function () {
     const item = new Item({
       account: ACCOUNT,
-      node
-      }
-    )
-    //wachsman 2141 - 2174
+      node,
+    })
+    // wachsman 2141 - 2174
     // SEP 2175 - 2204
     // COZ 2205 - 2234
     // IS 2235 - 2264
 
+    // eslint-disable-next-line no-unreachable-loop
     for (let tokenId = 2306; tokenId <= 2380; tokenId++) {
       // claim the asset
       const token = await item.getItemJSON({
-        tokenId
+        tokenId,
       })
       console.log(token)
       break
     }
-
-
   })
 
-  it('should decode a scan and bind', async function() {
+  it('should decode a scan and bind', async function () {
     const scan = `https://itm.st/na/a6fd?d=BLePAk6xqtohqJKYb2HuqJ2pGsfQC_KlC4j1IpPwgDltvU1vNXviapeCeotvG2DmMc50Fa9xrS9N7kgJ6Bar.K8AAAAANDBEAiBmlfpojDViZ34Wh6yznRQy6NNdbCW8vA8Tf6XMkBLfFQIgWBhzI8X_Sxqdp9a1PRli4R0UsyXap.NKvm0KeNY6amY-`
     const item = new Item({
       account: ACCOUNT,
-      node
+      node,
     })
 
     const decoded = Utils.decodeNDEF(scan)
     console.log(decoded)
     const txid = await item.bindItem({
       tokenId: 2333,
-      assetPubKey: decoded.pubKey
+      assetPubKey: decoded.pubKey,
     })
     console.log(txid)
-
   })
 
-  it ('should bind', async () => {
+  it('should bind', async () => {
     const raw = `0x038a6dbe5e3402d2ef3b91a0c2c54ae36c884a83954c648b7410e491ae54c031e4;0x029ddaebadfa726d7ce46b082246d8c3ff55e6013bc3abfd10a792bd4b3d6788bf
 0x032ee47f97287aad605e754ea6267e8c56a0a3d1bf6ecc907a30aeb15156329f67;0x032bc20e0ced329b371fb525f92e576158ba2da499148b1635fa2f8e93a4e0e274
 0x03353923b0a8213bcabfdf72bfc3f6ac4036292df4a39534f46b03a067ea471cc6;0x036f538ac820394a21bc834df8e62454fdde2511b5ece173e071b8e55aa8b71c4c
@@ -819,31 +804,28 @@ NeE8F7ZLhnFbMk3f8ZFV33kmvbA7JR1gek`
 0x039b25d7d1203f3d94d51659e02af300a59dc63fa501d04a249c5402fe1e84e07e;0x025aa3c7aca5a7b127dbbc5753f794229b6b6f937e60386558798e0649e4f4eb28
 0x023c5062a8c8d30fabe6a72c39d21124620cac575e59168d0b051d66e379d73ca1;0x03d3470e14cd8580194db475b9f0712c529e9f6461834f2e868f233e0df05123d0`
 
-
     const startingTokenId = 2306
 
     const item = new Item({
       account: ACCOUNT,
-      node
+      node,
     })
 
     const txids = []
     const rows = raw.split('\n')
     for (let i = 0; i < rows.length; i++) {
-      //const res = Utils.decodeNDEF(rows[i])
-      //console.log(res.pubKey, res.validSignature)
+      // const res = Utils.decodeNDEF(rows[i])
+      // console.log(res.pubKey, res.validSignature)
       const key = rows[i].split(';')[0].substring(2)
       console.log(startingTokenId + i)
 
-
       const txid = await item.bindItem({
         tokenId: startingTokenId + i,
-        assetPubKey: key
+        assetPubKey: key,
       })
       txids.push(txid)
 
       console.log(startingTokenId + i, key, txid)
-
     }
 
     for (let j = 0; j < txids.length; j++) {
@@ -853,28 +835,24 @@ NeE8F7ZLhnFbMk3f8ZFV33kmvbA7JR1gek`
         timeout: 60000,
       })
       console.log(txids[j], log.executions[0].vmstate)
-
-
     }
   })
 
-  it('should hammer ghostmarket', async function() {
-    const item = new Item({}
-    )
+  it('should hammer ghostmarket', async function () {
+    const item = new Item({})
     const ts = await item.totalSupply()
 
     for (let i = 1700; i <= ts; i++) {
       const tokenId = u.hex2base64(u.reverseHex(u.int2hex(i)))
 
-      const data: any = { "data": { "chain": "n3", "contract": "0x904deb56fdd9a87b48d89e0cc0ac3415f9207840", tokenId}}
+      const data: any = { data: { chain: 'n3', contract: '0x904deb56fdd9a87b48d89e0cc0ac3415f9207840', tokenId } }
       try {
-        const res = await axios.patch('https://api.ghostmarket.io/api/v2/metadataRefresh', data)
+        await axios.patch('https://api.ghostmarket.io/api/v2/metadataRefresh', data)
         console.log(i, tokenId)
       } catch (e) {
         // @ts-ignore
         console.log('   ', e.response.data)
       }
-
     }
   })
   /*
@@ -1094,5 +1072,4 @@ NeE8F7ZLhnFbMk3f8ZFV33kmvbA7JR1gek`
 
 
    */
-
 })
