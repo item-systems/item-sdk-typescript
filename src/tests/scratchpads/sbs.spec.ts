@@ -1,5 +1,5 @@
 import { NeonParser } from '@cityofzion/neon-parser'
-import { Item, Utils, types, Quests } from '../src'
+import { Item, Utils, types, Quests } from '../../index'
 import Neon, { u } from '@cityofzion/neon-core'
 import { NetworkOption } from '@cityofzion/props/dist/interface'
 import { NeonInvoker } from '@cityofzion/neon-invoker'

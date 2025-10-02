@@ -1,4 +1,4 @@
-import { Item, Utils } from '../src'
+import { Item, Utils } from '../../index'
 import { wallet } from '@cityofzion/neon-core'
 
 describe('Denver Walls Scratchpad', function () {

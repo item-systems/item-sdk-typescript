@@ -1,5 +1,5 @@
 import { NeonParser } from '@cityofzion/neon-parser'
-import { constants, Item, Utils } from '../src'
+import { Item, Utils } from '../../index'
 import { Generator } from '@cityofzion/props'
 import Neon, { u } from '@cityofzion/neon-core'
 import { assert } from 'chai'
@@ -13,7 +13,7 @@ describe('Consensus 2023', function () {
 
   // populate with contract admin
   const ACCOUNT = new Neon.wallet.Account('')
-  const node = constants.NetworkOption.MainNet
+  const node = 'http://seed4.neo.org:10332'
   const network = NetworkOption.MainNet
 
   it('should get the generator', async function () {
@@ -46,8 +46,8 @@ describe('Consensus 2023', function () {
   })
 
   it('Should create an item epoch using the new generator instance', async function () {
-    const maxSupply = 350
-    const generatorInstanceId = 22
+    const maxSupply = 10000
+    const generatorInstanceId = 23
 
     const item = new Item({
       account: ACCOUNT,
@@ -55,7 +55,7 @@ describe('Consensus 2023', function () {
     })
 
     const txid = await item.createEpoch({
-      label: 'Neo x Paris Blockchain Week 2024',
+      label: 'Tech Demos',
       generatorInstanceId,
       mintFee: 1000 * 10 ** 8,
       sysFee: 0.25 * 10 ** 8,
@@ -88,13 +88,13 @@ describe('Consensus 2023', function () {
       const epoch = await item.getEpochJSON({
         epochId: i,
       })
-      console.log(epoch)
+      console.log(epoch.epochId, epoch.label, epoch.generatorInstanceId)
     }
   })
 
   it('Should set use permissions for the generator instance', async function () {
     const epochId = 16
-    const generatorInstanceId = 22
+    const generatorInstanceId = 23
 
     const authorizedContracts = [
       {
@@ -102,7 +102,7 @@ describe('Consensus 2023', function () {
         code: epochId,
       },
     ]
-    const generator = await new Generator({
+    const generator = new Generator({
       scriptHash: '0x0e312c70ce6ed18d5702c6c5794c493d9ef46dc9',
       network,
     })
@@ -122,27 +122,29 @@ describe('Consensus 2023', function () {
     const r = await generator.getGeneratorInstanceJSON(generatorInstanceId)
     console.log(r)
   })
-  /*
 
   it('it should get the item with the public key', async function () {
-    const sdk = await getSDK()
-    const item = await sdk.getAssetItemJSON({
-      assetPubKey: '03d4dbc966d4e2c43be0beab56859c1dd04bb1f542d1562d6531064574023dfad5',
+    const item = new Item({
+      account: ACCOUNT,
     })
-    console.log(item)
+    const i = await item.getAssetItemJSON({
+      assetPubKey: '03dbecb91c7187b90133beda7aedbff4d7da3e02ef5782d90c3e2f9dddd6f228a2',
+    })
+    console.log(i)
   })
 
   it('should get the user', async function () {
-    const sdk = await getSDK(ACCOUNT)
-    const res = await sdk.getUserJSON({
+    const item = new Item({
+      account: ACCOUNT,
+    })
+    const res = await item.getUserJSON({
       address: ACCOUNT.address,
     })
     console.log(res)
   })
 
-   */
   it('Should decode NDEF', async function () {
-    const draw = `https://itm.st/pp/1cf8?d=BAIKMzXwzSAgtb6Un_xeWVBhVbxtuf8Ubb4CRiCNgzWGBAeIqApEao8feFWbXcmBYbjjJfFJ5a22OkRIJ_Hc16wAAAAABjBFAiALD0WzOTRT4WG5UqAS_.E4.qmljDWNmNiPBKLe1FYLkgIhAISJ_jBP9FzR3FRrDYuYwxUa98zt5SgzQ98cp4RzJTYC`
+    const draw = `https://itm.st/ap/1cf8?d=BLbwwkdTUXiuRF9Wklo_.AU3IzbRyaCIBvdxnWL5BYeT.vjkAGKMHUUzAJ99yk0D_GUwsDQ2OAczFPRHr6HcI4gAAAAACzBGAiEA4hmraLDLt_SBhhbcaNK2DVEGZQJPdv6wCArBYwZEuCQCIQCWas9wv6cKSvwG4YIiK_VFAalP89NSMCY3ZzovbET7AA--`
     draw.split('\n').forEach(d => {
       const res = Utils.decodeNDEF(d)
       console.log(res.pubKey, res.validSignature)
@@ -150,7 +152,7 @@ describe('Consensus 2023', function () {
   })
 
   it('Should mint', async function () {
-    const epochId = 10
+    const epochId = 24
 
     const item = new Item({
       account: ACCOUNT,
@@ -161,7 +163,7 @@ describe('Consensus 2023', function () {
     })
     console.log(admin)
 
-    for (let i = 0; i < 1; i++) {
+    for (let i = 0; i < 40; i++) {
       const txid = await item.offlineMint({
         epochId,
         address: ACCOUNT.address,
@@ -191,6 +193,19 @@ describe('Consensus 2023', function () {
 
 
      */
+  })
+
+  it('Should toggle bind on pickup', async function () {
+    const tokenId = 2305
+    const item = new Item({
+      account: ACCOUNT,
+      node,
+    })
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const token = await item.setBindOnPickup({
+      tokenId,
+      state: false,
+    })
   })
 
   /*
@@ -726,25 +741,26 @@ NeE8F7ZLhnFbMk3f8ZFV33kmvbA7JR1gek`
   it('should get a token', async function () {
     const item = new Item({
       account: ACCOUNT,
+      node,
     })
-    const tokenId = 1700
+    // wachsman 2141 - 2174
+    // SEP 2175 - 2204
+    // COZ 2205 - 2234
+    // IS 2235 - 2264
 
-    // claim the asset
-    const token = await item.getItemJSON({
-      tokenId,
-    })
-    console.log(token)
-
-    // const txid = await item.unbindToken({
-    //  tokenId
-    // })
+    // eslint-disable-next-line no-unreachable-loop
+    for (let tokenId = 2306; tokenId <= 2380; tokenId++) {
+      // claim the asset
+      const token = await item.getItemJSON({
+        tokenId,
+      })
+      console.log(token)
+      break
+    }
   })
 
   it('should decode a scan and bind', async function () {
-    const scan =
-      'https://itm.st/ap/1cf8?d=BCE2OoyqWiQ5B7GXmvqEo3Fw.kA6jnR4vwDtYGW5OBXEB6y4Azw7TS.Qr5wkUJC_rsGMAr7ejXyqiFOSBaO_0rcAAAAABTBFAiEAuDMnjze.0McjJAXhCd3FI3qR5qghWkzwGjp5hZ0oxz4CIFPq0DX4s3u1ele3Cs.c4Y2bk1ElMudz89B3itzciIkE'
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const scan = `https://itm.st/na/a6fd?d=BLePAk6xqtohqJKYb2HuqJ2pGsfQC_KlC4j1IpPwgDltvU1vNXviapeCeotvG2DmMc50Fa9xrS9N7kgJ6Bar.K8AAAAANDBEAiBmlfpojDViZ34Wh6yznRQy6NNdbCW8vA8Tf6XMkBLfFQIgWBhzI8X_Sxqdp9a1PRli4R0UsyXap.NKvm0KeNY6amY-`
     const item = new Item({
       account: ACCOUNT,
       node,
@@ -752,18 +768,43 @@ NeE8F7ZLhnFbMk3f8ZFV33kmvbA7JR1gek`
 
     const decoded = Utils.decodeNDEF(scan)
     console.log(decoded)
-    /*
     const txid = await item.bindItem({
-      tokenId: 1769,
-      assetPubKey: decoded.pubKey
+      tokenId: 2333,
+      assetPubKey: decoded.pubKey,
     })
     console.log(txid)
-
-     */
   })
+
   it('should bind', async () => {
-    const raw = `02b2de11fb3dcedbd93e82c963ff7333705a85195bdaa7d927a925a8d9b50850f8`
-    const startingTokenId = 2140
+    const raw = `0x038a6dbe5e3402d2ef3b91a0c2c54ae36c884a83954c648b7410e491ae54c031e4;0x029ddaebadfa726d7ce46b082246d8c3ff55e6013bc3abfd10a792bd4b3d6788bf
+0x032ee47f97287aad605e754ea6267e8c56a0a3d1bf6ecc907a30aeb15156329f67;0x032bc20e0ced329b371fb525f92e576158ba2da499148b1635fa2f8e93a4e0e274
+0x03353923b0a8213bcabfdf72bfc3f6ac4036292df4a39534f46b03a067ea471cc6;0x036f538ac820394a21bc834df8e62454fdde2511b5ece173e071b8e55aa8b71c4c
+0x03ed28bde9c8856b62310fa6394eb7e920392bf4b4e9e6664a77c58fa5b6c13767;0x030d7528e659d26c5e921aaead8a295062934d4eb6af1f12d67335eef0040eea12
+0x03ce4d7f84e6c23cecbe1a26dafe315b0a2965ca34d0c9ebfb9a7e18bc8f716fe5;0x03fef743832058b6f44c74efb7367e745990b29ff58a52be82f287954a76af3279
+0x03e287a40fede1ed16a4670c37b40e725d2532774580f384fc31fcc95f15a05799;0x029165c7394cf30586ac8a6e3f4c20064c30d2bb6bc1520acfbec8ae6029243f98
+0x0395f44261e5d245a95d6203610554ea3bb7fefddc8522b38d438d95c37d4d8038;0x0235f615da5ee899cf38a551d8b7aba30334691ebfffd3f20fa4941bea6850a611
+0x0209d9a7a6b6d282ca822a2e3e43a2baf6f8cd4356422dc5f370141033bed2864c;0x027f60cccd9b76331e3004324adac3926f832c2053adb62ffa86c11f7ceee88b9a
+0x025b23ebe52b6bbd70bd7a0d956d094dddb43be8c9738603ef05c4a7fe483f5d49;0x03547c39939fbc58940a98f7f2142dc7222fa84956c40e9b110db7fa24c171e43f
+0x02fd39c4e5fbddc1fa668709717ff2e853ecb602375eca75c5fe03d23772b2c8af;0x02664e7d312a021725f5322992617f9fda77c7a6d747d4ad433dfcb6d4b2ed45aa
+0x038fa69ab3f3f386de83c19170e4dfe400f8f94d7a5257e34dc46a04db55b9f205;0x02dff60faedb9bad4b5465f685a4c492adbf11f5f34270ddd26c292ecc9915754a
+0x028d4660fe849de0559c2c6918a9932acc9581610f7f75e2a4e4b05a3827062edb;0x03773d62eab68fcb415a7100cb27c59acec5fdc99d380f8a468c9960131ae5e703
+0x03659b10801eb4b3b89a10cebbb2f376f664f7187ca4c9bf314edd68fb1196852e;0x0395b4f620df942dcba5f5ebc05bbb6b186b66312acfcf7f05e4227eac3730933b
+0x03ef9d21509d64713d9e1e11fd62a9b1e77b2eb1d6c20f7c696c9a595b8b4d8001;0x020a9eb4d8dba9dbb84d7b61750c59373a15e4d471a56b49ea5bca71496c1e0f16
+0x0219cf9afcdf8f77f4d382b3f0396a155b1163d364219c1a6fb0908f4916b8740f;0x02dedd7601b58554fa6f85e742a6924bebe14cb075b0ea13fc5100859dfd65fb91
+0x039d8a73166f79d5c2f5f540a77c4b342a562e1e895faeb1312b3475e2e4162939;0x03f711dadbd2eb1fd44a0c3675586ef506753c17a30f86f02905bb5382a90c0fc9
+0x03b6c96e00133655720ec54e11451926109793344c769254dc6a7767fb322ebd06;0x02dbff28024ad17b25984f211197b60eb55481bc102707d4e06d4fa72403d63a71
+0x023c9552cb291397889ea1b24f8ab06a74a9a567f049fd331ecbb8e50de14dec66;0x02fcc73a5b085369a7ee2a08d2b290d8c52785aa09df48936847c0a3f9f03758e3
+0x0361130e8bd953fdc41648c6f3991d9cdc6f3fc95255510e8a4b439f2d6f7fc376;0x029a3bf7be1577abbb0a160905076161ab518e05c603cf2538de7d3aa152994817
+0x0278bfb41f03d795fac4caa2166b80b4503cbfc53dd52db77b8b4e6860c93781e7;0x03f1eb7344cd813db6527d7c034dab23b8f7cf5c934348aef23ed13a3c51a1b519
+0x034eeb1f4d8333e48e440e6d5f35e032d0c71697ce24576623a635ad617eb9994c;0x03c26a8294407876f4a8ea4c7328fa6c8dc99413ce1cad04eed6378c374fcfc417
+0x033903c6bcc813a47c932d561f1d0877340d7a739d56ba490a0e5344e5d4bdacd4;0x03bc0d0d484af9cf0e0962b0e49a137cc59864b7762ad20182886b7d468dc7c462
+0x037fa696dbcfe1591859093f672af3d5d8cc786ef5f16b86e9f9789af241d62154;0x030a9ef2badff794a2990daee78b1e86f01af31c8c844e99db3ab8a6f914bf9faa
+0x02b3e0f8f15f716e56d34336f51d77f8309990a0ee3ff2f687efec93064cd8f626;0x0342d45b558f4342b455ba3ced338fb0fcabae3608804f86cab474e06660cdee01
+0x033ae52d99617e824e3676c66537e00536d185b6a7c8c3c8cbfa16802654b847f8;0x0295f1ddc74f66eed21173ff659afb6481fa3b32e66269ccedf0a3575273eda848
+0x039b25d7d1203f3d94d51659e02af300a59dc63fa501d04a249c5402fe1e84e07e;0x025aa3c7aca5a7b127dbbc5753f794229b6b6f937e60386558798e0649e4f4eb28
+0x023c5062a8c8d30fabe6a72c39d21124620cac575e59168d0b051d66e379d73ca1;0x03d3470e14cd8580194db475b9f0712c529e9f6461834f2e868f233e0df05123d0`
+
+    const startingTokenId = 2306
 
     const item = new Item({
       account: ACCOUNT,
@@ -773,8 +814,10 @@ NeE8F7ZLhnFbMk3f8ZFV33kmvbA7JR1gek`
     const txids = []
     const rows = raw.split('\n')
     for (let i = 0; i < rows.length; i++) {
-      const key = rows[i].split(';')[0]
-      console.log(key)
+      // const res = Utils.decodeNDEF(rows[i])
+      // console.log(res.pubKey, res.validSignature)
+      const key = rows[i].split(';')[0].substring(2)
+      console.log(startingTokenId + i)
 
       const txid = await item.bindItem({
         tokenId: startingTokenId + i,
@@ -784,20 +827,15 @@ NeE8F7ZLhnFbMk3f8ZFV33kmvbA7JR1gek`
 
       console.log(startingTokenId + i, key, txid)
     }
-    /*
 
     for (let j = 0; j < txids.length; j++) {
       const log = await Utils.transactionCompletion(txids[j], {
         period: 1000,
         node,
-        timeout: 30000,
+        timeout: 60000,
       })
       console.log(txids[j], log.executions[0].vmstate)
-
-
     }
-
-     */
   })
 
   it('should hammer ghostmarket', async function () {
