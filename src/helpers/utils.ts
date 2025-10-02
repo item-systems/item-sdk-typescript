@@ -16,7 +16,7 @@ export class Utils {
     for (let i = 0; i < Math.floor(options.timeout / options.period); i++) {
       try {
         return await client.getApplicationLog(txid)
-      } catch (e) {}
+      } catch {}
       await this.sleep(options.period)
     }
     throw new Error('Unable to locate the requested transaction.')
@@ -78,7 +78,7 @@ export class Utils {
     let validSignature
     try {
       validSignature = wallet.verify(msg, sig, pubKey)
-    } catch(e) {
+    } catch {
       validSignature = false
     }
     const uriPubKey = this.encodePublicKey(pubKeyUnencoded)
@@ -99,15 +99,16 @@ export class Utils {
 
   static processDERSignature(sigBytes: Uint8Array): Uint8Array {
     // Drop the first three bytes. They are always `30 46 02`
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const header = {
       structure: sigBytes[0],
-      length: sigBytes[1]
+      length: sigBytes[1],
     }
 
     const bodyRaw = sigBytes.slice(2)
     let rPointer = 0
 
-    let body = {
+    const body = {
       rHeader: 0,
       rLength: 0,
       r: new Uint8Array(),
@@ -124,7 +125,7 @@ export class Utils {
 
     // account for "high r"
     const rRaw = bodyRaw.slice(rPointer, rPointer + body.rLength)
-    body.r = (rRaw[0] === 0x00 && rRaw[1] > 0x7F) ? rRaw.slice(1) : rRaw
+    body.r = rRaw[0] === 0x00 && rRaw[1] > 0x7f ? rRaw.slice(1) : rRaw
     rPointer += body.rLength
 
     body.sHeader = bodyRaw[rPointer]
@@ -134,7 +135,7 @@ export class Utils {
     rPointer += 1
 
     const sRaw = bodyRaw.slice(rPointer, rPointer + body.sLength)
-    body.s = (sRaw[0] === 0x00 && sRaw[1] > 0x7F) ? sRaw.slice(1) : sRaw
+    body.s = sRaw[0] === 0x00 && sRaw[1] > 0x7f ? sRaw.slice(1) : sRaw
 
     const concat = new Uint8Array(body.r.length + body.s.length)
     concat.set(body.r)
@@ -144,39 +145,38 @@ export class Utils {
 
   static isPublicKey(key: string, encoded?: boolean): boolean {
     try {
-      let encodedKey;
+      let encodedKey
       switch (key.substr(0, 2)) {
-        case "04":
+        case '04':
           if (encoded === true) {
-            return false;
+            return false
           }
           // Encode key
-          encodedKey = wallet.getPublicKeyEncoded(key);
-          break;
-        case "02":
-        case "03":
+          encodedKey = wallet.getPublicKeyEncoded(key)
+          break
+        case '02':
+        case '03':
           if (encoded === false) {
-            return false;
+            return false
           }
-          encodedKey = key;
-          break;
+          encodedKey = key
+          break
         default:
-          return false;
+          return false
       }
-      const unencoded = wallet.getPublicKeyUnencoded(encodedKey);
-      const tail = parseInt(unencoded.substr(unencoded.length - 2, 2), 16);
-      if (encodedKey.substr(0, 2) === "02" && tail % 2 === 0) {
-        return true;
+      const unencoded = wallet.getPublicKeyUnencoded(encodedKey)
+      const tail = parseInt(unencoded.substr(unencoded.length - 2, 2), 16)
+      if (encodedKey.substr(0, 2) === '02' && tail % 2 === 0) {
+        return true
       }
-      if (encodedKey.substr(0, 2) === "03" && tail % 2 === 1) {
-        return true;
+      if (encodedKey.substr(0, 2) === '03' && tail % 2 === 1) {
+        return true
       }
-      return false;
-    } catch (e) {
-      return false;
+      return false
+    } catch {
+      return false
     }
   }
-
 
   static async sleep(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms))
