@@ -1,21 +1,32 @@
-import { NeonInvoker } from '@cityofzion/neon-invoker'
-import { NeonParser } from '@cityofzion/neon-parser'
-import { Item, Utils, constants, Quests, types } from "../dist/esm";
+import { Item, Utils, constants, Quests, types } from '../src'
 import { Generator } from '@cityofzion/props'
 // @ts-ignore
 import Neon from '@cityofzion/neon-core'
-import { assert, config } from "chai";
+import { ITEM_PRIVATENET } from "../src/tests/common";
+import { NeonInvoker } from "@cityofzion/neon-invoker";
+import { NeonParser } from "@cityofzion/neon-parser";
 
 describe('Bind on pickup', function () {
   this.timeout(0)
 
+  const scriptHash = ITEM_PRIVATENET
+  const NODE = 'http://127.0.0.1:50012'
+
+  const getSDK = async (account?: any) => {
+    return new Item({
+      scriptHash,
+      invoker: await NeonInvoker.init(NODE, account),
+      parser: NeonParser,
+    })
+  }
+
   // populate with contract admin
   const ACCOUNT = new Neon.wallet.Account('')
-  const claimAccountA = new Neon.wallet.Account('L1yL2phrYR6PbCz1auvCUk5rqyPB8iqEq1wf1xibJuUtvwiAYT5c')
-  const claimAccountB = new Neon.wallet.Account('L41qFGsuktHsJWJAWzXprMCtuoMyz9CDA5ZqRG8T1DQn9ZjNjCCj')
-  const claimAccountC = new Neon.wallet.Account('KxDVupafdhghya57boXvbZevh61nFzJCCWFb2swuVbqBuDLBz9vm')
-  const claimAccountD = new Neon.wallet.Account('L2t6CPFcKoB15cdGD4ybBMbr9Qx8vJ8zT1s7WTPtDNYzmJxzrZZE')
-  //console.log(claimAccountA.WIF, claimAccountB.WIF, claimAccountC.WIF, claimAccountD.WIF)
+  // const claimAccountA = new Neon.wallet.Account('L1yL2phrYR6PbCz1auvCUk5rqyPB8iqEq1wf1xibJuUtvwiAYT5c')
+  // const claimAccountB = new Neon.wallet.Account('L41qFGsuktHsJWJAWzXprMCtuoMyz9CDA5ZqRG8T1DQn9ZjNjCCj')
+  // const claimAccountC = new Neon.wallet.Account('KxDVupafdhghya57boXvbZevh61nFzJCCWFb2swuVbqBuDLBz9vm')
+  // const claimAccountD = new Neon.wallet.Account('L2t6CPFcKoB15cdGD4ybBMbr9Qx8vJ8zT1s7WTPtDNYzmJxzrZZE')
+  // console.log(claimAccountA.WIF, claimAccountB.WIF, claimAccountC.WIF, claimAccountD.WIF)
 
   it('Should generate some keys', async function () {
     for (let i = 0; i < 8; i++) {
@@ -43,7 +54,6 @@ describe('Bind on pickup', function () {
   })
   */
 
-
   it('Should get the generators', async function () {
     const generator = await new Generator({
       node: constants.NetworkOption.LocalNet,
@@ -51,7 +61,7 @@ describe('Bind on pickup', function () {
     })
     await generator.init()
 
-    const total = await generator.totalGenerators()
+    const total = (await generator.totalGenerators()) as number
     console.log(total)
     for (let i = 1; i <= total; i++) {
       console.log(i)
@@ -59,15 +69,13 @@ describe('Bind on pickup', function () {
       console.log(gen)
     }
 
-    const ok = await generator.totalGeneratorInstances()
+    const ok = (await generator.totalGeneratorInstances()) as number
     console.log(ok)
     for (let i = 1; i <= ok; i++) {
       console.log(i)
       const gen = await generator.getGeneratorInstanceJSON(i)
       console.log(gen)
     }
-
-
   })
   /*
 
@@ -117,19 +125,16 @@ describe('Bind on pickup', function () {
     console.log(token)
   })
 
-   */
-
   it('should bind', async function () {
     const item = new Item({
-      account: ACCOUNT
+      account: ACCOUNT,
     })
 
-
     const scans = [
-'https://itm.st/mp/1cf8?d=BKk.eDIRE9JhFQ3Je20ml2u6ZdpeG_Am7Z6De7bgtEIpaDFHYNbcpGIf.GeSjyWTURMrWS6pk_uVdbInEHnb5L0AAAAABzBFAiEA45bzNFTX4XP_vyHuU46xpWJP0HWwQKzg2IVMHeJIDUwCIDfEhnf0q9RWEnYfnx_EcAzsAZl7OdviYlJn1fPie3Kr',
-      'https://itm.st/mp/1cf8?d=BLTU93XlL5_QQXdFFYzoLO2WjRBNC1AHNMwVqggt22g9V_yl0T5MD47YDTcxZfF_xNLMvIhsbFrwVmiZdnDu9zQAAAAACDBFAiAhpmGFii27GaSQKh9voGMkZBJw2zggNAmi1uzwgXOvzwIhAK79H0ls3fYimkLs3WRQzXuNZFYcvteE_j1lAgyuotr.'
-      ]
-    const tkid = [ 1766, 1767 ]
+      'https://itm.st/mp/1cf8?d=BKk.eDIRE9JhFQ3Je20ml2u6ZdpeG_Am7Z6De7bgtEIpaDFHYNbcpGIf.GeSjyWTURMrWS6pk_uVdbInEHnb5L0AAAAABzBFAiEA45bzNFTX4XP_vyHuU46xpWJP0HWwQKzg2IVMHeJIDUwCIDfEhnf0q9RWEnYfnx_EcAzsAZl7OdviYlJn1fPie3Kr',
+      'https://itm.st/mp/1cf8?d=BLTU93XlL5_QQXdFFYzoLO2WjRBNC1AHNMwVqggt22g9V_yl0T5MD47YDTcxZfF_xNLMvIhsbFrwVmiZdnDu9zQAAAAACDBFAiAhpmGFii27GaSQKh9voGMkZBJw2zggNAmi1uzwgXOvzwIhAK79H0ls3fYimkLs3WRQzXuNZFYcvteE_j1lAgyuotr.',
+    ]
+    const tkid = [1766, 1767]
 
     for (let i = 0; i < tkid.length; i++) {
       // claim the asset
@@ -149,16 +154,8 @@ describe('Bind on pickup', function () {
         node: constants.NetworkOption.MainNet,
       })
       console.log(res)
-
     }
-
-
-
-
-
-
   })
-
 
   it('should get a token', async function () {
     const item = new Item()
@@ -277,31 +274,24 @@ describe('Bind on pickup', function () {
 
   it('should unbind an digital twin', async function () {
     const sdk = new Item({
-      account: ACCOUNT
+      account: ACCOUNT,
     })
 
-    const tokenIds = [1712, 1716, 1718 ]
+    const tokenIds = [1712, 1716, 1718]
 
-
-
-
-  for (let i = 0; i < tokenIds.length; i++) {
-    const txid = await sdk.unbindToken({
-      tokenId: tokenIds[i],
-    })
-    console.log(tokenIds[i], txid)
-    const res = await Utils.transactionCompletion(txid, {
-      period: 1000,
-      timeout: 30000,
-      node: constants.NetworkOption.MainNet,
-    })
-    console.log(res)
-
-  }
-
-
+    for (let i = 0; i < tokenIds.length; i++) {
+      const txid = await sdk.unbindToken({
+        tokenId: tokenIds[i],
+      })
+      console.log(tokenIds[i], txid)
+      const res = await Utils.transactionCompletion(txid, {
+        period: 1000,
+        timeout: 30000,
+        node: constants.NetworkOption.MainNet,
+      })
+      console.log(res)
+    }
   })
-
 
   it('should transfer the token around', async function () {
     const ACCOUNT = new Neon.wallet.Account('')
@@ -310,7 +300,7 @@ describe('Bind on pickup', function () {
     const recipient = new Neon.wallet.Account('NiBd5mK247pwPopyffHBCEDQZvqSXTKN5P')
     const to = recipient.address
     const sdk = new Item({
-      account: ACCOUNT
+      account: ACCOUNT,
     })
 
     /*
@@ -320,7 +310,6 @@ describe('Bind on pickup', function () {
     })
 
      */
-
 
     console.log(from, to)
     const res = await sdk.transfer({
@@ -333,19 +322,20 @@ describe('Bind on pickup', function () {
 
   it('Should get an edge', async () => {
     const quests = new Quests({
-      account: ACCOUNT
+      account: ACCOUNT,
     })
     const quest = await quests.getQuestJSON({
-      questId: 2
+      questId: 2,
     })
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const edge = await quests.getEdgeJSON({
-      edgeId: quest.edges[0]
+      edgeId: quest.edges[0],
     })
 
     const edgeConditions: types.EdgeConditionITEMPick = {
       count: 3,
-      tokens: edge.condition.tokens.concat([1691, 1760, 1761, 1762, 1763]),
+      tokens: [], // edge.condition.tokens.concat([1691, 1760, 1761, 1762, 1763]), // tokens doesn't exist on EdgeType
     }
 
     const params = {
@@ -356,5 +346,4 @@ describe('Bind on pickup', function () {
     const txid = await quests.setEdgeCondition(params)
     console.log(txid)
   })
-
 })

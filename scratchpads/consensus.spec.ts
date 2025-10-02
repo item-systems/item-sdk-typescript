@@ -1,7 +1,6 @@
-import { NeonInvoker } from '@cityofzion/neon-invoker'
 import { NeonParser } from '@cityofzion/neon-parser'
-import { Item, Utils } from '../dist/esm'
-import { Generator, Collection, types } from '@cityofzion/props'
+import { Utils } from '../src'
+import { Generator } from '@cityofzion/props'
 import Neon from '@cityofzion/neon-core'
 import { assert } from 'chai'
 import { NetworkOption } from '@cityofzion/props/dist/interface'
@@ -14,12 +13,12 @@ describe('Consensus 2023', function () {
   // populate with contract admin
   const ACCOUNT = new Neon.wallet.Account('')
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const scriptHash = NetworkOption.MainNet
   const NODE = 'https://mainnet2.neo2.coz.io:443'
 
-
   it('should get the generator', async function () {
-    const generator = await new Generator({
+    const generator = new Generator({
       scriptHash: '0x0e312c70ce6ed18d5702c6c5794c493d9ef46dc9',
       network: NetworkOption.MainNet,
     })
@@ -30,7 +29,7 @@ describe('Consensus 2023', function () {
 
   it('should create a new generator instance', async function () {
     console.log(ACCOUNT.address)
-    const generator = await new Generator({
+    const generator = new Generator({
       scriptHash: '0x0e312c70ce6ed18d5702c6c5794c493d9ef46dc9',
       network: NetworkOption.MainNet,
     })
@@ -386,5 +385,4 @@ describe('Consensus 2023', function () {
 
 
    */
-
 })
