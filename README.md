@@ -31,15 +31,15 @@ Scopes are broken into classes, typically falling along contract lines.
 ```ts
 const item = new Item()
 const itemJSON = await item.getItemJSON({
-  tokenId: 8
+  tokenId: 8,
 })
 ```
 
 #### Getting a Quest:
+
 ```ts
 const quests = new Quests()
 const itemJSON = await quests.getQuestJSON({
-  questId: 1
+  questId: 1,
 })
 ```
-

@@ -2,9 +2,9 @@ import { Item, Utils, constants, Quests, types } from '../src'
 import { Generator } from '@cityofzion/props'
 // @ts-ignore
 import Neon from '@cityofzion/neon-core'
-import { ITEM_PRIVATENET } from "../src/tests/common";
-import { NeonInvoker } from "@cityofzion/neon-invoker";
-import { NeonParser } from "@cityofzion/neon-parser";
+import { ITEM_PRIVATENET } from '../src/tests/common'
+import { NeonInvoker } from '@cityofzion/neon-invoker'
+import { NeonParser } from '@cityofzion/neon-parser'
 
 describe('Bind on pickup', function () {
   this.timeout(0)

@@ -196,7 +196,7 @@ describe('Authentication', function () {
     txid = await sdk.offlineMint({
       epochId,
       address: ACCOUNT.address,
-      bindOnPickup: true // TODO: should it be True or False
+      bindOnPickup: true, // TODO: should it be True or False
     })
     log = await Utils.transactionCompletion(txid)
     const tokenId = NeonParser.parseRpcResponse(log.executions[0].stack![0])
