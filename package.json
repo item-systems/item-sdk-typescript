@@ -39,7 +39,9 @@
     "@cityofzion/props": "^0.2.5",
     "@noble/curves": "1.9.7",
     "@noble/hashes": "2.0.0",
-    "axios": "1.12.2",
+    "axios": "1.12.2"
+  },
+  "optionalDependencies": {
     "pcsc-mini": "^0.1.3"
   },
   "devDependencies": {
