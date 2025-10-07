@@ -1,0 +1,16 @@
+/**
+ * ISO7816 status words returned from the Item firmware.
+ */
+export const enum StatusWord {
+  OK = 0x9000,
+  NO_MASTER_KEY_PRESENT = 0x6a10,
+  OUT_OF_MASTER_KEY_SLOTS = 0x6a11,
+  WRONG_LENGTH = 0x6700,
+  WRONG_DATA = 0x6a80,
+  INCORRECT_P1P2 = 0x6a86,
+  SECURITY_STATUS_NOT_SATISFIED = 0x6982,
+  SW_CONDITIONS_NOT_SATISFIED = 0x6985,
+  INS_NOT_SUPPORTED = 0x6d00,
+  CLA_NOT_SUPPORTED = 0x6e00,
+  UNKNOWN_ERROR = 0x6f00,
+}
