@@ -1,5 +1,4 @@
-import { NeonInvoker } from '@cityofzion/neon-invoker'
-import { NeonParser } from '@cityofzion/neon-parser'
+import { NeonInvoker, NeonParser } from '@cityofzion/neon-dappkit'
 import { Item, Utils } from '../'
 import { ITEM_PRIVATENET } from './common'
 import { Generator } from '@cityofzion/props'
@@ -22,7 +21,7 @@ describe('Minting', function () {
   const getSDK = async (account?: any) => {
     return new Item({
       scriptHash,
-      invoker: await NeonInvoker.init(NODE, account),
+      invoker: await NeonInvoker.init({ rpcAddress: NODE, account }),
       parser: NeonParser,
     })
   }
@@ -76,7 +75,8 @@ describe('Minting', function () {
     })
     const log = await Utils.transactionCompletion(txid)
     const event = NeonParser.parseRpcResponse(log.executions[0].notifications![0].state, {
-      ByteStringToScriptHash: true,
+      type: 'Hash160',
+      hint: 'ScriptHash',
     })
 
     assert.equal(event[0], undefined)
@@ -84,9 +84,7 @@ describe('Minting', function () {
     assert.equal(event[2], 1)
 
     const res = log.executions[0].stack![0]
-    const parsed = NeonParser.parseRpcResponse(res, {
-      ByteStringToScriptHash: true,
-    })
+    const parsed = NeonParser.parseRpcResponse(res, { type: 'Hash160', hint: 'ScriptHash' })
     assert.equal(event[3], parsed)
     tokenId = parseInt(u.reverseHex(u.base642hex(res.value as string)), 16)
   })

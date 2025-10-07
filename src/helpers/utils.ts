@@ -1,9 +1,11 @@
-import { rpc, sc, u, wallet } from '@cityofzion/neon-core'
+import { sc, u, wallet } from '@cityofzion/neon-core'
 import { pollingOptions } from '../types'
 import { experimental } from '@cityofzion/neon-js'
+import { NeonEventListener } from '@cityofzion/neon-dappkit'
+import { Neo3ApplicationLog } from '@cityofzion/neon-dappkit-types'
 
 export class Utils {
-  static async transactionCompletion(txid: string, opts?: pollingOptions): Promise<rpc.ApplicationLogJson> {
+  static async transactionCompletion(txid: string, opts?: pollingOptions): Promise<Neo3ApplicationLog> {
     let options = {
       period: 500,
       timeout: 2500,
@@ -11,11 +13,11 @@ export class Utils {
     }
     options = { ...options, ...opts }
 
-    const client = new rpc.RPCClient(options.node)
+    const eventListener = new NeonEventListener(options.node)
 
     for (let i = 0; i < Math.floor(options.timeout / options.period); i++) {
       try {
-        return await client.getApplicationLog(txid)
+        return await eventListener.waitForApplicationLog(txid, opts?.timeout)
       } catch {}
       await this.sleep(options.period)
     }

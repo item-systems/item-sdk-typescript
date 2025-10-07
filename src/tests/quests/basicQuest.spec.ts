@@ -1,4 +1,4 @@
-import { NeonParser } from '@cityofzion/neon-parser'
+import { NeonParser } from '@cityofzion/neon-dappkit'
 import { constants, Quests, Utils } from '../../'
 // @ts-ignore
 import Neon from '@cityofzion/neon-core'

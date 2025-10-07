@@ -1,4 +1,4 @@
-import { Arg, ContractInvocation } from '@cityofzion/neo3-invoker'
+import { Arg, ContractInvocation } from '@cityofzion/neon-dappkit-types'
 import { u } from '@cityofzion/neon-core'
 import { EdgeConditionEpochPick, EdgeConditionITEMPick, EdgeResolutionITEMPick } from '../types'
 
@@ -25,7 +25,7 @@ export class QuestsAPI {
     return {
       scriptHash,
       operation: 'get_quest',
-      args: [{ type: 'Integer', value: params.questId }],
+      args: [{ type: 'Integer', value: params.questId.toString() }],
     }
   }
 
@@ -38,7 +38,7 @@ export class QuestsAPI {
     return {
       scriptHash,
       operation: 'get_quest_json',
-      args: [{ type: 'Integer', value: params.questId }],
+      args: [{ type: 'Integer', value: params.questId.toString() }],
     }
   }
 
@@ -56,7 +56,7 @@ export class QuestsAPI {
       args: [
         { type: 'String', value: params.title },
         { type: 'String', value: params.description },
-        { type: 'Integer', value: params.maxCompletions },
+        { type: 'Integer', value: params.maxCompletions.toString() },
       ],
     }
   }
@@ -72,7 +72,7 @@ export class QuestsAPI {
       scriptHash,
       operation: 'set_quest_active',
       args: [
-        { type: 'Integer', value: params.questId },
+        { type: 'Integer', value: params.questId.toString() },
         { type: 'Boolean', value: params.state },
       ],
     }
@@ -101,7 +101,7 @@ export class QuestsAPI {
     return {
       scriptHash,
       operation: 'get_edge',
-      args: [{ type: 'Integer', value: params.edgeId }],
+      args: [{ type: 'Integer', value: params.edgeId.toString() }],
     }
   }
 
@@ -114,7 +114,7 @@ export class QuestsAPI {
     return {
       scriptHash,
       operation: 'get_edge_json',
-      args: [{ type: 'Integer', value: params.edgeId }],
+      args: [{ type: 'Integer', value: params.edgeId.toString() }],
     }
   }
 
@@ -131,10 +131,10 @@ export class QuestsAPI {
       scriptHash,
       operation: 'create_edge',
       args: [
-        { type: 'Integer', value: params.questId },
+        { type: 'Integer', value: params.questId.toString() },
         { type: 'String', value: params.description },
-        { type: 'Integer', value: params.entryPoint },
-        { type: 'Integer', value: params.exitPoint },
+        { type: 'Integer', value: params.entryPoint.toString() },
+        { type: 'Integer', value: params.exitPoint.toString() },
       ],
     }
   }
@@ -152,18 +152,18 @@ export class QuestsAPI {
 
     if (params.conditionType === 1) {
       constraints = (params.condition as EdgeConditionITEMPick).tokens.map(tokenId => {
-        return { type: 'Integer', value: tokenId }
+        return { type: 'Integer', value: tokenId.toString() } as Arg
       })
       condition = [
-        { type: 'Integer', value: params.condition.count },
+        { type: 'Integer', value: params.condition.count.toString() },
         { type: 'Array', value: constraints },
       ]
     } else if (params.conditionType === 2) {
       constraints = (params.condition as EdgeConditionEpochPick).epochs.map(epochId => {
-        return { type: 'Integer', value: epochId }
+        return { type: 'Integer', value: epochId.toString() } as Arg
       })
       condition = [
-        { type: 'Integer', value: params.condition.count },
+        { type: 'Integer', value: params.condition.count.toString() },
         { type: 'Array', value: constraints },
       ]
     }
@@ -171,8 +171,8 @@ export class QuestsAPI {
       scriptHash,
       operation: 'set_edge_condition',
       args: [
-        { type: 'Integer', value: params.edgeId },
-        { type: 'Integer', value: params.conditionType },
+        { type: 'Integer', value: params.edgeId.toString() },
+        { type: 'Integer', value: params.conditionType.toString() },
         { type: 'Array', value: condition },
       ],
     }
@@ -193,7 +193,7 @@ export class QuestsAPI {
           return {
             type: 'Array',
             value: [
-              { type: 'Integer', value: res.tokenId },
+              { type: 'Integer', value: res.tokenId ? res.tokenId.toString() : '0' },
               { type: 'ByteArray', value: u.hex2base64(res.msg) },
               { type: 'ByteArray', value: u.hex2base64(res.sig) },
             ],
@@ -204,7 +204,7 @@ export class QuestsAPI {
       scriptHash,
       operation: 'traverse_edge',
       args: [
-        { type: 'Integer', value: params.edgeId },
+        { type: 'Integer', value: params.edgeId.toString() },
         { type: 'Array', value: resolution },
       ],
     }
@@ -233,7 +233,7 @@ export class QuestsAPI {
     return {
       scriptHash,
       operation: 'get_node',
-      args: [{ type: 'Integer', value: params.nodeId }],
+      args: [{ type: 'Integer', value: params.nodeId.toString() }],
     }
   }
 
@@ -246,7 +246,7 @@ export class QuestsAPI {
     return {
       scriptHash,
       operation: 'get_node_json',
-      args: [{ type: 'Integer', value: params.nodeId }],
+      args: [{ type: 'Integer', value: params.nodeId.toString() }],
     }
   }
 
@@ -274,8 +274,8 @@ export class QuestsAPI {
       scriptHash,
       operation: 'set_node_permissions',
       args: [
-        { type: 'Integer', value: params.nodeId },
-        { type: 'Integer', value: params.permissions },
+        { type: 'Integer', value: params.nodeId.toString() },
+        { type: 'Integer', value: params.permissions.toString() },
       ],
     }
   }
@@ -298,7 +298,7 @@ export class QuestsAPI {
       operation: 'get_quest_progress',
       args: [
         { type: 'Hash160', value: params.address },
-        { type: 'Integer', value: params.questId },
+        { type: 'Integer', value: params.questId.toString() },
       ],
     }
   }

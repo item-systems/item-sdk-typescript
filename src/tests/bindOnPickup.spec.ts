@@ -1,7 +1,6 @@
-import { NeonInvoker } from '@cityofzion/neon-invoker'
-import { ContractInvocation } from '@cityofzion/neo3-invoker'
+import { NeonInvoker, NeonParser } from '@cityofzion/neon-dappkit'
+import { ContractInvocation } from '@cityofzion/neon-dappkit-types'
 import { ITEM_PRIVATENET } from './common'
-import { NeonParser } from '@cityofzion/neon-parser'
 import { Item, Utils } from '../'
 import { Generator } from '@cityofzion/props'
 // @ts-ignore
@@ -30,7 +29,7 @@ describe('Bind on pickup', function () {
   const getSDK = async (account?: any) => {
     return new Item({
       scriptHash,
-      invoker: await NeonInvoker.init(NODE, account),
+      invoker: await NeonInvoker.init({ rpcAddress: NODE, account }),
       parser: NeonParser,
     })
   }
@@ -148,11 +147,11 @@ describe('Bind on pickup', function () {
       args: [
         { type: 'Hash160', value: ACCOUNT.address },
         { type: 'Hash160', value: claimAccount.address },
-        { type: 'Integer', value: 10 ** 8 },
+        { type: 'Integer', value: (10 ** 8).toString() },
         { type: 'Any', value: '' },
       ],
     }
-    const transferInvoker = await NeonInvoker.init(NODE, ACCOUNT)
+    const transferInvoker = await NeonInvoker.init({ rpcAddress: NODE, account: ACCOUNT })
     let txid = await transferInvoker.invokeFunction({
       invocations: [invocation],
       signers: [],
@@ -174,7 +173,8 @@ describe('Bind on pickup', function () {
 
     const log = await Utils.transactionCompletion(txid)
     const event = NeonParser.parseRpcResponse(log.executions[0].notifications![0].state, {
-      ByteStringToScriptHash: true,
+      type: 'Hash160',
+      hint: 'ScriptHash',
     })
     console.log(event)
     // verify the notification

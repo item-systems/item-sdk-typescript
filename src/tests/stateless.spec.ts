@@ -2,8 +2,7 @@
 import Neon from '@cityofzion/neon-core'
 import { assert } from 'chai'
 import { Item } from '../Item'
-import { NeonInvoker } from '@cityofzion/neon-invoker'
-import { NeonParser } from '@cityofzion/neon-parser'
+import { NeonInvoker, NeonParser } from '@cityofzion/neon-dappkit'
 import { ITEM_PRIVATENET } from './common'
 
 // TODO - Mint and verify total supply change
@@ -17,7 +16,7 @@ describe('Stateless Item', function () {
   const getSDK = async (account?: any) => {
     return new Item({
       scriptHash,
-      invoker: await NeonInvoker.init(NODE, account),
+      invoker: await NeonInvoker.init({ rpcAddress: NODE, account }),
       parser: NeonParser,
     })
   }

@@ -1,12 +1,10 @@
-import { NeonInvoker } from '@cityofzion/neon-invoker'
-import { NeonParser } from '@cityofzion/neon-parser'
+import { NeonInvoker, NeonParser } from '@cityofzion/neon-dappkit'
 import { Item, Utils } from '../'
 import { ITEM_PRIVATENET } from './common'
 import { Generator } from '@cityofzion/props'
 // @ts-ignore
 import Neon, { u } from '@cityofzion/neon-core'
 import { assert } from 'chai'
-import { StackItemJson } from '@cityofzion/neo3-invoker'
 
 describe('NEP-11 features', function () {
   this.timeout(60000)
@@ -21,7 +19,7 @@ describe('NEP-11 features', function () {
   const getSDK = async (account?: any) => {
     return new Item({
       scriptHash,
-      invoker: await NeonInvoker.init(NODE, account),
+      invoker: await NeonInvoker.init({ rpcAddress: NODE, account }),
       parser: NeonParser,
     })
   }
@@ -44,6 +42,7 @@ describe('NEP-11 features', function () {
 
     const txid = await sdk.createEpoch(epochParams)
     const log = await Utils.transactionCompletion(txid)
+
     epochId = NeonParser.parseRpcResponse(log.executions[0].stack![0])
     assert.isAbove(epochId, 0)
   })
@@ -55,7 +54,7 @@ describe('NEP-11 features', function () {
         code: epochId,
       },
     ]
-    const generator = await new Generator({
+    const generator = new Generator({
       scriptHash: '0x0e312c70ce6ed18d5702c6c5794c493d9ef46dc9',
     })
     await generator.init()
@@ -78,7 +77,8 @@ describe('NEP-11 features', function () {
     })
     const log = await Utils.transactionCompletion(txid)
     const event = NeonParser.parseRpcResponse(log.executions[0].notifications![0].state, {
-      ByteStringToScriptHash: true,
+      type: 'Hash160',
+      hint: 'ScriptHash',
     })
 
     assert.equal(event[0], undefined)
@@ -86,9 +86,7 @@ describe('NEP-11 features', function () {
     assert.equal(event[2], 1)
 
     const res = log.executions[0].stack![0]
-    const parsed = NeonParser.parseRpcResponse(res, {
-      ByteStringToScriptHash: true,
-    })
+    const parsed = NeonParser.parseRpcResponse(res, { type: 'Hash160', hint: 'ScriptHash' })
     assert.equal(event[3], parsed)
     tokenId = parseInt(u.reverseHex(u.base642hex(res.value as string)), 16)
 
@@ -178,14 +176,15 @@ describe('NEP-11 features', function () {
 
     // verify notifications
     const notif = NeonParser.parseRpcResponse(log.executions![0].notifications[0].state, {
-      ByteStringToScriptHash: true,
+      type: 'Hash160',
+      hint: 'ScriptHash',
     })
     assert.equal(log.executions![0].notifications[0].eventname, 'Transfer')
     assert.equal(notif[0], '0x' + ACCOUNT.scriptHash)
     assert.equal(notif[1], '0x' + testAccountB.scriptHash)
     assert.equal(notif[2], 1)
 
-    const tok = (log.executions![0].notifications![0].state.value as StackItemJson[])[3]
+    const tok = log.executions![0].notifications![0].state.value[3]
     assert.equal(parseInt(u.reverseHex(u.base642hex(tok.value as string)), 16), newToken)
 
     const ownerRes = await sdk.ownerOf({

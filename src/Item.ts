@@ -3,8 +3,8 @@ import { ConstructorOptions, EpochType, ItemType, UserAccount } from './types'
 import { Utils } from './helpers'
 import { u, wallet } from '@cityofzion/neon-core'
 import { NetworkOption } from './constants'
-import { NeonParser } from '@cityofzion/neon-parser'
-import { NeonInvoker } from '@cityofzion/neon-invoker'
+import { NeonParser, NeonInvoker } from '@cityofzion/neon-dappkit'
+import { InteropInterfaceArgType } from '@cityofzion/neon-dappkit-types'
 
 const DEFAULT_OPTIONS: ConstructorOptions = {
   node: NetworkOption.MainNet,
@@ -63,7 +63,10 @@ export class Item {
 
   async init(): Promise<boolean> {
     if (!this.initialized) {
-      this.config.invoker = await NeonInvoker.init(this.config.node as string, this.config.account)
+      this.config.invoker = await NeonInvoker.init({
+        rpcAddress: this.config.node as string,
+        account: this.config.account,
+      })
       this.initialized = true
     }
     return true
@@ -138,7 +141,7 @@ export class Item {
       throw new Error(res.exception ?? 'unrecognized response')
     }
     const sessionId = res.session as string
-    const iteratorId = res.stack[0].id as string
+    const iteratorId = (res.stack[0] as InteropInterfaceArgType).id as string
 
     const res2 = await this.config.invoker!.traverseIterator(sessionId, iteratorId, 100)
     return res2.map(item => {
@@ -216,9 +219,9 @@ export class Item {
           scriptHash: params.tokenScriptHash,
           operation: 'transfer',
           args: [
-            { type: 'Address', value: this.config.account?.address },
-            { type: 'Address', value: event.address },
-            { type: 'Integer', value: event.amount * 10 ** 8 },
+            { type: 'Hash160', value: this.config.account!.address }, // TODO: validate
+            { type: 'Hash160', value: event.address }, // TODO: validate
+            { type: 'Integer', value: (event.amount * 10 ** 8).toString() },
             { type: 'Array', value: [] },
           ],
         }
@@ -244,9 +247,7 @@ export class Item {
     if (res.stack.length === 0) {
       throw new Error(res.exception ?? 'unrecognized response')
     }
-    const scriptHash = this.config.parser!.parseRpcResponse(res.stack[0], {
-      ByteStringToScriptHash: true,
-    })
+    const scriptHash = this.config.parser!.parseRpcResponse(res.stack[0], { type: 'Hash160', hint: 'ScriptHash' })
     return wallet.getAddressFromScriptHash(scriptHash.slice(2))
   }
 
@@ -269,7 +270,7 @@ export class Item {
     }
 
     const sessionId = res.session as string
-    const iteratorId = res.stack[0].id as string
+    const iteratorId = (res.stack[0] as InteropInterfaceArgType).id as string
 
     const res2 = await this.config.invoker!.traverseIterator(sessionId, iteratorId, 100)
 
@@ -408,9 +409,7 @@ export class Item {
       throw new Error(res.exception ?? 'unrecognized response')
     }
 
-    return this.config.parser!.parseRpcResponse(res.stack[0], {
-      ByteStringToScriptHash: true,
-    })
+    return this.config.parser!.parseRpcResponse(res.stack[0], { type: 'Hash160', hint: 'ScriptHash' })
   }
 
   async getEpoch(params: { epochId: number }): Promise<string> {
@@ -588,9 +587,7 @@ export class Item {
       throw new Error(res.exception ?? 'unrecognized response')
     }
 
-    return this.config.parser!.parseRpcResponse(res.stack[0], {
-      ByteStringToScriptHash: true,
-    })
+    return this.config.parser!.parseRpcResponse(res.stack[0], { type: 'Hash160', hint: 'ScriptHash' })
   }
 
   async getItem(params: { tokenId: number }): Promise<string> {
@@ -619,9 +616,7 @@ export class Item {
       throw new Error(res.exception ?? 'unrecognized response')
     }
 
-    return this.config.parser!.parseRpcResponse(res.stack[0], {
-      ByteStringToScriptHash: true,
-    })
+    return this.config.parser!.parseRpcResponse(res.stack[0], { type: 'Hash160', hint: 'ScriptHash' })
   }
 
   async getItemJSONFlat(params: { tokenId: number }): Promise<string> {

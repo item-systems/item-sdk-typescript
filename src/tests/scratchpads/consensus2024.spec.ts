@@ -1,4 +1,4 @@
-import { NeonParser } from '@cityofzion/neon-parser'
+import { NeonParser } from '@cityofzion/neon-dappkit'
 import { Item, Utils } from '../../index'
 import { Generator } from '@cityofzion/props'
 import Neon, { u } from '@cityofzion/neon-core'
@@ -834,7 +834,7 @@ NeE8F7ZLhnFbMk3f8ZFV33kmvbA7JR1gek`
         node,
         timeout: 60000,
       })
-      console.log(txids[j], log.executions[0].vmstate)
+      console.log(txids[j], log.executions[0].state)
     }
   })
 

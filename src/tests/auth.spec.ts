@@ -1,5 +1,4 @@
-import { NeonInvoker } from '@cityofzion/neon-invoker'
-import { NeonParser } from '@cityofzion/neon-parser'
+import { NeonInvoker, NeonParser } from '@cityofzion/neon-dappkit'
 import { Item, Utils } from '..'
 import { ITEM_PRIVATENET } from './common'
 import { u, wallet, rpc } from '@cityofzion/neon-core'
@@ -24,7 +23,7 @@ describe('Authentication', function () {
   const getSDK = async (account?: any) => {
     return new Item({
       scriptHash,
-      invoker: await NeonInvoker.init(NODE, account),
+      invoker: await NeonInvoker.init({ rpcAddress: NODE, account }),
       parser: NeonParser,
     })
   }
@@ -158,7 +157,7 @@ describe('Authentication', function () {
 
   it('should run core authentication', async function () {
     const sdk = await getSDK(ACCOUNT)
-    const mockITEM = await new wallet.Account()
+    const mockITEM = new wallet.Account()
     const client = new rpc.RPCClient(NODE)
     const authAge = 4
     // Create an item epoch
@@ -182,7 +181,7 @@ describe('Authentication', function () {
         code: epochId,
       },
     ]
-    const generator = await new Generator({
+    const generator = new Generator({
       scriptHash: '0x0e312c70ce6ed18d5702c6c5794c493d9ef46dc9',
     })
     await generator.init()

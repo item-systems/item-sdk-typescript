@@ -1,5 +1,4 @@
-import { Neo3Invoker } from '@cityofzion/neo3-invoker'
-import { Neo3Parser } from '@cityofzion/neo3-parser'
+import { Neo3Invoker, Neo3Parser } from '@cityofzion/neon-dappkit-types'
 import Neon from '@cityofzion/neon-core'
 
 export interface ConstructorOptions {
