@@ -1,8 +1,7 @@
-import { NeonParser } from '@cityofzion/neon-parser'
+import { NeonParser, NeonInvoker } from '@cityofzion/neon-dappkit'
 import { Item, Utils, types, Quests } from '../../index'
 import Neon, { u } from '@cityofzion/neon-core'
 import { NetworkOption } from '@cityofzion/props/dist/interface'
-import { NeonInvoker } from '@cityofzion/neon-invoker'
 
 // TODO - Mint and verify total supply change
 // TODO - Transfer tests
@@ -27,7 +26,7 @@ describe('Consensus 2023', function () {
   const getSDK = async (account?: any) => {
     return new Item({
       scriptHash,
-      invoker: await NeonInvoker.init(NODE, account),
+      invoker: await NeonInvoker.init({ rpcAddress: NODE, account }),
       parser: NeonParser,
     })
   }
@@ -297,7 +296,8 @@ describe('Consensus 2023', function () {
       timeout: 60000,
     })
     const event = NeonParser.parseRpcResponse(log.executions[0].notifications![0].state, {
-      ByteStringToScriptHash: true,
+      type: 'Hash160',
+      hint: 'ScriptHash',
     })
     const res = NeonParser.parseRpcResponse(log.executions[0].stack![0])
 

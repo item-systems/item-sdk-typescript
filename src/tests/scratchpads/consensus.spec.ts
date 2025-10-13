@@ -1,4 +1,4 @@
-import { NeonParser } from '@cityofzion/neon-parser'
+import { NeonParser } from '@cityofzion/neon-dappkit'
 import { Utils } from '../../index'
 import { Generator } from '@cityofzion/props'
 import Neon from '@cityofzion/neon-core'

@@ -1,5 +1,5 @@
-import { ContractInvocation } from '@cityofzion/neo3-invoker'
-import { sc, u } from '@cityofzion/neon-core'
+import { ArrayArgType, ContractInvocation } from '@cityofzion/neon-dappkit-types'
+import { u } from '@cityofzion/neon-core'
 
 export class ItemAPI {
   static symbol(scriptHash: string): ContractInvocation {
@@ -65,7 +65,7 @@ export class ItemAPI {
       operation: 'transfer',
       args: [
         { type: 'Hash160', value: params.to },
-        { type: 'Integer', value: params.tokenId },
+        { type: 'Integer', value: params.tokenId.toString() },
         { type: 'Any', value: params.data },
       ],
     }
@@ -80,7 +80,7 @@ export class ItemAPI {
     return {
       scriptHash,
       operation: 'ownerOf',
-      args: [{ type: 'Integer', value: params.tokenId }],
+      args: [{ type: 'Integer', value: params.tokenId.toString() }],
     }
   }
 
@@ -101,7 +101,7 @@ export class ItemAPI {
     return {
       scriptHash,
       operation: 'properties',
-      args: [{ type: 'Integer', value: params.tokenId }],
+      args: [{ type: 'Integer', value: params.tokenId.toString() }],
     }
   }
 
@@ -173,11 +173,11 @@ export class ItemAPI {
       operation: 'createEpoch',
       args: [
         { type: 'String', value: params.label },
-        { type: 'Integer', value: params.generatorInstanceId },
-        { type: 'Integer', value: params.mintFee },
-        { type: 'Integer', value: params.sysFee },
-        { type: 'Integer', value: params.maxSupply },
-        { type: 'Integer', value: params.authAge },
+        { type: 'Integer', value: params.generatorInstanceId.toString() },
+        { type: 'Integer', value: params.mintFee.toString() },
+        { type: 'Integer', value: params.sysFee.toString() },
+        { type: 'Integer', value: params.maxSupply.toString() },
+        { type: 'Integer', value: params.authAge.toString() },
       ],
     }
   }
@@ -191,7 +191,7 @@ export class ItemAPI {
     return {
       scriptHash,
       operation: 'getEpochJSON',
-      args: [{ type: 'Integer', value: params.epochId }],
+      args: [{ type: 'Integer', value: params.epochId.toString() }],
     }
   }
 
@@ -204,7 +204,7 @@ export class ItemAPI {
     return {
       scriptHash,
       operation: 'getEpoch',
-      args: [{ type: 'Integer', value: params.epochId }],
+      args: [{ type: 'Integer', value: params.epochId.toString() }],
     }
   }
 
@@ -219,8 +219,8 @@ export class ItemAPI {
       scriptHash,
       operation: 'setMintFee',
       args: [
-        { type: 'Integer', value: params.epochId },
-        { type: 'Integer', value: params.amount },
+        { type: 'Integer', value: params.epochId.toString() },
+        { type: 'Integer', value: params.amount.toString() },
       ],
     }
   }
@@ -269,7 +269,7 @@ export class ItemAPI {
       scriptHash,
       operation: 'bindItem',
       args: [
-        { type: 'Integer', value: params.tokenId },
+        { type: 'Integer', value: params.tokenId.toString() },
         { type: 'ByteArray', value: u.hex2base64(params.assetPubKey) },
       ],
     }
@@ -286,7 +286,7 @@ export class ItemAPI {
       scriptHash,
       operation: 'setBindOnPickup',
       args: [
-        { type: 'Integer', value: params.tokenId },
+        { type: 'Integer', value: params.tokenId.toString() },
         { type: 'Boolean', value: params.state },
       ],
     }
@@ -333,7 +333,7 @@ export class ItemAPI {
     return {
       scriptHash,
       operation: 'getItem',
-      args: [{ type: 'String', value: params.tokenId }],
+      args: [{ type: 'String', value: params.tokenId.toString() }],
     }
   }
 
@@ -346,7 +346,7 @@ export class ItemAPI {
     return {
       scriptHash,
       operation: 'getItemJSON',
-      args: [{ type: 'Integer', value: params.tokenId }],
+      args: [{ type: 'Integer', value: params.tokenId.toString() }],
     }
   }
 
@@ -359,7 +359,7 @@ export class ItemAPI {
     return {
       scriptHash,
       operation: 'getItemJSONFlat',
-      args: [{ type: 'Integer', value: params.tokenId }],
+      args: [{ type: 'Integer', value: params.tokenId.toString() }],
     }
   }
 
@@ -372,7 +372,7 @@ export class ItemAPI {
     return {
       scriptHash,
       operation: 'lock',
-      args: [{ type: 'Integer', value: params.tokenId }],
+      args: [{ type: 'Integer', value: params.tokenId.toString() }],
     }
   }
 
@@ -388,7 +388,7 @@ export class ItemAPI {
       scriptHash,
       operation: 'offlineMint',
       args: [
-        { type: 'Integer', value: params.epochId },
+        { type: 'Integer', value: params.epochId.toString() },
         { type: 'Hash160', value: params.address },
         { type: 'Boolean', value: params.bindOnPickup },
       ],
@@ -403,18 +403,21 @@ export class ItemAPI {
     }
   ): ContractInvocation {
     const properties = Object.keys(params.properties).map(key => {
-      return sc.ContractParam.array(
-        sc.ContractParam.string(key),
-        sc.ContractParam.any(u.str2hexstring(params.properties[key]))
-      ).toJson()
+      return {
+        type: 'Array',
+        value: [
+          { type: 'String', value: key },
+          { type: 'Any', value: u.str2hexstring(params.properties[key]) },
+        ],
+      } as ArrayArgType
     })
 
     return {
       scriptHash,
       operation: 'setItemProperties',
       args: [
-        { type: 'Integer', value: params.tokenId },
-        { type: 'Array', value: properties },
+        { type: 'Integer', value: params.tokenId.toString() },
+        { type: 'Array', value: properties }, // TODO: validate
       ],
     }
   }
@@ -428,7 +431,7 @@ export class ItemAPI {
     return {
       scriptHash,
       operation: 'unbindToken',
-      args: [{ type: 'Integer', value: params.tokenId }],
+      args: [{ type: 'Integer', value: params.tokenId.toString() }],
     }
   }
 

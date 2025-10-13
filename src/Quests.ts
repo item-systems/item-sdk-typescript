@@ -10,8 +10,7 @@ import {
   EdgeConditionEpochPick,
 } from './types'
 import { NetworkOption } from './constants'
-import { NeonParser } from '@cityofzion/neon-parser'
-import { NeonInvoker } from '@cityofzion/neon-invoker'
+import { NeonParser, NeonInvoker } from '@cityofzion/neon-dappkit'
 import { Item } from './Item'
 
 const DEFAULT_OPTIONS: ConstructorOptions = {
@@ -48,7 +47,10 @@ export class Quests {
 
   async init(): Promise<boolean> {
     if (!this.initialized) {
-      this.config.invoker = await NeonInvoker.init(this.config.node as string, this.config.account)
+      this.config.invoker = await NeonInvoker.init({
+        rpcAddress: this.config.node as string,
+        account: this.config.account,
+      })
       this.initialized = true
     }
     return true
@@ -111,9 +113,7 @@ export class Quests {
     if (res.stack.length === 0) {
       throw new Error(res.exception ?? 'unrecognized response')
     }
-    return this.config.parser!.parseRpcResponse(res.stack[0], {
-      ByteStringToScriptHash: true,
-    })
+    return this.config.parser!.parseRpcResponse(res.stack[0], { type: 'Hash160', hint: 'ScriptHash' })
   }
 
   /**
@@ -200,9 +200,7 @@ export class Quests {
     if (res.stack.length === 0) {
       throw new Error(res.exception ?? 'unrecognized response')
     }
-    return this.config.parser!.parseRpcResponse(res.stack[0], {
-      ByteStringToScriptHash: true,
-    })
+    return this.config.parser!.parseRpcResponse(res.stack[0], { type: 'Hash160', hint: 'ScriptHash' })
   }
 
   /**
@@ -327,9 +325,7 @@ export class Quests {
     if (res.stack.length === 0) {
       throw new Error(res.exception ?? 'unrecognized response')
     }
-    return this.config.parser!.parseRpcResponse(res.stack[0], {
-      ByteStringToScriptHash: true,
-    })
+    return this.config.parser!.parseRpcResponse(res.stack[0], { type: 'Hash160', hint: 'ScriptHash' })
   }
 
   /**
