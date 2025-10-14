@@ -30,8 +30,8 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          aws-access-key-id: ${{secrets.AWS_ACCESS_KEY}}
-          aws-secret-access-key: ${{secrets.AWS_SECRET_ACCESS_KEY}}
+          aws-access-key-id: ${{secrets.AWS_ACCESS_KEY_ID_PROD}}
+          aws-secret-access-key: ${{secrets.AWS_SECRET_ACCESS_KEY_PROD}}
           aws-region: us-west-1
       - name: Build and Publish
         run: npm install --force && NODE_ENV=production CI=false npm run docs
@@ -44,5 +44,5 @@ jobs:
           DISTRIBUTION: ${{secrets.CLOUDFRONT_DOCS_PROD}}
           PATHS: '/*'
           AWS_REGION: 'us-west-1'
-          AWS_ACCESS_KEY_ID: ${{secrets.AWS_ACCESS_KEY}}
-          AWS_SECRET_ACCESS_KEY: ${{secrets.AWS_SECRET_ACCESS_KEY}}
+          AWS_ACCESS_KEY_ID: ${{secrets.AWS_ACCESS_KEY_ID_PROD}}
+          AWS_SECRET_ACCESS_KEY: ${{secrets.AWS_SECRET_ACCESS_KEY_PROD}}
