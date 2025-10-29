@@ -6,12 +6,13 @@ import {
   InvokeResult,
   Neo3Invoker,
   Neo3Parser,
+  Neo3ApplicationLog,
   RpcResponseStackItem,
 } from '@cityofzion/neon-dappkit-types'
-import { TypeChecker } from '@cityofzion/neon-dappkit'
+import { TypeChecker, NeonEventListener } from '@cityofzion/neon-dappkit'
 
 export class Utils {
-  static async transactionCompletion(txid: string, opts?: pollingOptions): Promise<rpc.ApplicationLogJson> {
+  static async transactionCompletion(txid: string, opts?: pollingOptions): Promise<Neo3ApplicationLog> {
     let options = {
       period: 500,
       timeout: 2500,
@@ -19,12 +20,12 @@ export class Utils {
     }
     options = { ...options, ...opts }
 
-    const client = new rpc.RPCClient(options.node)
+    const eventListener = new NeonEventListener(options.node)
 
     for (let i = 0; i < Math.floor(options.timeout / options.period); i++) {
       try {
-        return await client.getApplicationLog(txid)
-      } catch (e) {}
+        return await eventListener.waitForApplicationLog(txid, opts?.timeout)
+      } catch {}
       await this.sleep(options.period)
     }
     throw new Error('Unable to locate the requested transaction.')
@@ -114,10 +115,10 @@ export class Utils {
     const body = {
       rHeader: 0,
       rLength: 0,
-      r: new Uint8Array(),
+      r: new Uint8Array([]),
       sHeader: 0,
       sLength: 0,
-      s: new Uint8Array(),
+      s: new Uint8Array([]),
     }
 
     body.rHeader = bodyRaw[rPointer]
@@ -181,10 +182,7 @@ export class Utils {
     }
   }
 
-  static async testInvokerRaw(
-    invoker: Neo3Invoker,
-    invocations: ContractInvocation[]
-  ): Promise<InvokeResult<RpcResponseStackItem>> {
+  static async testInvokerRaw(invoker: Neo3Invoker, invocations: ContractInvocation[]): Promise<InvokeResult> {
     const res = await invoker.testInvoke({
       invocations,
       signers: [],

@@ -1,14 +1,26 @@
-import { Item, Utils } from '../dist/esm'
+import { Item, Utils } from '../src'
 import { u, wallet } from '@cityofzion/neon-js'
 import assert from 'assert'
-import { NeoN3EllipticCurves } from '../dist/esm/constants'
+import { NeoN3EllipticCurves } from '../src/constants'
 import Neon from '@cityofzion/neon-core'
+import { fileURLToPath } from 'url'
+import dotenv from 'dotenv'
+import { dirname } from 'path'
 
-describe('Basic Tests', function () {
+describe('Basic Manufacturing Tests', function () {
   this.timeout(60000)
+  const environment = 'prod'
+
+  const __filename = fileURLToPath(import.meta.url)
+  const __dirname = dirname(__filename)
+  dotenv.config({
+    path: __dirname + `/../.env/${environment}.env`,
+  })
+
   let item: Item
-  const node = 'http://seed2.neo.org:10332'
-  const account = new wallet.Account()
+
+  const node = process.env.NODE
+  const account = new wallet.Account(process.env.ADMIN_KEY)
   const mockNFI = new wallet.Account('ce2905e4d3630a2628103661d8171b6174d1239e68dfcaf78017920fc126ed9c')
   before(async function () {
     item = await Item.init({
@@ -51,9 +63,6 @@ describe('Basic Tests', function () {
     })
 
     it('Should get all of an epoch items', async () => {
-      const epoch = await item.getEpoch({
-        localEid: 5,
-      })
       const res = await item.getEpochItems({
         localEid: 5,
       })
@@ -61,7 +70,7 @@ describe('Basic Tests', function () {
       console.log(res.length)
     })
 
-    it('should create a bunch of assets in a configuration', async () => {
+    it('should create an asset in a configuration', async () => {
       const b = new Neon.wallet.Account()
       const asid = await item.bindItemSync({
         localNfid: 16,
