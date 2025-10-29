@@ -1,0 +1,22 @@
+on:
+  push:
+    branches:
+      - *
+
+name: Build and Test
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Install
+        run: npm install --force
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: NODE_ENV=production CI=false npm run tsc
+      - name: Run Test Suite
+        run: npm run test

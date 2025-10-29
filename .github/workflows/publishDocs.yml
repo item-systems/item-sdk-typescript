@@ -4,22 +4,9 @@ on:
       - main
       - feat/cicd
 
-name: Build and deploy
+name: Publish Docs
 
 jobs:
-  #publish-sdk:
-  #  name: Publish SDK
-  #  runs-on: ubuntu-latest
-  #  steps:
-  #    - name: Checkout
-  #      uses: actions/checkout@v2
-  #
-  #    - name: Build and Publish to NPM
-  #    - name: Build
-  #      run: npm install --force && NODE_ENV=production CI=false npm run tsc
-  #    - name: Publish
-  #      run: npm publish
-
   publish-docs:
     name: Publish Docs
     runs-on: ubuntu-latest
