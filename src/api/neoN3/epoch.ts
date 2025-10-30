@@ -1,4 +1,4 @@
-import { u } from '@cityofzion/neon-core'
+import { u } from '@cityofzion/neon-js'
 import { ContractInvocation } from '@cityofzion/neon-dappkit-types'
 
 export class EpochAPI {

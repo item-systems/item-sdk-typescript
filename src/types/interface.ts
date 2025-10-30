@@ -1,5 +1,8 @@
-import Neon from '@cityofzion/neon-core'
 import { Neo3EventListener, Neo3Invoker, Neo3Parser } from '@cityofzion/neon-dappkit-types'
+import { wallet } from '@cityofzion/neon-js'
+
+type WalletAccount = InstanceType<typeof wallet.Account>
+
 
 export interface ConstructorOptions {
   node?: string
@@ -7,7 +10,7 @@ export interface ConstructorOptions {
   invoker?: Neo3Invoker
   listener?: Neo3EventListener
   parser?: Neo3Parser
-  account?: Neon.wallet.Account | undefined
+  account?: WalletAccount | undefined
 }
 
 export type pollingOptions = {
@@ -31,7 +34,7 @@ export interface AccountQuestPermissions {
 
 export interface UserType {
   id: number
-  address: Neon.wallet.Account
+  address: WalletAccount
 }
 
 export interface EpochType {

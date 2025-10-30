@@ -1,11 +1,11 @@
 import { Item, Utils } from '../src'
 // @ts-ignore
-import Neon from '@cityofzion/neon-core'
 import * as fs from 'fs'
-import { wallet } from '@cityofzion/neon-js'
+import * as Neon from '@cityofzion/neon-js'
 import { fileURLToPath } from 'url'
 import { dirname } from 'path'
 import dotenv from 'dotenv'
+import assert from 'assert'
 
 // TODO - Mint and verify total supply change
 // TODO - Transfer tests
@@ -22,7 +22,7 @@ describe('It should run ops', function () {
   let item: Item
 
   const node = process.env.NODE
-  const account = new wallet.Account(process.env.ADMIN_KEY)
+  const account = new Neon.wallet.Account(process.env.ADMIN_KEY)
   const pathToNEF = process.env.PATH_TO_NEF
   before(async function () {
     item = await Item.init({
@@ -32,6 +32,8 @@ describe('It should run ops', function () {
   })
 
   it('Should deploy', async function () {
+    assert.ok(node, 'node env not set')
+    assert.ok(pathToNEF, 'path to NEF not set')
     const rawManifest = fs.readFileSync(pathToNEF.replace('.nef', '.manifest.json'))
 
     const res = await Utils.deployContract(
@@ -45,6 +47,7 @@ describe('It should run ops', function () {
   })
 
   it('Should update', async function () {
+    assert.ok(pathToNEF, 'path to NEF not set')
     const nef = Neon.sc.NEF.fromBuffer(fs.readFileSync(pathToNEF))
     const serializedNEF = Neon.u.HexString.fromHex(nef.serialize(), true)
     const rawManifest = fs.readFileSync(pathToNEF.replace('.nef', '.manifest.json'))
