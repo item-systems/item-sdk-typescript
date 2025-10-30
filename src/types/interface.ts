@@ -3,7 +3,6 @@ import { wallet } from '@cityofzion/neon-js'
 
 type WalletAccount = InstanceType<typeof wallet.Account>
 
-
 export interface ConstructorOptions {
   node?: string
   scriptHash?: string
