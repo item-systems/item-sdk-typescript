@@ -2,7 +2,6 @@ on:
   push:
     branches:
       - main
-      - feat/cicd
 
 name: Publish Docs
 
