@@ -1,7 +1,7 @@
-import * as u from '../../smartcard/utils'
-import { SelectCommand } from '../../smartcard/command-apdu'
-import { MockTransport } from '../../smartcard/transport/mock'
-import { Reader } from '../../smartcard/reader'
+import * as u from '../../src/smartcard/utils'
+import { SelectCommand } from '../../src/smartcard/command-apdu'
+import { MockTransport } from '../../src/smartcard/transport/mock'
+import { Reader } from '../../src/smartcard/reader'
 import { expect } from 'chai'
 
 describe('reader', () => {

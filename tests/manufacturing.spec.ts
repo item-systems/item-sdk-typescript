@@ -1,0 +1,218 @@
+import { Item, Utils } from '../src'
+import { u, wallet } from '@cityofzion/neon-js'
+import assert from 'assert'
+import { NeoN3EllipticCurves } from '../src/constants'
+import { fileURLToPath } from 'url'
+import dotenv from 'dotenv'
+import { dirname } from 'path'
+
+describe('Basic Manufacturing Tests', function () {
+  this.timeout(60000)
+  const environment = 'prod'
+
+  const __filename = fileURLToPath(import.meta.url)
+  const __dirname = dirname(__filename)
+  dotenv.config({
+    path: __dirname + `/../.env/${environment}.env`,
+  })
+
+  let item: Item
+
+  const node = process.env.NODE
+  const account = new wallet.Account(process.env.ADMIN_KEY)
+  const mockNFI = new wallet.Account('ce2905e4d3630a2628103661d8171b6174d1239e68dfcaf78017920fc126ed9c')
+  before(async function () {
+    item = await Item.init({
+      node,
+      account,
+    })
+  })
+  describe('Manufacturing Tests', async () => {
+    it('Should create configuration', async () => {
+      console.log(account.address)
+
+      const res = await item.createConfigurationSync()
+
+      const config = await item.getConfiguration({
+        localCid: res,
+      })
+      console.log(config)
+      assert.equal(res, config.id)
+    })
+
+    it('Should get a user', async () => {
+      const user = await item.getUser({
+        localUid: 1,
+      })
+
+      console.log(user)
+    })
+
+    it('Should get the total item supply', async () => {
+      const ts = await item.totalItems()
+      console.log(ts)
+    })
+
+    it('Should get a configuration', async () => {
+      const config = await item.getConfiguration({
+        localCid: 1,
+      })
+
+      console.log(config)
+    })
+
+    it('Should get all of an epoch items', async () => {
+      const res = await item.getEpochItems({
+        localEid: 5,
+      })
+
+      console.log(res.length)
+    })
+
+    it('should create an asset in a configuration', async () => {
+      const asid = await item.bindItemSync({
+        localNfid: 16,
+        localCid: 1,
+        pubKey: mockNFI.publicKey,
+        assetEllipticCurve: NeoN3EllipticCurves.SECP256R1SHA256,
+      })
+
+      console.log(asid)
+    })
+    it('should get an item with the tac', async () => {
+      const nfi = await item.getItem({
+        localNfid: 1,
+      })
+      console.log(nfi)
+      console.log(nfi)
+
+      const nfiTac = await item.getItemWithTac({
+        tacScriptHash: nfi.epoch.binding_script_hash,
+        tokenId: nfi.binding_token_id,
+      })
+      console.log(nfiTac)
+    })
+
+    it('should get an item', async () => {
+      const nfi = await item.getItem({
+        localNfid: 1,
+      })
+      console.log(nfi)
+      console.log(nfi)
+
+      const nfiTac = await item.getItemWithTac({
+        tacScriptHash: nfi.epoch.binding_script_hash,
+        tokenId: nfi.binding_token_id,
+      })
+      console.log(nfiTac)
+    })
+
+    it('should get the owner of an item', async () => {
+      const owner = await item.ownerOf({
+        localNfid: 1,
+      })
+      console.log(owner)
+    })
+
+    it('should get all of the assets in a configuration', async () => {
+      const assets = await item.getConfigurationAssets({
+        localCid: 1,
+      })
+      console.log(assets)
+    })
+
+    it('should verify an proof', async () => {
+      const attempt = {
+        localNfid: 190,
+        message: '0000000008',
+        proof:
+          '7a811313f7de6c2a00c16716a99ed53b0c0208813fb8e65c6166a5f45012512edf6e7535cb54bfc01e4dea5c671005a7b069aa1ef621efd34b7a4dcbef3303f6',
+        challenge: '01',
+      }
+      const res = await item.isAuthValid(attempt)
+      console.log(res)
+    })
+
+    it('should auth', async () => {
+      const decode = Utils.decodeNDEF(
+        'https://blockspirits.coz.io/?d=BG9c75Iv3vGxeBshtdWKs5SOwZEH4rMSQmWnepL.v4YZReaoeOb3qb5PuZgj.YzqqT61XbYzUmw.G1SapwLunR8AAAAAFTBGAiEA0PHSaLgprzCCccrJcXaJP6i2mjNmBZECb3LAZtD9LK0CIQCQsgcuxhedI4CD7ZaXqcDcLKGB.luj4N5Kg9MgOz5D5Q--'
+      )
+      console.log(decode)
+
+      const nfi = await item.getItemWithKey({
+        pubKey: decode.pubKey,
+      })
+      console.log(nfi)
+
+      const res = await item.isAuthValid({
+        localNfid: nfi.id,
+        message: decode.msg,
+        challenge: u.int2hex(1),
+        proof: decode.proof,
+      })
+      console.log(res)
+
+      /*
+      console.log('light auth')
+      const client = new Neon.rpc.RPCClient(node)
+      const targetBlockHeight = await client.getBlockCount()
+      //const targetBlockHeight = 1000
+      const blockHash = await client.getBlockHash(targetBlockHeight - 1)
+
+      const formattedBlockHash = u.reverseHex(blockHash.substring(2))
+
+      const sig = Neon.wallet.sign(formattedBlockHash, mockNFI.privateKey)
+      console.log(mockNFI.publicKey)
+      console.log(sig)
+
+      const res = await item.authItemSync({
+        localNfid: 49,
+        message: u.int2hex(targetBlockHeight - 1),
+        challenge: u.int2hex(3),
+        burn: false,
+        proof: sig
+      })
+
+       */
+    })
+
+    it('should get the asset burn log', async () => {
+      const assets = await item.getAssetBurnLog({
+        localAsid: 3,
+      })
+      console.log(assets)
+    })
+
+    it('should get an item using the public key', async () => {
+      const decode = Utils.decodeNDEF(
+        'https://blockspirits.coz.io/?d=BG9c75Iv3vGxeBshtdWKs5SOwZEH4rMSQmWnepL.v4YZReaoeOb3qb5PuZgj.YzqqT61XbYzUmw.G1SapwLunR8AAAAAFTBGAiEA0PHSaLgprzCCccrJcXaJP6i2mjNmBZECb3LAZtD9LK0CIQCQsgcuxhedI4CD7ZaXqcDcLKGB.luj4N5Kg9MgOz5D5Q--'
+      )
+      console.log(decode)
+      const nfi = await item.getItemWithKey({
+        pubKey: decode.pubKey,
+      })
+      console.log(nfi)
+
+      assert.equal(nfi.id, 615)
+      assert.equal(nfi.binding_token_id, '6702')
+    })
+
+    it('should get token properties using the public key', async () => {
+      const decode = Utils.decodeNDEF(
+        'https://blockspirits.coz.io/?d=BG9c75Iv3vGxeBshtdWKs5SOwZEH4rMSQmWnepL.v4YZReaoeOb3qb5PuZgj.YzqqT61XbYzUmw.G1SapwLunR8AAAAAFTBGAiEA0PHSaLgprzCCccrJcXaJP6i2mjNmBZECb3LAZtD9LK0CIQCQsgcuxhedI4CD7ZaXqcDcLKGB.luj4N5Kg9MgOz5D5Q--'
+      )
+      console.log(decode)
+      const nfi = await item.tokenProperties({
+        pubKey: decode.pubKey,
+      })
+      console.log(nfi)
+    })
+
+    it('should get all of the remote tokens', async () => {
+      const items = await item.itemsOf({
+        address: 'NaZwraSdJv9BYwYzZryiZcydaPDof56beK',
+      })
+      console.log(items)
+    })
+  })
+})
