@@ -2,7 +2,6 @@ import { Item, Utils } from '../src'
 import { u, wallet } from '@cityofzion/neon-js'
 import assert from 'assert'
 import { NeoN3EllipticCurves } from '../src/constants'
-import Neon from '@cityofzion/neon-core'
 import { fileURLToPath } from 'url'
 import dotenv from 'dotenv'
 import { dirname } from 'path'
@@ -71,7 +70,6 @@ describe('Basic Manufacturing Tests', function () {
     })
 
     it('should create an asset in a configuration', async () => {
-      const b = new Neon.wallet.Account()
       const asid = await item.bindItemSync({
         localNfid: 16,
         localCid: 1,

@@ -1,15 +1,15 @@
-import { rpc, sc, u, wallet } from '@cityofzion/neon-core'
+import { sc, u, wallet, experimental } from '@cityofzion/neon-js'
 import { NdefDecodeType, pollingOptions } from '../types'
-import { experimental } from '@cityofzion/neon-js'
 import {
   ContractInvocation,
   InvokeResult,
   Neo3Invoker,
   Neo3Parser,
   Neo3ApplicationLog,
-  RpcResponseStackItem,
 } from '@cityofzion/neon-dappkit-types'
 import { TypeChecker, NeonEventListener } from '@cityofzion/neon-dappkit'
+
+type WalletAccount = InstanceType<typeof wallet.Account>
 
 export class Utils {
   static async transactionCompletion(txid: string, opts?: pollingOptions): Promise<Neo3ApplicationLog> {
@@ -36,7 +36,7 @@ export class Utils {
     networkMagic: number,
     nefRaw: Buffer,
     manifestRaw: any,
-    signer: wallet.Account
+    signer: WalletAccount
   ): Promise<string> {
     const config = {
       networkMagic,
@@ -87,7 +87,7 @@ export class Utils {
     let validSignature
     try {
       validSignature = wallet.verify(msg, proof, pubKey)
-    } catch (e) {
+    } catch {
       validSignature = false
     }
     const uriPubKey = this.encodePublicKey(pubKeyUnencoded)
@@ -177,7 +177,7 @@ export class Utils {
         return true
       }
       return false
-    } catch (e) {
+    } catch {
       return false
     }
   }

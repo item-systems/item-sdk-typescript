@@ -1,6 +1,6 @@
 import { Arg, ContractInvocation } from '@cityofzion/neon-dappkit-types'
 import { u } from '@cityofzion/neon-js'
-import { AuthItem, AuthPayload, ClaimItem } from '../../types'
+import { AuthItem, AuthPayload } from '../../types'
 
 export class IS1API {
   static isClaimable(scriptHash: string, params: { tokenId: string }): ContractInvocation {

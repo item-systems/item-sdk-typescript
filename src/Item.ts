@@ -33,7 +33,7 @@ const TIMEOUT = 60000
 
 /**
  * The ITEM class is the primary interface point for the digital twin of an NFI. Use this class to execute standard
- * non-fungible token interations as well as additional capabilities like authentication and configuration. WalletConnect 2.0
+ * non-fungible token interactions as well as additional capabilities like authentication and configuration. WalletConnect 2.0
  * has native support through the neon-invoker package.
  *
  * To use this class:
@@ -97,9 +97,6 @@ export class Item {
   ): Promise<string> {
     const txId = await this.update(params)
     const resp = await this.listener.waitForApplicationLog(txId, opts?.timeout ?? TIMEOUT)
-    console.log(resp.executions[0].stack)
-    console.log(resp.executions[0].notifications)
-    // @ts-ignore
     return this.parser.parseRpcResponse(resp.executions[0].stack[0] as RpcResponseStackItem)
   }
 
@@ -144,7 +141,6 @@ export class Item {
     const txId = await this.setUserProperty(params)
     const resp = await this.listener.waitForApplicationLog(txId, opts?.timeout ?? TIMEOUT)
 
-    // @ts-ignore
     return this.parser.parseRpcResponse(resp.executions[0].stack[0] as RpcResponseStackItem)
   }
 
@@ -169,7 +165,6 @@ export class Item {
     const txId = await this.createItem(params)
     const resp = await this.listener.waitForApplicationLog(txId, opts?.timeout ?? TIMEOUT)
 
-    // @ts-ignore
     return this.parser.parseRpcResponse(resp.executions[0].stack[0] as RpcResponseStackItem)
   }
 
@@ -245,7 +240,6 @@ export class Item {
     const txId = await this.setItemProperty(params)
     const resp = await this.listener.waitForApplicationLog(txId, opts?.timeout ?? TIMEOUT)
 
-    // @ts-ignore
     return this.parser.parseRpcResponse(resp.executions[0].stack[0] as RpcResponseStackItem)
   }
 
@@ -280,7 +274,6 @@ export class Item {
     const txId = await this.bindItem(params)
     const resp = await this.listener.waitForApplicationLog(txId, opts?.timeout ?? TIMEOUT)
 
-    // @ts-ignore
     return this.parser.parseRpcResponse(resp.executions[0].stack[0] as RpcResponseStackItem)
   }
 
@@ -295,7 +288,6 @@ export class Item {
     const txId = await this.lockItem(params)
     const resp = await this.listener.waitForApplicationLog(txId, opts?.timeout ?? TIMEOUT)
 
-    // @ts-ignore
     return this.parser.parseRpcResponse(resp.executions[0].stack[0] as RpcResponseStackItem)
   }
 
@@ -325,7 +317,6 @@ export class Item {
     const txId = await this.authItem(params)
     const resp = await this.listener.waitForApplicationLog(txId, opts?.timeout ?? TIMEOUT)
 
-    // @ts-ignore
     return this.parser.parseRpcResponse(resp.executions[0].stack[0] as RpcResponseStackItem)
   }
 
@@ -351,7 +342,6 @@ export class Item {
     const txId = await this.purgeItem(params)
     const resp = await this.listener.waitForApplicationLog(txId, opts?.timeout ?? TIMEOUT)
 
-    // @ts-ignore
     return this.parser.parseRpcResponse(resp.executions[0].stack[0] as RpcResponseStackItem)
   }
 
@@ -369,7 +359,6 @@ export class Item {
     const txId = await this.setEpochProperty(params)
     const resp = await this.listener.waitForApplicationLog(txId, opts?.timeout ?? TIMEOUT)
 
-    // @ts-ignore
     return this.parser.parseRpcResponse(resp.executions[0].stack[0] as RpcResponseStackItem)
   }
 
@@ -416,7 +405,6 @@ export class Item {
     const txId = await this.createConfiguration()
     const resp = await this.listener.waitForApplicationLog(txId, opts?.timeout ?? TIMEOUT)
 
-    // @ts-ignore
     return this.parser.parseRpcResponse(resp.executions[0].stack[0] as RpcResponseStackItem)
   }
 
@@ -441,7 +429,6 @@ export class Item {
     const txId = await this.setConfigurationProperty(params)
     const resp = await this.listener.waitForApplicationLog(txId, opts?.timeout ?? TIMEOUT)
 
-    // @ts-ignore
     return this.parser.parseRpcResponse(resp.executions[0].stack[0] as RpcResponseStackItem)
   }
 
@@ -578,7 +565,6 @@ export class Item {
     const txId = await this.claimItem(params)
     const resp = await this.listener.waitForApplicationLog(txId, opts?.timeout ?? TIMEOUT)
 
-    // @ts-ignore
     return this.parser.parseRpcResponse(resp.executions[0].stack[0] as RpcResponseStackItem)
   }
 
