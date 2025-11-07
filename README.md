@@ -13,9 +13,9 @@
 ## Documentation
 
 For a more complete set of
-project documentation, visit the [**developer portal**](https://developers.item.systems).
+project documentation, visit the [**developer portal**](https://docs.item.systems).
 
-For SDK specific documentation, you can look [**here**](https://developers.item.systems/docs/sdk/ts/).
+For SDK specific documentation, you can look [**here**](https://docs.item.systems/docs/sdk/ts/).
 
 # Overview
 
@@ -30,16 +30,7 @@ Scopes are broken into classes, typically falling along contract lines.
 
 ```ts
 const item = new Item()
-const itemJSON = await item.getItemJSON({
-  tokenId: 8,
-})
-```
-
-#### Getting a Quest:
-
-```ts
-const quests = new Quests()
-const itemJSON = await quests.getQuestJSON({
-  questId: 1,
+const nfi = await item.getItem({
+  localNfid: 1,
 })
 ```

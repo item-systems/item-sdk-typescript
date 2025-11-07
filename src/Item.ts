@@ -1,49 +1,61 @@
-import { ItemAPI } from './api'
-import { ConstructorOptions, EpochType, ItemType, UserAccount } from './types'
+import { AdminAPI, AssetAPI, ConfigurationAPI, EpochAPI, ItemAPI, UserAPI } from './api/neoN3'
+import {
+  AssetType,
+  ClaimItem,
+  ConfigurationType,
+  ConstructorOptions,
+  EpochType,
+  ItemType,
+  RemoteToken,
+  UserType,
+} from './types'
 import { Utils } from './helpers'
-import { u, wallet } from '@cityofzion/neon-core'
-import { NetworkOption } from './constants'
-import { NeonParser, NeonInvoker } from '@cityofzion/neon-dappkit'
-import { InteropInterfaceArgType } from '@cityofzion/neon-dappkit-types'
+import { NeoN3EllipticCurves, NeoN3NetworkOptions } from './constants'
+import { NeonParser, NeonInvoker, NeonEventListener } from '@cityofzion/neon-dappkit'
+import {
+  Neo3EventListener,
+  Neo3Invoker,
+  Neo3Parser,
+  RpcResponseStackItem,
+  TypeChecker,
+} from '@cityofzion/neon-dappkit-types'
+import { u, wallet } from '@cityofzion/neon-js'
+import { IS1API } from './api/neoN3/IS1'
 
 const DEFAULT_OPTIONS: ConstructorOptions = {
-  node: NetworkOption.MainNet,
-  scriptHash: '0x904deb56fdd9a87b48d89e0cc0ac3415f9207840',
+  node: NeoN3NetworkOptions.MainNet,
+  scriptHash: '0x3491b358a9ddce38cb567e2bb8bd1bf783cd556d',
   parser: NeonParser,
   account: undefined,
 }
 
+const TIMEOUT = 60000
+
 /**
  * The ITEM class is the primary interface point for the digital twin of an NFI. Use this class to execute standard
- * non-fungible token interations as well as additional capabilities like authentication and configuration. WalletConnect 2.0
+ * non-fungible token interactions as well as additional capabilities like authentication and configuration. WalletConnect 2.0
  * has native support through the neon-invoker package.
  *
  * To use this class:
  * ```typescript
  * import { Item } from '@item-systems/item'
- * import Neon from '@cityofzion/neon-core'
- * import { NeonInvoker } from '@cityofzion/neon-invoker'
- * import { NeonParser } from '@cityofzion/neon-parser'
+ * import Neon from '@cityofzion/neon-js'
  *
  * const account = new Neon.wallet.Account()
  *
- * const item = new Item({
- *   scriptHash,
- *   invoker: await NeonInvoker.init(NODE, account),
- *   parser: NeonParser,
- * })
- * const totalItems = await item.totalSupply()
+ * const item = await Item.init()
+ * const totalItems = await item.totalItems()
  * console.log(totalItems)
  * ```
  */
 export class Item {
-  private config: ConstructorOptions
-  private initialized: boolean
-
-  constructor(configOptions: ConstructorOptions = {}) {
-    this.initialized = 'invoker' in configOptions
-    this.config = { ...DEFAULT_OPTIONS, ...configOptions }
-  }
+  private constructor(
+    readonly scriptHash: string,
+    readonly node: string,
+    private invoker: Neo3Invoker,
+    private listener: Neo3EventListener,
+    private parser: Neo3Parser
+  ) {}
 
   /// ////////////////////////////////////////////////
   /// ////////////////////////////////////////////////
@@ -51,645 +63,517 @@ export class Item {
   /// ////////////////////////////////////////////////
   /// ////////////////////////////////////////////////
 
-  /**
-   * Gets the script hash of the smart contract.
-   */
-  get scriptHash(): string {
-    if (this.config.scriptHash!) {
-      return this.config.scriptHash!
-    }
-    throw new Error('no scripthash defined')
-  }
+  static async init(configOptions?: ConstructorOptions): Promise<Item> {
+    const config = { ...DEFAULT_OPTIONS, ...configOptions }
 
-  async init(): Promise<boolean> {
-    if (!this.initialized) {
-      this.config.invoker = await NeonInvoker.init({
-        rpcAddress: this.config.node as string,
-        account: this.config.account,
+    if (!config.invoker) {
+      config.invoker = await NeonInvoker.init({
+        rpcAddress: config.node!,
+        account: config.account,
       })
-      this.initialized = true
-    }
-    return true
-  }
-
-  /**
-   * Returns the token symbol for the digital twin "ITEM". This is a great test method and exist primarily to support
-   * existing token standard.
-   */
-  async symbol(): Promise<string> {
-    await this.init()
-    const res = await this.config.invoker!.testInvoke({
-      invocations: [ItemAPI.symbol(this.config.scriptHash!)],
-      signers: [],
-    })
-
-    if (res.stack.length === 0) {
-      throw new Error(res.exception ?? 'unrecognized response')
     }
 
-    return this.config.parser!.parseRpcResponse(res.stack[0])
-  }
-
-  /**
-   * Returns the decimals supported by ITEMs. Currently, the ITEM contract does not support native fractional ownership.
-   */
-  async decimals(): Promise<number> {
-    await this.init()
-    const res = await this.config.invoker!.testInvoke({
-      invocations: [ItemAPI.decimals(this.config.scriptHash!)],
-      signers: [],
-    })
-
-    if (res.stack.length === 0) {
-      throw new Error(res.exception ?? 'unrecognized response')
+    if (!config.listener) {
+      config.listener = new NeonEventListener(config.node!)
     }
 
-    return this.config.parser!.parseRpcResponse(res.stack[0])
-  }
-
-  /**
-   * Gets the total number of ITEMS tracked in the contract.
-   */
-  async totalSupply(): Promise<number> {
-    await this.init()
-    const res = await this.config.invoker!.testInvoke({
-      invocations: [ItemAPI.totalSupply(this.config.scriptHash!)],
-      signers: [],
-    })
-
-    if (res.stack.length === 0) {
-      throw new Error(res.exception ?? 'unrecognized response')
-    }
-
-    return this.config.parser!.parseRpcResponse(res.stack[0])
-  }
-
-  /**
-   * Gets the items owned by an entity.
-   * @param params
-   * @param params.address the address of the requested entity
-   * @returns an array of pointers to the items owned
-   */
-  async tokensOf(params: { address: string }): Promise<number[]> {
-    await this.init()
-    const res = await this.config.invoker!.testInvoke({
-      invocations: [ItemAPI.tokensOf(this.config.scriptHash!, params)],
-      signers: [],
-    })
-
-    if (res.stack.length === 0) {
-      throw new Error(res.exception ?? 'unrecognized response')
-    }
-    const sessionId = res.session as string
-    const iteratorId = (res.stack[0] as InteropInterfaceArgType).id as string
-
-    const res2 = await this.config.invoker!.traverseIterator(sessionId, iteratorId, 100)
-    return res2.map(item => {
-      return parseInt(u.reverseHex(u.base642hex(item.value as string)), 16)
-    })
-  }
-
-  /**
-   * Gets the total NFI holdings of an entity
-   * @param params
-   * @param params.address the address of the requested entity
-   */
-  async balanceOf(params: { address: string }): Promise<number> {
-    await this.init()
-    const res = await this.config.invoker!.testInvoke({
-      invocations: [ItemAPI.balanceOf(this.config.scriptHash!, params)],
-      signers: [],
-    })
-
-    if (res.stack.length === 0) {
-      throw new Error(res.exception ?? 'unrecognized response')
-    }
-
-    return this.config.parser!.parseRpcResponse(res.stack[0])
-  }
-
-  /**
-   * Transfers ownership of an NFI from the owner to another entity. For a method which
-   * considers block confirmations, refer to (transferConfirmed)[http://localhost:3000/docs/api/classes/Item#transferconfirmed].
-   * @param params
-   * @param params.to the destination address
-   * @param params.tokenId the global id of the NFI to transfer
-   * @param params.data parameters for handling upstream workflows (default: null)
-   *
-   * @return the transaction id for lookup on (dora)[https://dora.coz.io]
-   */
-  async transfer(params: { to: string; tokenId: number; data: any }): Promise<string> {
-    await this.init()
-    return await this.config.invoker!.invokeFunction({
-      invocations: [ItemAPI.transfer(this.config.scriptHash!, params)],
-      signers: [],
-    })
-  }
-
-  /**
-   * Transfers ownership of an NFI from the owner to another entity. This method confirms the block before returning
-   * and will error if there is a confirmation issue.
-   * @param params
-   * @param params.to the destination address
-   * @param params.tokenId the global id of the NFI to transfer
-   * @param params.data parameters for handling upstream workflows (default: null)
-   *
-   * @return boolean Was the transfer successful?
-   */
-  async transferConfirmed(params: { to: string; tokenId: number; data: any }): Promise<string> {
-    await this.init()
-    const txid = await this.transfer(params)
-    const log = await Utils.transactionCompletion(txid)
-
-    if (log.executions[0].stack!.length === 0) {
-      throw new Error('unrecognized response')
-    }
-
-    return this.config.parser!.parseRpcResponse(log.executions[0].stack![0])
-  }
-
-  async transferFungible(params: {
-    tokenScriptHash: string
-    transfers: { address: string; amount: number }[]
-  }): Promise<string> {
-    await this.init()
-    return await this.config.invoker!.invokeFunction({
-      invocations: params.transfers.map(event => {
-        return {
-          scriptHash: params.tokenScriptHash,
-          operation: 'transfer',
-          args: [
-            { type: 'Hash160', value: this.config.account!.address }, // TODO: validate
-            { type: 'Hash160', value: event.address }, // TODO: validate
-            { type: 'Integer', value: (event.amount * 10 ** 8).toString() },
-            { type: 'Array', value: [] },
-          ],
-        }
-      }),
-      signers: [],
-    })
-  }
-
-  /**
-   * Gets the owner of the NFI.
-   * @param params
-   * @param params.tokenId the global id of the NFI
-   *
-   * @return the owning entity's address
-   */
-  async ownerOf(params: { tokenId: number }): Promise<string> {
-    await this.init()
-    const res = await this.config.invoker!.testInvoke({
-      invocations: [ItemAPI.ownerOf(this.config.scriptHash!, params)],
-      signers: [],
-    })
-
-    if (res.stack.length === 0) {
-      throw new Error(res.exception ?? 'unrecognized response')
-    }
-    const scriptHash = this.config.parser!.parseRpcResponse(res.stack[0], { type: 'Hash160', hint: 'ScriptHash' })
-    return wallet.getAddressFromScriptHash(scriptHash.slice(2))
-  }
-
-  /**
-   * Gets every pointer for an NFI. This method exists for standards purposes.
-   * Because we use incrementing pointers, using (totalSupply)[http://localhost:3000/docs/api/classes/Item#totalsupply]
-   * and iterating from 1-"totalSupply" is more much more efficient.
-   *
-   * @return the list of globals ids for every NFI
-   */
-  async tokens(): Promise<number[]> {
-    await this.init()
-    const res = await this.config.invoker!.testInvoke({
-      invocations: [ItemAPI.tokens(this.config.scriptHash!)],
-      signers: [],
-    })
-
-    if (res.stack.length === 0) {
-      throw new Error(res.exception ?? 'unrecognized response')
-    }
-
-    const sessionId = res.session as string
-    const iteratorId = (res.stack[0] as InteropInterfaceArgType).id as string
-
-    const res2 = await this.config.invoker!.traverseIterator(sessionId, iteratorId, 100)
-
-    return res2.map(item => {
-      return parseInt(u.reverseHex(u.base642hex(item.value as string)), 16)
-    })
-  }
-
-  /**
-   * Gets the properties of the NFI. This method is designed to emulate existing
-   * NFT standards for wallet support and marketplaces.
-   * @param params
-   * @param params.tokenId the global id for the NFI
-   */
-  async properties(params: { tokenId: number }): Promise<string> {
-    await this.init()
-    const res = await this.config.invoker!.testInvoke({
-      invocations: [ItemAPI.properties(this.config.scriptHash!, params)],
-      signers: [],
-    })
-
-    if (res.stack.length === 0) {
-      throw new Error(res.exception ?? 'unrecognized response')
-    }
-
-    return this.config.parser!.parseRpcResponse(res.stack[0])
-  }
-
-  /// ////////////////////////////////////////////////
-  /// ////////////////////////////////////////////////
-  /// /////////////// USER SCOPE /////////////////////
-  /// ////////////////////////////////////////////////
-  /// ////////////////////////////////////////////////
-
-  /**
-   * Gets the user entity state in the smart contract including permissions
-   * and NFI ownership.
-   * @param params.address the entity you are requesting information about
-   */
-  async getUserJSON(params: { address: string }): Promise<UserAccount> {
-    await this.init()
-    const res = await this.config.invoker!.testInvoke({
-      invocations: [ItemAPI.getUserJSON(this.config.scriptHash!, params)],
-      signers: [],
-    })
-
-    if (res.stack.length === 0) {
-      throw new Error(res.exception ?? 'unrecognized response')
-    }
-
-    return this.config.parser!.parseRpcResponse(res.stack[0])
-  }
-
-  /**
-   * RAW data payload for contract interfacing
-   * @param params
-   */
-  async getUser(params: { address: string }): Promise<string> {
-    await this.init()
-    const res = await this.config.invoker!.testInvoke({
-      invocations: [ItemAPI.getUser(this.config.scriptHash!, params)],
-      signers: [],
-    })
-
-    if (res.stack.length === 0) {
-      throw new Error(res.exception ?? 'unrecognized response')
-    }
-
-    return this.config.parser!.parseRpcResponse(res.stack[0])
-  }
-
-  /**
-   * Updates a users permissions within the contract. This is a protected method.
-   * @param params
-   * @param params.address the entity to update
-   * @param params.permissions the complete permission-set to update to
-   */
-  async setUserPermissions(params: { address: string; permissions: any }): Promise<string> {
-    await this.init()
-    return await this.config.invoker!.invokeFunction({
-      invocations: [ItemAPI.setUserPermissions(this.config.scriptHash!, params)],
-      signers: [],
-    })
-  }
-
-  /**
-   * Gets the total number of accounts managed in the smart contract
-   * @return the number of accounts
-   */
-  async totalAccounts(): Promise<number> {
-    await this.init()
-    const res = await this.config.invoker!.testInvoke({
-      invocations: [ItemAPI.totalAccounts(this.config.scriptHash!)],
-      signers: [],
-    })
-
-    if (res.stack.length === 0) {
-      throw new Error(res.exception ?? 'unrecognized response')
-    }
-    return this.config.parser!.parseRpcResponse(res.stack[0])
-  }
-
-  /// ////////////////////////////////////////////////
-  /// ////////////////////////////////////////////////
-  /// /////////////// USER SCOPE /////////////////////
-  /// ////////////////////////////////////////////////
-  /// ////////////////////////////////////////////////
-
-  /**
-   * Creates a
-   * @param params
-   */
-  async createEpoch(params: {
-    label: string
-    generatorInstanceId: number
-    mintFee: number
-    sysFee: number
-    maxSupply: number
-    authAge: number
-  }): Promise<string> {
-    await this.init()
-    return await this.config.invoker!.invokeFunction({
-      invocations: [ItemAPI.createEpoch(this.config.scriptHash!, params)],
-      signers: [],
-    })
-  }
-
-  async getEpochJSON(params: { epochId: number }): Promise<EpochType> {
-    await this.init()
-    const res = await this.config.invoker!.testInvoke({
-      invocations: [ItemAPI.getEpochJSON(this.config.scriptHash!, params)],
-      signers: [],
-    })
-
-    if (res.stack.length === 0) {
-      throw new Error(res.exception ?? 'unrecognized response')
-    }
-
-    return this.config.parser!.parseRpcResponse(res.stack[0], { type: 'Hash160', hint: 'ScriptHash' })
-  }
-
-  async getEpoch(params: { epochId: number }): Promise<string> {
-    await this.init()
-    const res = await this.config.invoker!.testInvoke({
-      invocations: [ItemAPI.getEpoch(this.config.scriptHash!, params)],
-      signers: [],
-    })
-
-    if (res.stack.length === 0) {
-      throw new Error(res.exception ?? 'unrecognized response')
-    }
-
-    return this.config.parser!.parseRpcResponse(res.stack[0])
-  }
-
-  async setMintFee(params: { epochId: number; amount: number }): Promise<string> {
-    await this.init()
-    return await this.config.invoker!.invokeFunction({
-      invocations: [ItemAPI.setMintFee(this.config.scriptHash!, params)],
-      signers: [],
-    })
-  }
-
-  async totalEpochs(): Promise<number> {
-    await this.init()
-    const res = await this.config.invoker!.testInvoke({
-      invocations: [ItemAPI.totalEpochs(this.config.scriptHash!)],
-      signers: [],
-    })
-
-    if (res.stack.length === 0) {
-      throw new Error(res.exception ?? 'unrecognized response')
-    }
-
-    return this.config.parser!.parseRpcResponse(res.stack[0])
-  }
-
-  // ITEM SCOPE
-  async auth(params: {
-    mode: string
-    assetPubKey: string
-    message: string
-    signature: string
-    burn: boolean
-  }): Promise<boolean> {
-    await this.init()
-    const res = await this.config.invoker!.testInvoke({
-      invocations: [ItemAPI.auth(this.config.scriptHash!, params)],
-      signers: [],
-    })
-
-    if (res.stack.length === 0) {
-      throw new Error(res.exception ?? 'unrecognized response')
-    }
-
-    return this.config.parser!.parseRpcResponse(res.stack[0])
-  }
-
-  async authCommit(params: {
-    mode: string
-    assetPubKey: string
-    message: string
-    signature: string
-    burn: boolean
-  }): Promise<string> {
-    await this.init()
-    return await this.config.invoker!.invokeFunction({
-      invocations: [ItemAPI.auth(this.config.scriptHash!, params)],
-      signers: [],
-    })
-  }
-
-  async authCommitConfirmed(params: {
-    mode: string
-    assetPubKey: string
-    message: string
-    signature: string
-    burn: boolean
-  }): Promise<boolean> {
-    await this.init()
-    const txid = await this.authCommit(params)
-    const log = await Utils.transactionCompletion(txid)
-
-    if (log.executions[0].stack!.length === 0) {
-      throw new Error('unrecognized response')
-    }
-
-    return this.config.parser!.parseRpcResponse(log.executions[0].stack![0])
-  }
-
-  async bindItem(params: { tokenId: number; assetPubKey: string }): Promise<string> {
-    await this.init()
-    return await this.config.invoker!.invokeFunction({
-      invocations: [ItemAPI.bindItem(this.config.scriptHash!, params)],
-      signers: [],
-    })
-  }
-
-  async bindItemConfirmed(
-    params: {
-      tokenId: number
-      assetPubKey: string
-      blockIndex: number
-      signature: string
-    },
-    mock?: boolean
-  ): Promise<boolean> {
-    await this.init()
-
-    if (mock) {
-      return true
-    }
-
-    const txid = await this.bindItem(params)
-    const log = await Utils.transactionCompletion(txid)
-
-    if (log.executions[0].stack!.length === 0) {
-      throw new Error('unrecognized response')
-    }
-
-    return this.config.parser!.parseRpcResponse(log.executions[0].stack![0])
-  }
-
-  async claimBindOnPickup(params: { assetPubKey: string; message: string; signature: string }): Promise<string> {
-    return await this.config.invoker!.invokeFunction({
-      invocations: [ItemAPI.claimBindOnPickup(this.config.scriptHash!, params)],
-      signers: [],
-    })
-  }
-
-  async claimBindOnPickupConfirmed(params: {
-    assetPubKey: string
-    message: string
-    signature: string
-  }): Promise<boolean> {
-    await this.init()
-    const txid = await this.claimBindOnPickup(params)
-    const log = await Utils.transactionCompletion(txid)
-
-    if (log.executions[0].stack!.length === 0) {
-      throw new Error('unrecognized response')
-    }
-
-    return this.config.parser!.parseRpcResponse(log.executions[0].stack![0])
-  }
-
-  async setBindOnPickup(params: { tokenId: number; state: boolean }): Promise<string> {
-    await this.init()
-    return await this.config.invoker!.invokeFunction({
-      invocations: [ItemAPI.setBindOnPickup(this.config.scriptHash!, params)],
-      signers: [],
-    })
-  }
-
-  async setBindOnPickupConfirmed(params: { tokenId: number; state: boolean }): Promise<boolean> {
-    await this.init()
-    const txid = await this.setBindOnPickup(params)
-    const log = await Utils.transactionCompletion(txid)
-
-    if (log.executions[0].stack!.length === 0) {
-      throw new Error('unrecognized response')
-    }
-
-    return this.config.parser!.parseRpcResponse(log.executions[0].stack![0])
-  }
-
-  async getAssetItemJSON(params: { assetPubKey: string }): Promise<ItemType> {
-    await this.init()
-    const res = await this.config.invoker!.testInvoke({
-      invocations: [ItemAPI.getAssetItemJSON(this.config.scriptHash!, params)],
-      signers: [],
-    })
-    if (res.stack.length === 0) {
-      throw new Error(res.exception ?? 'unrecognized response')
-    }
-
-    return this.config.parser!.parseRpcResponse(res.stack[0], { type: 'Hash160', hint: 'ScriptHash' })
-  }
-
-  async getItem(params: { tokenId: number }): Promise<string> {
-    await this.init()
-    const res = await this.config.invoker!.testInvoke({
-      invocations: [ItemAPI.getItem(this.config.scriptHash!, params)],
-      signers: [],
-    })
-
-    if (res.stack.length === 0) {
-      throw new Error(res.exception ?? 'unrecognized response')
-    }
-
-    return this.config.parser!.parseRpcResponse(res.stack[0])
-  }
-
-  async getItemJSON(params: { tokenId: number }): Promise<ItemType> {
-    await this.init()
-
-    const res = await this.config.invoker!.testInvoke({
-      invocations: [ItemAPI.getItemJSON(this.config.scriptHash!, params)],
-      signers: [],
-    })
-
-    if (res.stack.length === 0) {
-      throw new Error(res.exception ?? 'unrecognized response')
-    }
-
-    return this.config.parser!.parseRpcResponse(res.stack[0], { type: 'Hash160', hint: 'ScriptHash' })
-  }
-
-  async getItemJSONFlat(params: { tokenId: number }): Promise<string> {
-    await this.init()
-    const res = await this.config.invoker!.testInvoke({
-      invocations: [ItemAPI.getItemJSONFlat(this.config.scriptHash!, params)],
-      signers: [],
-    })
-
-    if (res.stack.length === 0) {
-      throw new Error(res.exception ?? 'unrecognized response')
-    }
-
-    return this.config.parser!.parseRpcResponse(res.stack[0])
-  }
-
-  async offlineMint(params: { epochId: number; address: string; bindOnPickup: boolean }): Promise<string> {
-    await this.init()
-    return await this.config.invoker!.invokeFunction({
-      invocations: [ItemAPI.offlineMint(this.config.scriptHash!, params)],
-      signers: [],
-    })
-  }
-
-  async offlineMintConfirmed(params: { epochId: number; address: string; bindOnPickup: boolean }): Promise<string> {
-    await this.init()
-    const txid = await this.offlineMint(params)
-    const log = await Utils.transactionCompletion(txid)
-
-    if (log.executions[0].stack!.length === 0) {
-      throw new Error('unrecognized response')
-    }
-
-    return this.config.parser!.parseRpcResponse(log.executions[0].stack![0])
-  }
-
-  async lock(params: { tokenId: number }): Promise<string> {
-    await this.init()
-    return await this.config.invoker!.invokeFunction({
-      invocations: [ItemAPI.lock(this.config.scriptHash!, params)],
-      signers: [],
-    })
-  }
-
-  async setItemProperties(params: { tokenId: number; properties: any }): Promise<string> {
-    await this.init()
-    return await this.config.invoker!.invokeFunction({
-      invocations: [ItemAPI.setItemProperties(this.config.scriptHash!, params)],
-      signers: [],
-    })
-  }
-
-  async unbindToken(params: { tokenId: number }): Promise<string> {
-    await this.init()
-    return await this.config.invoker!.invokeFunction({
-      invocations: [ItemAPI.unbindToken(this.config.scriptHash!, params)],
-      signers: [],
-    })
-  }
-
-  async unbindAsset(params: { assetPubKey: string }): Promise<string> {
-    await this.init()
-    return await this.config.invoker!.invokeFunction({
-      invocations: [ItemAPI.unbindAsset(this.config.scriptHash!, params)],
-      signers: [],
-    })
+    return new Item(config.scriptHash!, config.node!, config.invoker, config.listener, config.parser!)
   }
 
   async update(params: { script: string; manifest: string; data: any }): Promise<string> {
-    await this.init()
-    return await this.config.invoker!.invokeFunction({
-      invocations: [ItemAPI.update(this.config.scriptHash!, params)],
+    return await this.invoker.invokeFunction({
+      invocations: [AdminAPI.update(this.scriptHash, params)],
       signers: [],
     })
+  }
+
+  async updateSync(
+    params: {
+      script: string
+      manifest: string
+      data: any
+    },
+    opts?: any
+  ): Promise<string> {
+    const txId = await this.update(params)
+    const resp = await this.listener.waitForApplicationLog(txId, opts?.timeout ?? TIMEOUT)
+    return this.parser.parseRpcResponse(resp.executions[0].stack[0] as RpcResponseStackItem)
+  }
+
+  /// ////////////////////////////////////////////////
+  /// ////////////////////////////////////////////////
+  /// //////// APPLICATION SCOPE /////////////////////
+  /// ////////////////////////////////////////////////
+  /// ////////////////////////////////////////////////
+
+  async createUser(params: { address: string }): Promise<string> {
+    return await this.invoker.invokeFunction({
+      invocations: [UserAPI.createUser(this.scriptHash, params)],
+      signers: [],
+    })
+  }
+
+  async getUser(params: { localUid: number }): Promise<UserType> {
+    const res = await Utils.testInvoker(this.invoker, this.parser, [UserAPI.getUser(this.scriptHash, params)])
+    res[0].address = new wallet.Account(u.reverseHex(u.base642hex(res[0].address)))
+    return res[0]
+  }
+
+  async getUserWithAddress(params: { address: string }): Promise<UserType> {
+    const res = await Utils.testInvoker(this.invoker, this.parser, [
+      UserAPI.getUserWithAddress(this.scriptHash, params),
+    ])
+    res[0].address = new wallet.Account(u.reverseHex(u.base642hex(res[0].address)))
+    return res[0]
+  }
+
+  async setUserProperty(params: { localUid: number; globalPid: string; state: string }): Promise<string> {
+    return await this.invoker.invokeFunction({
+      invocations: [UserAPI.setUserProperty(this.scriptHash, params)],
+      signers: [],
+    })
+  }
+
+  async setUserPropertySync(
+    params: { localUid: number; globalPid: string; state: string },
+    opts?: any
+  ): Promise<boolean> {
+    const txId = await this.setUserProperty(params)
+    const resp = await this.listener.waitForApplicationLog(txId, opts?.timeout ?? TIMEOUT)
+
+    return this.parser.parseRpcResponse(resp.executions[0].stack[0] as RpcResponseStackItem)
+  }
+
+  async totalUsers(): Promise<number> {
+    const res = await Utils.testInvoker(this.invoker, this.parser, [UserAPI.totalUsers(this.scriptHash)])
+    return res[0]
+  }
+
+  async totalItems(): Promise<number> {
+    const res = await Utils.testInvoker(this.invoker, this.parser, [ItemAPI.totalItems(this.scriptHash)])
+    return res[0]
+  }
+
+  async createItem(params: { localEid: number }): Promise<string> {
+    return await this.invoker.invokeFunction({
+      invocations: [ItemAPI.createItem(this.scriptHash, params)],
+      signers: [],
+    })
+  }
+
+  async createItemSync(params: { localEid: number }, opts?: any): Promise<number> {
+    const txId = await this.createItem(params)
+    const resp = await this.listener.waitForApplicationLog(txId, opts?.timeout ?? TIMEOUT)
+
+    return this.parser.parseRpcResponse(resp.executions[0].stack[0] as RpcResponseStackItem)
+  }
+
+  async getItem(params: { localNfid: number }): Promise<ItemType> {
+    const resRaw = await Utils.testInvokerRaw(this.invoker, [ItemAPI.getItem(this.scriptHash, params)])
+    const itemRaw = resRaw.stack[0]
+    if (!TypeChecker.isStackTypeMap(itemRaw)) {
+      throw new Error(`unrecognized response. Got ${itemRaw.type} instead of Map`)
+    }
+
+    const item = this.parser.parseRpcResponse(itemRaw)
+
+    const bindingTokenIdRaw = itemRaw.value.filter((pair: any) => {
+      return pair.key.value === this.parser.strToBase64('binding_token_id')
+    })[0].value
+    item.binding_token_id = this.parser.parseRpcResponse(bindingTokenIdRaw, { type: 'ByteArray' })
+
+    item.epoch.binding_script_hash = '0x' + u.reverseHex(u.base642hex(item.epoch.binding_script_hash))
+    item.seed = u.base642hex(item.seed)
+
+    return item
+  }
+
+  async getItemWithKey(params: { pubKey: string }): Promise<ItemType> {
+    const resRaw = await Utils.testInvokerRaw(this.invoker, [ItemAPI.getItemWithKey(this.scriptHash, params)])
+    const itemRaw = resRaw.stack[0]
+    if (!TypeChecker.isStackTypeMap(itemRaw)) {
+      throw new Error(`unrecognized response. Got ${itemRaw.type} instead of Map`)
+    }
+
+    const item = this.parser.parseRpcResponse(itemRaw)
+
+    const bindingTokenIdRaw = itemRaw.value.filter((pair: any) => {
+      return pair.key.value === this.parser.strToBase64('binding_token_id')
+    })[0].value
+    item.binding_token_id = this.parser.parseRpcResponse(bindingTokenIdRaw, { type: 'ByteArray' })
+
+    item.epoch.binding_script_hash = '0x' + u.reverseHex(u.base642hex(item.epoch.binding_script_hash))
+    item.seed = u.base642hex(item.seed)
+
+    return item
+  }
+
+  async getItemWithTac(params: { tacScriptHash: string; tokenId: string }): Promise<ItemType> {
+    const resRaw = await Utils.testInvokerRaw(this.invoker, [ItemAPI.getItemWithTac(this.scriptHash, params)])
+    const itemRaw = resRaw.stack[0]
+    if (!TypeChecker.isStackTypeMap(itemRaw)) {
+      throw new Error(`unrecognized response. Got ${itemRaw.type} instead of Map`)
+    }
+
+    const item = this.parser.parseRpcResponse(itemRaw)
+
+    const bindingTokenIdRaw = itemRaw.value.filter((pair: any) => {
+      return pair.key.value === this.parser.strToBase64('binding_token_id')
+    })[0].value
+    item.binding_token_id = this.parser.parseRpcResponse(bindingTokenIdRaw, { type: 'ByteArray' })
+
+    item.epoch.binding_script_hash = '0x' + u.reverseHex(u.base642hex(item.epoch.binding_script_hash))
+    item.seed = u.base642hex(item.seed)
+
+    return item
+  }
+
+  async getItemProperties(params: { localNfid: number }): Promise<any[]> {
+    const res = await Utils.testInvoker(this.invoker, this.parser, [ItemAPI.getItemProperties(this.scriptHash, params)])
+    return res[0]
+  }
+
+  async setItemPropertySync(
+    params: { localNfid: number; globalPid: string; state: string },
+    opts?: any
+  ): Promise<boolean> {
+    const txId = await this.setItemProperty(params)
+    const resp = await this.listener.waitForApplicationLog(txId, opts?.timeout ?? TIMEOUT)
+
+    return this.parser.parseRpcResponse(resp.executions[0].stack[0] as RpcResponseStackItem)
+  }
+
+  async setItemProperty(params: { localNfid: number; globalPid: string; state: string }): Promise<string> {
+    return await this.invoker.invokeFunction({
+      invocations: [ItemAPI.setItemProperty(this.scriptHash, params)],
+      signers: [],
+    })
+  }
+
+  async bindItem(params: {
+    localNfid: number
+    localCid: number
+    pubKey: string
+    assetEllipticCurve: NeoN3EllipticCurves
+  }): Promise<string> {
+    return await this.invoker.invokeFunction({
+      invocations: [ItemAPI.bindItem(this.scriptHash, params)],
+      signers: [],
+    })
+  }
+
+  async bindItemSync(
+    params: {
+      localNfid: number
+      localCid: number
+      pubKey: string
+      assetEllipticCurve: NeoN3EllipticCurves
+    },
+    opts?: any
+  ): Promise<number> {
+    const txId = await this.bindItem(params)
+    const resp = await this.listener.waitForApplicationLog(txId, opts?.timeout ?? TIMEOUT)
+
+    return this.parser.parseRpcResponse(resp.executions[0].stack[0] as RpcResponseStackItem)
+  }
+
+  async lockItem(params: { localNfid: number }): Promise<string> {
+    return await this.invoker.invokeFunction({
+      invocations: [ItemAPI.lockItem(this.scriptHash, params)],
+      signers: [],
+    })
+  }
+
+  async lockItemSync(params: { localNfid: number }, opts?: any): Promise<boolean> {
+    const txId = await this.lockItem(params)
+    const resp = await this.listener.waitForApplicationLog(txId, opts?.timeout ?? TIMEOUT)
+
+    return this.parser.parseRpcResponse(resp.executions[0].stack[0] as RpcResponseStackItem)
+  }
+
+  async authItem(params: {
+    localNfid: number
+    message: string
+    proof: string
+    challenge: string
+    burn: boolean
+  }): Promise<string> {
+    return await this.invoker.invokeFunction({
+      invocations: [ItemAPI.authItem(this.scriptHash, params)],
+      signers: [],
+    })
+  }
+
+  async authItemSync(
+    params: {
+      localNfid: number
+      message: string
+      proof: string
+      challenge: string
+      burn: boolean
+    },
+    opts?: any
+  ): Promise<boolean> {
+    const txId = await this.authItem(params)
+    const resp = await this.listener.waitForApplicationLog(txId, opts?.timeout ?? TIMEOUT)
+
+    return this.parser.parseRpcResponse(resp.executions[0].stack[0] as RpcResponseStackItem)
+  }
+
+  async isAuthValid(params: {
+    localNfid: number
+    message: string
+    proof: string
+    challenge: string
+  }): Promise<EpochType> {
+    const args = { ...params, ...{ burn: false } }
+    const res = await Utils.testInvoker(this.invoker, this.parser, [ItemAPI.authItem(this.scriptHash, args)])
+    return res[0]
+  }
+
+  async purgeItem(params: { localNfid: number; message: string; signature: string }): Promise<any> {
+    return await this.invoker.invokeFunction({
+      invocations: [ItemAPI.purgeItem(this.scriptHash, params)],
+      signers: [],
+    })
+  }
+
+  async purgeItemSync(params: { localNfid: number; message: string; signature: string }, opts?: any): Promise<boolean> {
+    const txId = await this.purgeItem(params)
+    const resp = await this.listener.waitForApplicationLog(txId, opts?.timeout ?? TIMEOUT)
+
+    return this.parser.parseRpcResponse(resp.executions[0].stack[0] as RpcResponseStackItem)
+  }
+
+  async setEpochProperty(params: { localEid: number; globalPid: string; state: string }): Promise<string> {
+    return await this.invoker.invokeFunction({
+      invocations: [EpochAPI.setEpochProperty(this.scriptHash, params)],
+      signers: [],
+    })
+  }
+
+  async setEpochPropertySync(
+    params: { localEid: number; globalPid: string; state: string },
+    opts?: any
+  ): Promise<boolean> {
+    const txId = await this.setEpochProperty(params)
+    const resp = await this.listener.waitForApplicationLog(txId, opts?.timeout ?? TIMEOUT)
+
+    return this.parser.parseRpcResponse(resp.executions[0].stack[0] as RpcResponseStackItem)
+  }
+
+  async getEpoch(params: { localEid: number }): Promise<EpochType> {
+    const res = await Utils.testInvoker(this.invoker, this.parser, [EpochAPI.getEpoch(this.scriptHash, params)])
+    const result = res[0]
+    result.binding_script_hash = '0x' + u.reverseHex(u.base642hex(result.binding_script_hash))
+    return result
+  }
+
+  async getEpochItems(params: { localEid: number }): Promise<number[]> {
+    const res = await this.invoker.testInvoke({
+      invocations: [EpochAPI.getEpochItems(this.scriptHash, params)],
+      signers: [],
+    })
+
+    const itemBytes: string[] = await Utils.handleIterator(res, this.invoker, this.parser)
+    return itemBytes.map(item => {
+      return parseInt(u.reverseHex(item), 16)
+    })
+  }
+
+  async getEpochProperties(params: { localEid: number }): Promise<any[]> {
+    const res = await this.invoker.testInvoke({
+      invocations: [EpochAPI.getEpochProperties(this.scriptHash, params)],
+      signers: [],
+    })
+    return Utils.handleIterator(res, this.invoker, this.parser)
+  }
+
+  async totalEpochs(): Promise<number> {
+    const res = await Utils.testInvoker(this.invoker, this.parser, [EpochAPI.totalEpochs(this.scriptHash)])
+    return res[0]
+  }
+
+  async createConfiguration(): Promise<string> {
+    return await this.invoker.invokeFunction({
+      invocations: [ConfigurationAPI.createConfiguration(this.scriptHash)],
+      signers: [],
+    })
+  }
+
+  async createConfigurationSync(opts?: any): Promise<number> {
+    const txId = await this.createConfiguration()
+    const resp = await this.listener.waitForApplicationLog(txId, opts?.timeout ?? TIMEOUT)
+
+    return this.parser.parseRpcResponse(resp.executions[0].stack[0] as RpcResponseStackItem)
+  }
+
+  async getConfiguration(params: { localCid: number }): Promise<ConfigurationType> {
+    const res = await Utils.testInvoker(this.invoker, this.parser, [
+      ConfigurationAPI.getConfiguration(this.scriptHash, params),
+    ])
+    return res[0]
+  }
+
+  async setConfigurationProperty(params: { localCid: number; globalPid: string; state: string }): Promise<string> {
+    return await this.invoker.invokeFunction({
+      invocations: [ConfigurationAPI.setConfigurationProperty(this.scriptHash, params)],
+      signers: [],
+    })
+  }
+
+  async setConfigurationPropertySync(
+    params: { localCid: number; globalPid: string; state: string },
+    opts?: any
+  ): Promise<number> {
+    const txId = await this.setConfigurationProperty(params)
+    const resp = await this.listener.waitForApplicationLog(txId, opts?.timeout ?? TIMEOUT)
+
+    return this.parser.parseRpcResponse(resp.executions[0].stack[0] as RpcResponseStackItem)
+  }
+
+  async getConfigurationProperties(params: { localCid: number }): Promise<any[]> {
+    const res = await Utils.testInvoker(this.invoker, this.parser, [
+      ConfigurationAPI.getConfigurationProperties(this.scriptHash, params),
+    ])
+    return Utils.handleIterator(res, this.invoker, this.parser)
+  }
+
+  async getConfigurationAssets(params: { localCid: number }): Promise<number[]> {
+    const res = await this.invoker.testInvoke({
+      invocations: [ConfigurationAPI.getConfigurationAssets(this.scriptHash, params)],
+      signers: [],
+    })
+    const itemBytes: string[] = await Utils.handleIterator(res, this.invoker, this.parser)
+    return itemBytes.map(item => {
+      return parseInt(u.reverseHex(item), 16)
+    })
+  }
+
+  async totalConfigurations(): Promise<number> {
+    const res = await Utils.testInvoker(this.invoker, this.parser, [
+      ConfigurationAPI.totalConfigurations(this.scriptHash),
+    ])
+    return res[0]
+  }
+
+  async getAsset(params: { localAsid: number }): Promise<AssetType> {
+    const res = await Utils.testInvoker(this.invoker, this.parser, [AssetAPI.getAsset(this.scriptHash, params)])
+    const result = res[0]
+    result.public_key = u.base642hex(result.public_key)
+    return result
+  }
+
+  async getAssetWithKey(params: { assetPubKey: string }): Promise<AssetType> {
+    const res = await Utils.testInvoker(this.invoker, this.parser, [AssetAPI.getAssetWithKey(this.scriptHash, params)])
+    return res[0]
+  }
+
+  async getAssetBurnLog(params: { localAsid: number }): Promise<string[]> {
+    const res = await this.invoker.testInvoke({
+      invocations: [AssetAPI.getAssetBurnLog(this.scriptHash, params)],
+      signers: [],
+    })
+
+    return Utils.handleIterator(res, this.invoker, this.parser)
+  }
+
+  async totalAssets(): Promise<number> {
+    const res = await Utils.testInvoker(this.invoker, this.parser, [AssetAPI.totalAssets(this.scriptHash)])
+    return res[0]
+  }
+
+  async tokenProperties(params: { pubKey: string }): Promise<any> {
+    const item = await this.getItemWithKey(params)
+    const res = await Utils.testInvoker(this.invoker, this.parser, [
+      IS1API.properties(item.epoch.binding_script_hash, { tokenId: item.binding_token_id }),
+    ])
+    return res[0]
+  }
+
+  async tokenPropertiesWithNfid(params: { localNfid: number }): Promise<any> {
+    const item = await this.getItem(params)
+    const res = await Utils.testInvoker(this.invoker, this.parser, [
+      IS1API.properties(item.epoch.binding_script_hash, { tokenId: item.binding_token_id }),
+    ])
+    return res[0]
+  }
+
+  // TODO - This needs to be done in a better way using the smart contract or dora and can be parallelized
+  async itemsOf(params: { address: string }): Promise<RemoteToken[]> {
+    const totalEpochs = await this.totalEpochs()
+
+    const items: RemoteToken[] = []
+    const contracts: string[] = []
+    for (let localEid = 1; localEid <= totalEpochs; localEid++) {
+      const epoch = await this.getEpoch({ localEid })
+      if (contracts.indexOf(epoch.binding_script_hash) === -1) {
+        contracts.push(epoch.binding_script_hash)
+      }
+    }
+
+    for (let i = 0; i < contracts.length; i++) {
+      const res = await this.invoker.testInvoke({
+        invocations: [IS1API.tokensOf(contracts[i], params)],
+        signers: [],
+      })
+      const tokenIds: string[] = await Utils.handleIterator(res, this.invoker, this.parser)
+      tokenIds.forEach((tokenId: string) => {
+        items.push({
+          scriptHash: contracts[i],
+          tokenId,
+        })
+      })
+    }
+    return items
+  }
+
+  async isClaimable(params: { pubKey: string }): Promise<string[]> {
+    const item = await this.getItemWithKey(params)
+
+    const res = await Utils.testInvoker(this.invoker, this.parser, [
+      IS1API.isClaimable(item.epoch.binding_script_hash, { tokenId: item.binding_token_id }),
+    ])
+    return res[0]
+  }
+
+  async isClaimableWithNfid(params: { localNfid: number }): Promise<string[]> {
+    const item = await this.getItem(params)
+
+    const res = await Utils.testInvoker(this.invoker, this.parser, [
+      IS1API.isClaimable(item.epoch.binding_script_hash, { tokenId: item.binding_token_id }),
+    ])
+    return res[0]
+  }
+
+  async claimItem(params: ClaimItem): Promise<string> {
+    const item = await this.getItemWithKey({ pubKey: params.pubKey })
+
+    return await this.invoker.invokeFunction({
+      invocations: [
+        IS1API.claim(item.epoch.binding_script_hash, {
+          tokenId: item.binding_token_id,
+          auth: params.auth,
+          receiverAccount: params.receiverAccount,
+        }),
+      ],
+      signers: [],
+    })
+  }
+
+  async claimItemSync(params: ClaimItem, opts?: any): Promise<boolean> {
+    const txId = await this.claimItem(params)
+    const resp = await this.listener.waitForApplicationLog(txId, opts?.timeout ?? TIMEOUT)
+
+    return this.parser.parseRpcResponse(resp.executions[0].stack[0] as RpcResponseStackItem)
+  }
+
+  async ownerOf(params: { localNfid: number }): Promise<string> {
+    const item = await this.getItem(params)
+
+    const res = await Utils.testInvoker(this.invoker, this.parser, [
+      IS1API.ownerOf(item.epoch.binding_script_hash, { tokenId: item.binding_token_id }),
+    ])
+    return wallet.getAddressFromScriptHash(u.reverseHex(u.base642hex(res[0])))
   }
 }

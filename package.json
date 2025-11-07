@@ -20,7 +20,7 @@
     "clean": "rm -rf ./dist",
     "lint": "eslint --fix .",
     "docs": "typedoc",
-    "test": "ts-mocha src/tests/**/*.spec.ts",
+    "test": "ts-mocha tests/**/*.spec.ts",
     "format": "prettier --write ."
   },
   "author": {
@@ -30,9 +30,9 @@
   "license": "Apache-2.0",
   "homepage": "https://item.systems",
   "dependencies": {
+    "@cityofzion/neon-core": "^5.0.0-next.16",
     "@cityofzion/neon-dappkit": "1.0.0",
     "@cityofzion/neon-dappkit-types": "1.0.0",
-    "@cityofzion/neon-core": "^5.0.0-next.16",
     "@cityofzion/neon-js": "^5.3.0",
     "@cityofzion/props": "^0.2.5",
     "@noble/curves": "1.9.7",
@@ -51,6 +51,7 @@
     "assert": "^2.0.0",
     "chai": "^6.2.0",
     "cross-env": "^7.0.3",
+    "dotenv": "^17.2.3",
     "eslint": "8.57.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-config-standard": "^17.1.0",
