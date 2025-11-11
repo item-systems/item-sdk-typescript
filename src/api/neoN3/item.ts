@@ -1,13 +1,21 @@
 import { u } from '@cityofzion/neon-js'
 import { ContractInvocation } from '@cityofzion/neon-dappkit-types'
 import { NeoN3EllipticCurves } from '../../constants'
+import {
+  AuthItem,
+  BindItem,
+  EpochStub,
+  GetItemWithTac,
+  ItemStub,
+  KeyStub,
+  PurgeItem,
+  SetItemProperty
+} from "../../types";
 
 export class ItemAPI {
   static createItem(
     scriptHash: string,
-    params: {
-      localEid: number
-    }
+    params: EpochStub
   ): ContractInvocation {
     return {
       scriptHash,
@@ -18,9 +26,7 @@ export class ItemAPI {
 
   static getItem(
     scriptHash: string,
-    params: {
-      localNfid: number
-    }
+    params: ItemStub
   ): ContractInvocation {
     return {
       scriptHash,
@@ -31,9 +37,7 @@ export class ItemAPI {
 
   static getItemWithKey(
     scriptHash: string,
-    params: {
-      pubKey: string
-    }
+    params: KeyStub
   ): ContractInvocation {
     return {
       scriptHash,
@@ -42,18 +46,12 @@ export class ItemAPI {
     }
   }
 
-  static getItemWithTac(
-    scriptHash: string,
-    params: {
-      tacScriptHash: string
-      tokenId: string
-    }
-  ): ContractInvocation {
+  static getItemWithTac(scriptHash: string, params: GetItemWithTac): ContractInvocation {
     return {
       scriptHash,
       operation: 'getItemWithTAC',
       args: [
-        { type: 'Hash160', value: params.tacScriptHash },
+        { type: 'Hash160', value: params.scriptHash },
         { type: 'ByteArray', value: params.tokenId },
       ],
     }
@@ -61,9 +59,7 @@ export class ItemAPI {
 
   static getItemProperties(
     scriptHash: string,
-    params: {
-      localNfid: number
-    }
+    params: ItemStub
   ): ContractInvocation {
     return {
       scriptHash,
@@ -82,11 +78,7 @@ export class ItemAPI {
 
   static setItemProperty(
     scriptHash: string,
-    params: {
-      localNfid: number
-      globalPid: string
-      state: string
-    }
+    params: SetItemProperty
   ): ContractInvocation {
     return {
       scriptHash,
@@ -101,12 +93,7 @@ export class ItemAPI {
 
   static bindItem(
     scriptHash: string,
-    params: {
-      localNfid: number
-      localCid: number
-      pubKey: string
-      assetEllipticCurve: NeoN3EllipticCurves
-    }
+    params: BindItem
   ): ContractInvocation {
     return {
       scriptHash,
@@ -122,9 +109,7 @@ export class ItemAPI {
 
   static lockItem(
     scriptHash: string,
-    params: {
-      localNfid: number
-    }
+    params: ItemStub
   ): ContractInvocation {
     return {
       scriptHash,
@@ -133,24 +118,15 @@ export class ItemAPI {
     }
   }
 
-  static authItem(
-    scriptHash: string,
-    params: {
-      localNfid: number
-      message: string
-      proof: string
-      challenge: string
-      burn: boolean
-    }
-  ): ContractInvocation {
+  static authItem(scriptHash: string, params: AuthItem): ContractInvocation {
     return {
       scriptHash,
       operation: 'authItem',
       args: [
-        { type: 'Integer', value: params.localNfid.toString() },
-        { type: 'ByteArray', value: u.hex2base64(params.message) },
-        { type: 'ByteArray', value: u.hex2base64(params.proof) },
-        { type: 'ByteArray', value: u.hex2base64(u.reverseHex(params.challenge)) },
+        { type: 'Integer', value: params.tokenId.toString() },
+        { type: 'ByteArray', value: u.hex2base64(params.auth.message) },
+        { type: 'ByteArray', value: u.hex2base64(params.auth.proof) },
+        { type: 'ByteArray', value: u.hex2base64(u.reverseHex(params.auth.challenge)) },
         { type: 'Boolean', value: params.burn },
       ],
     }
@@ -158,11 +134,7 @@ export class ItemAPI {
 
   static purgeItem(
     scriptHash: string,
-    params: {
-      localNfid: number
-      message: string
-      signature: string
-    }
+    params: PurgeItem
   ): ContractInvocation {
     return {
       scriptHash,
