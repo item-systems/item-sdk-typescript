@@ -12,7 +12,6 @@ import {
   ContractUpdate,
   EpochStub,
   EpochType,
-  GetItemWithTac,
   IsAuthValid,
   ItemStub,
   ItemType,
@@ -22,9 +21,10 @@ import {
   SetConfigurationProperty,
   SetEpochProperty,
   SetItemProperty,
-  SetUserProperty, UserStub,
-  UserType
-} from "./types";
+  SetUserProperty,
+  UserStub,
+  UserType,
+} from './types'
 import { Utils } from './helpers'
 import { NeoN3NetworkOptions } from './constants'
 import { NeonParser, NeonInvoker, NeonEventListener } from '@cityofzion/neon-dappkit'
@@ -115,7 +115,7 @@ export class Item {
   /**
    * A synchronous version of the update method, which waits for a response.
    * @param params
-   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1 minute
+   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1-minute
    * default is used.
    */
   async updateSync(params: ContractUpdate, timeout?: number): Promise<string> {
@@ -158,7 +158,7 @@ export class Item {
   }
 
   /**
-   * Gets the user meta data using their address. Response data includes permissions and settings in the contract.
+   * Gets the user metadata using their address. Response data includes permissions and settings in the contract.
    * @param params the Neo N3 formatted address of the user.
    *
    * @return the metadata of the user associated with the queried address
@@ -187,7 +187,7 @@ export class Item {
   /**
    * Sets a global property for a user account
    * @param params the properties required to set a user property
-   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1 minute
+   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1-minute
    * default is used.
    *
    * @return A boolean indicating whether the attempt was successful
@@ -241,9 +241,9 @@ export class Item {
    * Creates a new item against an epoch. The user much be a manufacturer to use this method. This method is `usually`
    * called from inside a contract, but is exposed here to support admin workflows.
    * @param params the parameters required to create an item.
-   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1 minute timeout is
+   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1-minute timeout is
    * used.
-   * @return the local nfid of the new item that was created.
+   * @return the local NFID of the new item that was created.
    */
   async createItemSync(params: EpochStub, timeout?: number): Promise<number> {
     const txId = await this.createItem(params)
@@ -309,7 +309,7 @@ export class Item {
    * @param params the parameters required to get an item
    * @return an object representing a non-fungible item
    */
-  async getItemWithTac(params: GetItemWithTac): Promise<ItemType> {
+  async getItemWithTac(params: RemoteToken): Promise<ItemType> {
     const resRaw = await Utils.testInvokerRaw(this.invoker, [ItemAPI.getItemWithTac(this.scriptHash, params)])
     const itemRaw = resRaw.stack[0]
     if (!TypeChecker.isStackTypeMap(itemRaw)) {
@@ -333,7 +333,7 @@ export class Item {
   /**
    * Gets the properties of the selected item.
    * @param params the parameters required to get the properties
-   * @return a json object outlining the properties of an nfi
+   * @return a json object outlining the properties of an NFI
    */
   async getItemProperties(params: ItemStub): Promise<any[]> {
     const res = await Utils.testInvoker(this.invoker, this.parser, [ItemAPI.getItemProperties(this.scriptHash, params)])
@@ -343,7 +343,7 @@ export class Item {
   /**
    * Sets the property of an item. The signer much be the manufacturer of the item.
    * @param params
-   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1 minute timeout is used.
+   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1-minute timeout is used.
    * @return a boolean indicating whether the attempt was successful
    */
   async setItemPropertySync(params: SetItemProperty, timeout?: number): Promise<boolean> {
@@ -384,7 +384,7 @@ export class Item {
    * an asset that is currently bound to the targeted item. The item MUST be in a `configuration` state. The asset must
    * be globally unique and unbound. This transaction must be signed by a manufacturer.
    * @param params
-   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1 minute timeout is used.
+   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1-minute timeout is used.
    * @return the asset id (localAsid) representing the new asset that was created in the binding process
    */
   async bindItemSync(params: BindItem, timeout?: number): Promise<number> {
@@ -411,7 +411,7 @@ export class Item {
    * Transitions an item from `configuration` to `locked` state. This transition prevents an NFI from being rebound to a
    * new asset without approvals by the TAC owner. The signer must be the manufacturer.
    * @param params
-   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1 minute timeout is used.
+   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1-minute timeout is used.
    * @return a boolean indicating whether the lock attempt was successful
    */
   async lockItemSync(params: ItemStub, timeout?: number): Promise<boolean> {
@@ -436,7 +436,7 @@ export class Item {
   /**
    * attempts to use a proof to authenticate an item against a challenge
    * @param params
-   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1 minute timeout is used.
+   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1-minute timeout is used.
    * @return a boolean indicating whether the challenge was passed
    */
   async authItemSync(params: AuthItem, timeout?: number): Promise<boolean> {
@@ -478,7 +478,7 @@ export class Item {
    * mitigate signature leakage. It is also very useful when transferring an NFI to a new owner to prevent the old owner
    * from retaining access rights.
    * @param params
-   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1 minute timeout is used.
+   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1-minute timeout is used.
    *
    * @return a transaction id; Use Utils.transactionCompletion() or the synchronous equivalent of this method to receive a result.
    */
@@ -504,7 +504,7 @@ export class Item {
   /**
    * Sets an epoch property
    * @param params
-   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1 minute timeout is used.
+   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1-minute timeout is used.
    * @return a boolean indicating whether the property was successfully set
    */
   async setEpochPropertySync(params: SetEpochProperty, timeout?: number): Promise<boolean> {
@@ -527,10 +527,10 @@ export class Item {
   }
 
   /**
-   * Gets all of the items in an epoch. This is particularly used for manufacturers interested in
-   * understanding all of the items associated with a tokenized asset contract or for TAC owners to inventory their NFIs.
+   * Gets all the items in an epoch. This is particularly used for manufacturers interested in
+   * understanding all the items associated with a tokenized asset contract or for TAC owners to inventory their NFIs.
    * @param params
-   * @return a list of all the nfids associated with an epoch
+   * @return a list of all the NFIDs associated with an epoch
    */
   async getEpochItems(params: { localEid: number }): Promise<number[]> {
     const res = await this.invoker.testInvoke({
@@ -548,7 +548,7 @@ export class Item {
   /**
    * Gets the configuration properties of an epoch
    * @param params
-   * @return an object outlining all of the configured properties of an epoch
+   * @return an object outlining all the configured properties of an epoch
    */
   async getEpochProperties(params: EpochStub): Promise<any[]> {
     const res = await this.invoker.testInvoke({
@@ -580,7 +580,7 @@ export class Item {
 
   /**
    * Creates a new configuration in the system. The signer must be a manufacturer.
-   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1 minute timeout is used.
+   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1-minute timeout is used.
    *
    * @return the Configuration ID (LocalCid) of the new configuration
    */
@@ -618,7 +618,7 @@ export class Item {
   /**
    * Sets a property of a manufacturing configuration
    * @param params
-   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1 minute timeout is used.
+   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1-minute timeout is used.
    * @return a boolean indicating whether the property was set
    */
   async setConfigurationPropertySync(params: SetConfigurationProperty, timeout?: number): Promise<number> {
@@ -767,7 +767,7 @@ export class Item {
    * implements the optional "claimItem" method on the IS1 standard to change the owner of the NFI on the tokenized
    * asset contract using an asset proof. This method calls the tokenized asset contract associated with the item.
    * @param params
-   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1 minute timeout is used.
+   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1-minute timeout is used.
    * @return a transaction id; Use Utils.transactionCompletion() or the synchronous equivalent of this method to receive a result.
    */
   async claimItemSync(params: ClaimItem, timeout?: number): Promise<boolean> {

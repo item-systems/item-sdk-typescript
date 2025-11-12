@@ -1,11 +1,8 @@
 import { ContractInvocation } from '@cityofzion/neon-dappkit-types'
-import { AssetStub, KeyStub } from "../../types";
+import { AssetStub, KeyStub } from '../../types'
 
 export class AssetAPI {
-  static getAsset(
-    scriptHash: string,
-    params: AssetStub
-  ): ContractInvocation {
+  static getAsset(scriptHash: string, params: AssetStub): ContractInvocation {
     return {
       scriptHash,
       operation: 'getAsset',
@@ -13,10 +10,7 @@ export class AssetAPI {
     }
   }
 
-  static getAssetWithKey(
-    scriptHash: string,
-    params: KeyStub
-  ): ContractInvocation {
+  static getAssetWithKey(scriptHash: string, params: KeyStub): ContractInvocation {
     return {
       scriptHash,
       operation: 'getAssetWithKey',
@@ -24,10 +18,7 @@ export class AssetAPI {
     }
   }
 
-  static getAssetBurnLog(
-    scriptHash: string,
-    params: AssetStub
-  ): ContractInvocation {
+  static getAssetBurnLog(scriptHash: string, params: AssetStub): ContractInvocation {
     return {
       scriptHash,
       operation: 'getAssetBurnLog',

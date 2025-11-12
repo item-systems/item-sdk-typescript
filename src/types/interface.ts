@@ -31,12 +31,6 @@ export type SetUserProperty = {
   state: string
 }
 
-
-export type GetItemWithTac = {
-  scriptHash: string
-  tokenId: string
-}
-
 export type SetItemProperty = {
   localNfid: number
   globalPid: string
@@ -155,13 +149,19 @@ export interface AuthPayload {
 }
 
 export interface AuthItem {
+  localNfid: number
+  auth: AuthPayload
+  burn: boolean
+}
+
+export interface IS1AuthItem {
   tokenId: string
   auth: AuthPayload
   burn: boolean
 }
 
 export interface IsAuthValid {
-  tokenId: string
+  localNfid: number
   auth: AuthPayload
 }
 

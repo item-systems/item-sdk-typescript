@@ -1,11 +1,8 @@
 import { ContractInvocation } from '@cityofzion/neon-dappkit-types'
-import { ContractUpdate } from "../../types";
+import { ContractUpdate } from '../../types'
 
 export class AdminAPI {
-  static update(
-    scriptHash: string,
-    params: ContractUpdate
-  ): ContractInvocation {
+  static update(scriptHash: string, params: ContractUpdate): ContractInvocation {
     return {
       scriptHash,
       operation: 'update',

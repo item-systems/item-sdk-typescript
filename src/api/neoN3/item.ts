@@ -1,22 +1,9 @@
 import { u } from '@cityofzion/neon-js'
 import { ContractInvocation } from '@cityofzion/neon-dappkit-types'
-import { NeoN3EllipticCurves } from '../../constants'
-import {
-  AuthItem,
-  BindItem,
-  EpochStub,
-  GetItemWithTac,
-  ItemStub,
-  KeyStub,
-  PurgeItem,
-  SetItemProperty
-} from "../../types";
+import { AuthItem, BindItem, EpochStub, ItemStub, KeyStub, PurgeItem, RemoteToken, SetItemProperty } from '../../types'
 
 export class ItemAPI {
-  static createItem(
-    scriptHash: string,
-    params: EpochStub
-  ): ContractInvocation {
+  static createItem(scriptHash: string, params: EpochStub): ContractInvocation {
     return {
       scriptHash,
       operation: 'createItem',
@@ -24,10 +11,7 @@ export class ItemAPI {
     }
   }
 
-  static getItem(
-    scriptHash: string,
-    params: ItemStub
-  ): ContractInvocation {
+  static getItem(scriptHash: string, params: ItemStub): ContractInvocation {
     return {
       scriptHash,
       operation: 'getItem',
@@ -35,10 +19,7 @@ export class ItemAPI {
     }
   }
 
-  static getItemWithKey(
-    scriptHash: string,
-    params: KeyStub
-  ): ContractInvocation {
+  static getItemWithKey(scriptHash: string, params: KeyStub): ContractInvocation {
     return {
       scriptHash,
       operation: 'getItemWithKey',
@@ -46,7 +27,7 @@ export class ItemAPI {
     }
   }
 
-  static getItemWithTac(scriptHash: string, params: GetItemWithTac): ContractInvocation {
+  static getItemWithTac(scriptHash: string, params: RemoteToken): ContractInvocation {
     return {
       scriptHash,
       operation: 'getItemWithTAC',
@@ -57,10 +38,7 @@ export class ItemAPI {
     }
   }
 
-  static getItemProperties(
-    scriptHash: string,
-    params: ItemStub
-  ): ContractInvocation {
+  static getItemProperties(scriptHash: string, params: ItemStub): ContractInvocation {
     return {
       scriptHash,
       operation: 'getItemProperties',
@@ -76,10 +54,7 @@ export class ItemAPI {
     }
   }
 
-  static setItemProperty(
-    scriptHash: string,
-    params: SetItemProperty
-  ): ContractInvocation {
+  static setItemProperty(scriptHash: string, params: SetItemProperty): ContractInvocation {
     return {
       scriptHash,
       operation: 'setItemProperty',
@@ -91,10 +66,7 @@ export class ItemAPI {
     }
   }
 
-  static bindItem(
-    scriptHash: string,
-    params: BindItem
-  ): ContractInvocation {
+  static bindItem(scriptHash: string, params: BindItem): ContractInvocation {
     return {
       scriptHash,
       operation: 'bindItem',
@@ -107,10 +79,7 @@ export class ItemAPI {
     }
   }
 
-  static lockItem(
-    scriptHash: string,
-    params: ItemStub
-  ): ContractInvocation {
+  static lockItem(scriptHash: string, params: ItemStub): ContractInvocation {
     return {
       scriptHash,
       operation: 'lockItem',
@@ -123,7 +92,7 @@ export class ItemAPI {
       scriptHash,
       operation: 'authItem',
       args: [
-        { type: 'Integer', value: params.tokenId.toString() },
+        { type: 'Integer', value: params.localNfid.toString() },
         { type: 'ByteArray', value: u.hex2base64(params.auth.message) },
         { type: 'ByteArray', value: u.hex2base64(params.auth.proof) },
         { type: 'ByteArray', value: u.hex2base64(u.reverseHex(params.auth.challenge)) },
@@ -132,10 +101,7 @@ export class ItemAPI {
     }
   }
 
-  static purgeItem(
-    scriptHash: string,
-    params: PurgeItem
-  ): ContractInvocation {
+  static purgeItem(scriptHash: string, params: PurgeItem): ContractInvocation {
     return {
       scriptHash,
       operation: 'purgeItem',

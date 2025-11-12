@@ -1,6 +1,6 @@
 import { u } from '@cityofzion/neon-js'
 import { ContractInvocation } from '@cityofzion/neon-dappkit-types'
-import { ConfigurationStub, SetConfigurationProperty } from "../../types";
+import { ConfigurationStub, SetConfigurationProperty } from '../../types'
 
 export class ConfigurationAPI {
   static createConfiguration(scriptHash: string): ContractInvocation {
@@ -11,10 +11,7 @@ export class ConfigurationAPI {
     }
   }
 
-  static getConfiguration(
-    scriptHash: string,
-    params: ConfigurationStub
-  ): ContractInvocation {
+  static getConfiguration(scriptHash: string, params: ConfigurationStub): ContractInvocation {
     return {
       scriptHash,
       operation: 'getConfiguration',
@@ -22,10 +19,7 @@ export class ConfigurationAPI {
     }
   }
 
-  static setConfigurationProperty(
-    scriptHash: string,
-    params: SetConfigurationProperty
-  ): ContractInvocation {
+  static setConfigurationProperty(scriptHash: string, params: SetConfigurationProperty): ContractInvocation {
     return {
       scriptHash,
       operation: 'setConfigurationProperty',
@@ -37,10 +31,7 @@ export class ConfigurationAPI {
     }
   }
 
-  static getConfigurationProperties(
-    scriptHash: string,
-    params: ConfigurationStub
-  ): ContractInvocation {
+  static getConfigurationProperties(scriptHash: string, params: ConfigurationStub): ContractInvocation {
     return {
       scriptHash,
       operation: 'getConfigurationProperties',
@@ -48,10 +39,7 @@ export class ConfigurationAPI {
     }
   }
 
-  static getConfigurationAssets(
-    scriptHash: string,
-    params: ConfigurationStub
-  ): ContractInvocation {
+  static getConfigurationAssets(scriptHash: string, params: ConfigurationStub): ContractInvocation {
     return {
       scriptHash,
       operation: 'getConfigurationAssets',

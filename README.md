@@ -15,12 +15,11 @@
 For a more complete set of
 project documentation, visit the [**developer portal**](https://docs.item.systems).
 
-For SDK specific documentation, you can look [**here**](https://docs.item.systems/docs/sdk/ts/).
+For SDK specific documentation, you can look [**here**](https://docs.item.systems/sdk/ts/).
 
 # Overview
 
 This SDK provides bindings and workflows for use with various components in the NFI ecosystem.
-Scopes are broken into classes, typically falling along contract lines.
 
 ## Quickstart
 
