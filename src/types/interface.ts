@@ -1,5 +1,6 @@
 import { Neo3EventListener, Neo3Invoker, Neo3Parser } from '@cityofzion/neon-dappkit-types'
 import { wallet } from '@cityofzion/neon-js'
+import { NeoN3EllipticCurves } from '../constants'
 
 type WalletAccount = InstanceType<typeof wallet.Account>
 
@@ -18,17 +19,75 @@ export type pollingOptions = {
   node: string
 }
 
-export interface AccountITEMPermissions {
-  contract_upgrade: boolean
-  set_mint_fee: boolean
-  create_epoch: boolean
-  set_permissions: boolean
+export type ContractUpdate = {
+  script: string
+  manifest: string
+  data: any
 }
 
-export interface AccountQuestPermissions {
-  contract_upgrade: boolean
-  set_permissions: boolean
-  create_quest: boolean
+export type SetUserProperty = {
+  localUid: number
+  globalPid: string
+  state: string
+}
+
+export type SetItemProperty = {
+  localNfid: number
+  globalPid: string
+  state: string
+}
+
+export type BindItem = {
+  localNfid: number
+  localCid: number
+  pubKey: string
+  assetEllipticCurve: NeoN3EllipticCurves
+}
+
+export type PurgeItem = {
+  localNfid: number
+  message: string
+  signature: string
+}
+
+export type SetEpochProperty = {
+  localEid: number
+  globalPid: string
+  state: string
+}
+
+export type ConfigurationStub = {
+  localCid: number
+}
+
+export type UserStub = {
+  localUid: number
+}
+
+export type AddressStub = {
+  address: string
+}
+
+export type ItemStub = {
+  localNfid: number
+}
+
+export type EpochStub = {
+  localEid: number
+}
+
+export type KeyStub = {
+  pubKey: string
+}
+
+export type AssetStub = {
+  localAsid: number
+}
+
+export type SetConfigurationProperty = {
+  localCid: number
+  globalPid: string
+  state: string
 }
 
 export interface UserType {
@@ -90,9 +149,20 @@ export interface AuthPayload {
 }
 
 export interface AuthItem {
+  localNfid: number
+  auth: AuthPayload
+  burn: boolean
+}
+
+export interface IS1AuthItem {
   tokenId: string
   auth: AuthPayload
   burn: boolean
+}
+
+export interface IsAuthValid {
+  localNfid: number
+  auth: AuthPayload
 }
 
 export interface ClaimItem {

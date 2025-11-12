@@ -5,6 +5,7 @@ import { NeoN3EllipticCurves } from '../src/constants'
 import { fileURLToPath } from 'url'
 import dotenv from 'dotenv'
 import { dirname } from 'path'
+import { IsAuthValid, RemoteToken } from '../src/types'
 
 describe('Basic Manufacturing Tests', function () {
   this.timeout(60000)
@@ -84,12 +85,13 @@ describe('Basic Manufacturing Tests', function () {
         localNfid: 1,
       })
       console.log(nfi)
-      console.log(nfi)
 
-      const nfiTac = await item.getItemWithTac({
-        tacScriptHash: nfi.epoch.binding_script_hash,
+      const params: RemoteToken = {
+        scriptHash: nfi.epoch.binding_script_hash,
         tokenId: nfi.binding_token_id,
-      })
+      }
+
+      const nfiTac = await item.getItemWithTac(params)
       console.log(nfiTac)
     })
 
@@ -100,10 +102,11 @@ describe('Basic Manufacturing Tests', function () {
       console.log(nfi)
       console.log(nfi)
 
-      const nfiTac = await item.getItemWithTac({
-        tacScriptHash: nfi.epoch.binding_script_hash,
+      const params: RemoteToken = {
+        scriptHash: nfi.epoch.binding_script_hash,
         tokenId: nfi.binding_token_id,
-      })
+      }
+      const nfiTac = await item.getItemWithTac(params)
       console.log(nfiTac)
     })
 
@@ -122,14 +125,16 @@ describe('Basic Manufacturing Tests', function () {
     })
 
     it('should verify an proof', async () => {
-      const attempt = {
+      const params: IsAuthValid = {
         localNfid: 190,
-        message: '0000000008',
-        proof:
-          '7a811313f7de6c2a00c16716a99ed53b0c0208813fb8e65c6166a5f45012512edf6e7535cb54bfc01e4dea5c671005a7b069aa1ef621efd34b7a4dcbef3303f6',
-        challenge: '01',
+        auth: {
+          message: '0000000008',
+          proof:
+            '7a811313f7de6c2a00c16716a99ed53b0c0208813fb8e65c6166a5f45012512edf6e7535cb54bfc01e4dea5c671005a7b069aa1ef621efd34b7a4dcbef3303f6',
+          challenge: '01',
+        },
       }
-      const res = await item.isAuthValid(attempt)
+      const res = await item.isAuthValid(params)
       console.log(res)
     })
 
@@ -137,19 +142,20 @@ describe('Basic Manufacturing Tests', function () {
       const decode = Utils.decodeNDEF(
         'https://blockspirits.coz.io/?d=BG9c75Iv3vGxeBshtdWKs5SOwZEH4rMSQmWnepL.v4YZReaoeOb3qb5PuZgj.YzqqT61XbYzUmw.G1SapwLunR8AAAAAFTBGAiEA0PHSaLgprzCCccrJcXaJP6i2mjNmBZECb3LAZtD9LK0CIQCQsgcuxhedI4CD7ZaXqcDcLKGB.luj4N5Kg9MgOz5D5Q--'
       )
-      console.log(decode)
-
       const nfi = await item.getItemWithKey({
         pubKey: decode.pubKey,
       })
       console.log(nfi)
 
-      const res = await item.isAuthValid({
+      const params: IsAuthValid = {
         localNfid: nfi.id,
-        message: decode.msg,
-        challenge: u.int2hex(1),
-        proof: decode.proof,
-      })
+        auth: {
+          message: decode.msg,
+          challenge: u.int2hex(1),
+          proof: decode.proof,
+        },
+      }
+      const res = await item.isAuthValid(params)
       console.log(res)
 
       /*
