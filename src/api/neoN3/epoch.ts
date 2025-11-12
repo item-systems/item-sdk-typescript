@@ -1,5 +1,6 @@
 import { u } from '@cityofzion/neon-js'
 import { ContractInvocation } from '@cityofzion/neon-dappkit-types'
+import { EpochStub, SetEpochProperty } from '../../types'
 
 export class EpochAPI {
   static createEpoch(scriptHash: string): ContractInvocation {
@@ -10,12 +11,7 @@ export class EpochAPI {
     }
   }
 
-  static getEpoch(
-    scriptHash: string,
-    params: {
-      localEid: number
-    }
-  ): ContractInvocation {
+  static getEpoch(scriptHash: string, params: EpochStub): ContractInvocation {
     return {
       scriptHash,
       operation: 'getEpoch',
@@ -23,14 +19,7 @@ export class EpochAPI {
     }
   }
 
-  static setEpochProperty(
-    scriptHash: string,
-    params: {
-      localEid: number
-      globalPid: string
-      state: string
-    }
-  ): ContractInvocation {
+  static setEpochProperty(scriptHash: string, params: SetEpochProperty): ContractInvocation {
     return {
       scriptHash,
       operation: 'setEpochProperty',
@@ -42,12 +31,7 @@ export class EpochAPI {
     }
   }
 
-  static getEpochProperties(
-    scriptHash: string,
-    params: {
-      localEid: number
-    }
-  ): ContractInvocation {
+  static getEpochProperties(scriptHash: string, params: EpochStub): ContractInvocation {
     return {
       scriptHash,
       operation: 'getEpochProperties',
@@ -55,12 +39,7 @@ export class EpochAPI {
     }
   }
 
-  static getEpochItems(
-    scriptHash: string,
-    params: {
-      localEid: number
-    }
-  ): ContractInvocation {
+  static getEpochItems(scriptHash: string, params: EpochStub): ContractInvocation {
     return {
       scriptHash,
       operation: 'getEpochItems',

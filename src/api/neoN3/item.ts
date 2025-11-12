@@ -1,14 +1,9 @@
 import { u } from '@cityofzion/neon-js'
 import { ContractInvocation } from '@cityofzion/neon-dappkit-types'
-import { NeoN3EllipticCurves } from '../../constants'
+import { AuthItem, BindItem, EpochStub, ItemStub, KeyStub, PurgeItem, RemoteToken, SetItemProperty } from '../../types'
 
 export class ItemAPI {
-  static createItem(
-    scriptHash: string,
-    params: {
-      localEid: number
-    }
-  ): ContractInvocation {
+  static createItem(scriptHash: string, params: EpochStub): ContractInvocation {
     return {
       scriptHash,
       operation: 'createItem',
@@ -16,12 +11,7 @@ export class ItemAPI {
     }
   }
 
-  static getItem(
-    scriptHash: string,
-    params: {
-      localNfid: number
-    }
-  ): ContractInvocation {
+  static getItem(scriptHash: string, params: ItemStub): ContractInvocation {
     return {
       scriptHash,
       operation: 'getItem',
@@ -29,12 +19,7 @@ export class ItemAPI {
     }
   }
 
-  static getItemWithKey(
-    scriptHash: string,
-    params: {
-      pubKey: string
-    }
-  ): ContractInvocation {
+  static getItemWithKey(scriptHash: string, params: KeyStub): ContractInvocation {
     return {
       scriptHash,
       operation: 'getItemWithKey',
@@ -42,29 +27,18 @@ export class ItemAPI {
     }
   }
 
-  static getItemWithTac(
-    scriptHash: string,
-    params: {
-      tacScriptHash: string
-      tokenId: string
-    }
-  ): ContractInvocation {
+  static getItemWithTac(scriptHash: string, params: RemoteToken): ContractInvocation {
     return {
       scriptHash,
       operation: 'getItemWithTAC',
       args: [
-        { type: 'Hash160', value: params.tacScriptHash },
+        { type: 'Hash160', value: params.scriptHash },
         { type: 'ByteArray', value: params.tokenId },
       ],
     }
   }
 
-  static getItemProperties(
-    scriptHash: string,
-    params: {
-      localNfid: number
-    }
-  ): ContractInvocation {
+  static getItemProperties(scriptHash: string, params: ItemStub): ContractInvocation {
     return {
       scriptHash,
       operation: 'getItemProperties',
@@ -80,14 +54,7 @@ export class ItemAPI {
     }
   }
 
-  static setItemProperty(
-    scriptHash: string,
-    params: {
-      localNfid: number
-      globalPid: string
-      state: string
-    }
-  ): ContractInvocation {
+  static setItemProperty(scriptHash: string, params: SetItemProperty): ContractInvocation {
     return {
       scriptHash,
       operation: 'setItemProperty',
@@ -99,15 +66,7 @@ export class ItemAPI {
     }
   }
 
-  static bindItem(
-    scriptHash: string,
-    params: {
-      localNfid: number
-      localCid: number
-      pubKey: string
-      assetEllipticCurve: NeoN3EllipticCurves
-    }
-  ): ContractInvocation {
+  static bindItem(scriptHash: string, params: BindItem): ContractInvocation {
     return {
       scriptHash,
       operation: 'bindItem',
@@ -120,12 +79,7 @@ export class ItemAPI {
     }
   }
 
-  static lockItem(
-    scriptHash: string,
-    params: {
-      localNfid: number
-    }
-  ): ContractInvocation {
+  static lockItem(scriptHash: string, params: ItemStub): ContractInvocation {
     return {
       scriptHash,
       operation: 'lockItem',
@@ -133,37 +87,21 @@ export class ItemAPI {
     }
   }
 
-  static authItem(
-    scriptHash: string,
-    params: {
-      localNfid: number
-      message: string
-      proof: string
-      challenge: string
-      burn: boolean
-    }
-  ): ContractInvocation {
+  static authItem(scriptHash: string, params: AuthItem): ContractInvocation {
     return {
       scriptHash,
       operation: 'authItem',
       args: [
         { type: 'Integer', value: params.localNfid.toString() },
-        { type: 'ByteArray', value: u.hex2base64(params.message) },
-        { type: 'ByteArray', value: u.hex2base64(params.proof) },
-        { type: 'ByteArray', value: u.hex2base64(u.reverseHex(params.challenge)) },
+        { type: 'ByteArray', value: u.hex2base64(params.auth.message) },
+        { type: 'ByteArray', value: u.hex2base64(params.auth.proof) },
+        { type: 'ByteArray', value: u.hex2base64(u.reverseHex(params.auth.challenge)) },
         { type: 'Boolean', value: params.burn },
       ],
     }
   }
 
-  static purgeItem(
-    scriptHash: string,
-    params: {
-      localNfid: number
-      message: string
-      signature: string
-    }
-  ): ContractInvocation {
+  static purgeItem(scriptHash: string, params: PurgeItem): ContractInvocation {
     return {
       scriptHash,
       operation: 'purgeItem',
