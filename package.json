@@ -61,6 +61,7 @@
     "eslint-config-standard": "^17.1.0",
     "eslint-plugin-prettier": "^5.5.4",
     "esm": "^3.2.25",
+    "fs": "^0.0.1-security",
     "mocha": "^11.7.4",
     "prettier": "3.6.2",
     "source-map-support": "^0.5.21",

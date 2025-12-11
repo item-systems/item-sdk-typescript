@@ -80,13 +80,13 @@ export class Utils {
     const pubKeyUnencoded = payload.slice(0, pubKeyLength).toString('hex') || ''
 
     const pubKey = wallet.getPublicKeyEncoded(pubKeyUnencoded)
-    const msg = payload.slice(pubKeyLength, pubKeyLength + messageLength).toString('hex') || ''
+    const message = payload.slice(pubKeyLength, pubKeyLength + messageLength).toString('hex') || ''
     const sigRaw = payload.slice(pubKeyLength + messageLength)
     const proof = u.ab2hexstring(Utils.processDERSignature(sigRaw)) || ''
 
     let validSignature
     try {
-      validSignature = wallet.verify(msg, proof, pubKey)
+      validSignature = wallet.verify(message, proof, pubKey)
     } catch {
       validSignature = false
     }
@@ -97,7 +97,7 @@ export class Utils {
       uriPubKey,
       pubKeyUnencoded,
       pubKey,
-      msg,
+      message,
       proof,
     }
   }
@@ -234,5 +234,25 @@ export class Utils {
 
   static async sleep(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms))
+  }
+
+  /**
+   * Calculates the hex formatted 2s complement of an integer value. This is particularly useful when
+   * doing lookups on-chain since most smart contracts use 2s complement to store tokenIDs.
+   * @param x the number to convert
+   * @returns the hex formated 2s complement
+   */
+  static numToHexComplement(x: number): string {
+    const segmentLength = 8
+
+    const bin = x.toString(2)
+    // Use match() with a regular expression to split the string into segments of 1 to 8 characters.
+    const segments = bin.match(/.{1,8}/g) || []
+
+    // Pad the last segment with '0's if its length is less than 8.
+    const lastIndex = segments.length - 1
+    segments[lastIndex] = '0'.repeat(segmentLength - segments[lastIndex].length) + segments[lastIndex]
+
+    return segments[lastIndex][0] === '1' ? u.reverseHex(u.int2hex(x)) + '00' : u.reverseHex(u.int2hex(x))
   }
 }
