@@ -1,4 +1,4 @@
-import { Item, Utils } from '../src'
+import { Item, Utils } from '../../src'
 // @ts-ignore
 import * as fs from 'fs'
 import * as Neon from '@cityofzion/neon-js'
