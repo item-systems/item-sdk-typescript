@@ -2,6 +2,8 @@
 
 These examples are intentionally small and documentation-oriented. They show the expected SDK shape and common workflows.
 
+Unless explicitly stated otherwise, treat them as illustrative reference snippets rather than copy-paste runnable programs.
+
 ## Files
 
 - `init-readonly.ts` — read-only initialization and item lookup

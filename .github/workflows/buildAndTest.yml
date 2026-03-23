@@ -1,5 +1,6 @@
 on:
   push:
+  pull_request:
 
 name: Build and Test
 
@@ -9,12 +10,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v5
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
       - name: Install
-        run: npm install --force
+        run: npm ci --force
       - name: Lint
         run: npm run lint
       - name: Build
         run: NODE_ENV=production CI=false npm run tsc
+      - name: Smoke test published artifacts
+        run: npm run smoke
       - name: Run Test Suite
         run: npm run test
+      - name: Build Docs
+        run: NODE_ENV=production CI=false npm run docs
+      - name: Audit production dependencies
+        run: npm audit --omit=optional

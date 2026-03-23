@@ -44,7 +44,8 @@ jobs:
         with:
           node-version: '20.x'
           registry-url: 'https://registry.npmjs.org'
-      - run: npm install --force && NODE_ENV=production CI=false
+      - run: npm ci --force
+      - run: NODE_ENV=production CI=false npm run verify:release
       - run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
