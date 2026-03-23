@@ -20,7 +20,11 @@
     "clean": "rm -rf ./dist",
     "lint": "eslint --fix .",
     "docs": "typedoc",
-    "test": "ts-mocha tests/**/*.spec.ts",
+    "test": "npm run test:unit",
+    "test:unit": "ts-mocha \"tests/smartcard/**/*.spec.ts\"",
+    "test:integration": "ts-mocha \"tests/integration/**/*.spec.ts\"",
+    "test:manual": "ts-mocha \"tests/manual/**/*.spec.ts\"",
+    "test:all": "npm run test:unit && npm run test:integration && npm run test:manual",
     "format": "prettier --write ."
   },
   "author": {
