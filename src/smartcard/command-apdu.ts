@@ -1,7 +1,11 @@
 import { Uint8 } from './byte'
 
 /**
- * Base class for ISO-7816 command APDUs
+ * Base representation of an ISO 7816 command APDU.
+ *
+ * The SDK models APDUs explicitly so higher-level reader and secure-channel
+ * code can reason about header bytes, payload bytes, and serialization without
+ * repeatedly hand-assembling buffers.
  */
 export class CommandApdu {
   private static HEADER_LENGTH = 5
@@ -21,18 +25,33 @@ export class CommandApdu {
     this._data = data
   }
 
+  /**
+   * Return the 4-byte APDU header (`CLA`, `INS`, `P1`, `P2`).
+   */
   getHeader(): Uint8Array {
     return new Uint8Array([this._cla, this._ins, this._p1, this._p2])
   }
 
+  /**
+   * Return the APDU data field without the header or `Lc` byte.
+   */
   getData(): Uint8Array {
     return this._data
   }
 
+  /**
+   * Serialize the command into its wire-format byte array.
+   */
   toArray(): Uint8Array {
     return new Uint8Array([this._cla, this._ins, this._p1, this._p2, this._lc, ...this._data])
   }
 
+  /**
+   * Parse a serialized command APDU into a concrete command instance.
+   *
+   * Subclasses can reuse this to round-trip their own type by calling
+   * `Subclass.fromArray(...)`.
+   */
   static fromArray<T extends CommandApdu>(
     this: new (cla: Uint8, ins: Uint8, p1: Uint8, p2: Uint8, lc: Uint8, data: Uint8Array) => T,
     data: Uint8Array
@@ -55,7 +74,11 @@ export class CommandApdu {
 }
 
 /**
- * SelectCommand selects an applet by its AID (Application Identifier).
+ * APDU for selecting an applet by AID (Application Identifier).
+ *
+ * This is typically the first command sent after a card connection is
+ * established so the caller can enter the ITEM applet context and retrieve any
+ * applet-specific response metadata.
  */
 export class SelectCommand extends CommandApdu {
   static readonly CLA_SELECT = 0x00
@@ -76,8 +99,10 @@ export class SelectCommand extends CommandApdu {
 }
 
 /**
- * OpenSecureChannel initiates establishing the secure channel by sharing
- * the off-card public key with the card.
+ * APDU for initiating the ITEM secure-channel handshake.
+ *
+ * The off-card side sends its ephemeral public key to the card, which replies
+ * with the randomness and IV material needed to derive session keys.
  */
 export class OpenSecureChannel extends CommandApdu {
   static readonly CLA_PROPS_KEY = 0xa0
@@ -98,8 +123,7 @@ export class OpenSecureChannel extends CommandApdu {
 }
 
 /**
- * MutuallyAuthenticate finalises establishing the secure channel by sharing
- * the authentication data to allow for verifying integrity and identity.
+ * APDU for finalizing mutual authentication during secure-channel setup.
  */
 export class MutuallyAuthenticate extends CommandApdu {
   static readonly CLA_PROPS_KEY = 0xa0
@@ -119,8 +143,11 @@ export class MutuallyAuthenticate extends CommandApdu {
 }
 
 /**
- * Requests the card to sign a message hash with SECP256R1.
- * The response contains a signature and public key for verification.
+ * APDU requesting the card to sign a message hash with its provisioned key.
+ *
+ * The corresponding response contains both the signature and the public key used
+ * for verification so off-card callers can validate the result without relying
+ * on external key lookup.
  */
 export class SignCommand extends CommandApdu {
   static readonly CLA_PROPS_KEY = 0xa0

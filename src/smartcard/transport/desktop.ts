@@ -4,8 +4,14 @@ import * as pcsc from 'pcsc-mini'
 const { CardDisposition, CardMode, ReaderStatus } = pcsc
 
 /**
- * A transport class for use with MacOSX, Windows or Linux.
- * Linux users must install the necessary requirements documented here:
+ * PC/SC-backed transport for desktop operating systems.
+ *
+ * This transport watches for reader/card events through `pcsc-mini`, keeps the
+ * currently connected card handle, and exposes a simple APDU transmit API to the
+ * rest of the SDK. It is the production transport used for real hardware flows
+ * on macOS, Windows, and Linux.
+ *
+ * Linux users must install the prerequisites documented by `pcsc-mini`:
  * https://github.com/kofi-q/pcsc-mini?tab=readme-ov-file#prerequisites
  */
 export class DesktopTransport extends Transport {
@@ -19,6 +25,13 @@ export class DesktopTransport extends Transport {
     this._client = new pcsc.Client().on('reader', this.onReader).on('error', this.onError).start()
   }
 
+  /**
+   * Transmit a raw APDU to the currently present card.
+   *
+   * If no card is present, the transport returns a generic failure status word
+   * so higher layers receive a protocol-shaped error response instead of a null
+   * value.
+   */
   async transmit(rawCommandAPDU: Uint8Array): Promise<Uint8Array> {
     if (!this._card) {
       console.error('trying to transmit but no card present')
@@ -28,10 +41,12 @@ export class DesktopTransport extends Transport {
   }
 
   /**
-   * Establish a new connection with the card. Fails after 10 seconds if not able to create a connection.
+   * Wait for a card connection to become available.
+   *
+   * The transport polls its internally updated card handle for up to 10 seconds
+   * while the PC/SC event handlers react to reader state changes.
    */
   async connect(): Promise<boolean> {
-    // polling loop
     const polling = async (): Promise<boolean> => {
       while (true) {
         if (this._card !== undefined) {
@@ -48,6 +63,9 @@ export class DesktopTransport extends Transport {
     return Promise.race([polling(), timeoutPromise])
   }
 
+  /**
+   * Disconnect the current card session and stop the PC/SC client.
+   */
   async disconnect(): Promise<void> {
     if (this._card !== undefined) {
       await this._card.disconnect(CardDisposition.RESET)
@@ -55,9 +73,10 @@ export class DesktopTransport extends Transport {
     }
   }
 
-  // Do not change this to a normal function. The arrow function is done to preserve
-  // the correct `this` instance such that `connect()` can poll the card state.
+  // Do not change this to a normal function. The arrow function preserves the
+  // instance binding required for `connect()` polling to observe updated state.
   private onReader = (reader: pcsc.Reader) => {
+    this._reader = reader
     // @ts-ignore
     reader.on('change', async status => {
       if (status.hasAny(ReaderStatus.MUTE, ReaderStatus.IN_USE)) {
@@ -79,6 +98,9 @@ export class DesktopTransport extends Transport {
     })
   }
 
+  /**
+   * Log unexpected PC/SC client errors.
+   */
   private onError(err: pcsc.Err) {
     console.error('Unexpected PCSC error: ', err)
   }

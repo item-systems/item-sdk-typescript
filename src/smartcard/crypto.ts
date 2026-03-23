@@ -1,9 +1,13 @@
 import { createCipheriv } from 'crypto'
 
 /**
- * CBC-MAC with zero padding.
+ * Minimal CBC-MAC implementation used by the ITEM secure-channel protocol.
  *
- * Note: this is NOT NIST CMAC (RFC 4493)
+ * This implementation uses AES-CBC with a zero IV and zero padding, then returns
+ * the requested prefix of the final ciphertext block. It intentionally mirrors
+ * the card firmware protocol and is not a general-purpose CMAC replacement.
+ *
+ * Note: this is NOT NIST CMAC (RFC 4493).
  */
 export class CBCBlockCipherMac {
   private key: Uint8Array
@@ -18,6 +22,12 @@ export class CBCBlockCipherMac {
     this.buffer = new Uint8Array(0)
   }
 
+  /**
+   * Append message bytes to the MAC input buffer.
+   *
+   * Callers may stream multiple segments before finalization; the internal
+   * buffer is reset after `doFinal()` returns.
+   */
   update(data: Uint8Array) {
     const newBuffer = new Uint8Array(this.buffer.length + data.length)
     newBuffer.set(this.buffer, 0)
@@ -25,6 +35,9 @@ export class CBCBlockCipherMac {
     this.buffer = newBuffer
   }
 
+  /**
+   * Finalize the MAC and reset internal buffered state.
+   */
   doFinal(): Uint8Array {
     let msg = this.buffer
     const rem = msg.length % this.blockSize

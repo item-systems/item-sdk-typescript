@@ -51,13 +51,28 @@ const DEFAULT_OPTIONS: ConstructorOptions = {
 const TIMEOUT = 60000
 
 /**
- * The ITEM class is the primary interface point for the digital twin of an NFI. Use this class to execute standard
- * non-fungible token interactions as well as additional capabilities like authentication and configuration.
+ * High-level SDK facade for the ITEM smart contract on Neo N3.
  *
- * To use this class:
+ * `Item` centralizes three concerns:
+ * 1. building contract invocations through the generated API helpers,
+ * 2. choosing the correct execution mode (`testInvoke` for reads, `invokeFunction` for writes), and
+ * 3. normalizing Neo VM response data into application-friendly JavaScript/TypeScript values.
+ *
+ * The class is intentionally organized by domain scope rather than by raw contract file:
+ * - admin operations for contract maintenance,
+ * - user operations for identity and user-scoped properties,
+ * - item operations for NFI lifecycle and authentication,
+ * - epoch/configuration/asset operations for manufacturing and binding workflows,
+ * - IS1 passthrough helpers for tokenized asset contract interactions.
+ *
+ * Read methods generally perform a `testInvoke`, parse the VM stack, and normalize byte-oriented fields into
+ * ergonomic values such as addresses, script hashes, token ids, or property maps. Write methods generally return a
+ * transaction id immediately; their `*Sync` counterparts wait for the application log and parse the first stack item
+ * from the finalized execution.
+ *
+ * @example
  * ```typescript
  * import { Item } from '@item-systems/item'
- * import Neon from '@cityofzion/neon-js'
  *
  * const item = await Item.init()
  * const totalItems = await item.totalItems()
@@ -66,19 +81,26 @@ const TIMEOUT = 60000
  */
 export class Item {
   private constructor(
+    /** Target ITEM contract script hash. */
     readonly scriptHash: string,
+    /** RPC endpoint used for reads, writes, and event polling. */
     readonly node: string,
+    /** Transaction/test invocation transport. */
     private invoker: Neo3Invoker,
+    /** Application log listener used by synchronous write helpers. */
     private listener: Neo3EventListener,
+    /** Stack parser used to convert Neo VM responses into JavaScript values. */
     private parser: Neo3Parser
   ) {}
 
   /**
-   * Initializes the Item interface and is required before interaction with the contract can take place.
-   * This method accepts a number of configuration options that enable native local/WalletConnect interactions
-   * as well as network and signer configuration.
+   * Creates a ready-to-use SDK instance.
    *
-   * @param configOptions The settings for interacting with the network.
+   * If an invoker or listener is not supplied, the SDK creates Neon-based defaults using the configured node and
+   * optional account. This makes `init()` suitable for both simple read-only clients and signer-backed write flows.
+   *
+   * @param configOptions Optional transport, parser, signer, network, and contract overrides.
+   * @returns A configured `Item` instance bound to a specific contract and RPC endpoint.
    */
   static async init(configOptions?: ConstructorOptions): Promise<Item> {
     const config = { ...DEFAULT_OPTIONS, ...configOptions }
@@ -104,9 +126,13 @@ export class Item {
   /// ////////////////////////////////////////////////
 
   /**
-   * Updates the smart contract if the signer has the appropriate permissions.
-   * @param params The contract update parameters
-   * @return a transaction id; Utils.transactionCompletion() or updateSync() for a response.
+   * Submits a contract update transaction.
+   *
+   * This is the low-level administrative upgrade path for the ITEM contract. The method only submits the transaction;
+   * use {@link updateSync} or `Utils.transactionCompletion()` when the caller needs the execution result.
+   *
+   * @param params Replacement script, manifest, and optional update payload.
+   * @returns The submitted transaction id.
    */
   async update(params: ContractUpdate): Promise<string> {
     return await this.invoker.invokeFunction({
@@ -116,10 +142,14 @@ export class Item {
   }
 
   /**
-   * A synchronous version of the update method, which waits for a response.
-   * @param params
-   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1-minute
-   * default is used.
+   * Submits a contract update and waits for the execution result.
+   *
+   * The ITEM contract returns its result in the first stack item of the application log execution. This helper hides
+   * the polling/waiting mechanics and parses that stack item into a string result.
+   *
+   * @param params Replacement script, manifest, and optional update payload.
+   * @param timeout Maximum wait time in milliseconds before the operation is considered unresolved.
+   * @returns Parsed contract response from the finalized application log.
    */
   async updateSync(params: ContractUpdate, timeout?: number): Promise<string> {
     const txId = await this.update(params)
@@ -134,12 +164,13 @@ export class Item {
   /// ////////////////////////////////////////////////
 
   /**
-   * Creates a new user in the system.
-   * @param params the properties required to create a new user in
-   * the internal identity solution. The ultimate response is a LocalUid
-   * representing the user.
+   * Creates a user record inside the ITEM identity model.
    *
-   * @return a transaction id; Use Util.transactionCompletion() to resolve the result.
+   * The contract associates the provided address with an internal local user id. The returned transaction id can be
+   * resolved later to obtain the created local uid.
+   *
+   * @param params Address payload for the user being registered.
+   * @returns The submitted transaction id.
    */
   async createUser(params: AddressStub): Promise<string> {
     return await this.invoker.invokeFunction({
@@ -149,10 +180,13 @@ export class Item {
   }
 
   /**
-   * Gets a user with their local uid.
-   * @param params the properties required to get a user
+   * Loads a user by local uid.
    *
-   * @return the user related to the queried id.
+   * The parser returns the address as a base64-encoded byte array, so this method performs an additional normalization
+   * step and converts it into a `wallet.Account` instance for downstream convenience.
+   *
+   * @param params User lookup stub containing `localUid`.
+   * @returns Parsed user metadata with a normalized Neo account object.
    */
   async getUser(params: UserStub): Promise<UserType> {
     const res = await Utils.testInvoker(this.invoker, this.parser, [UserAPI.getUser(this.scriptHash, params)])
@@ -161,10 +195,13 @@ export class Item {
   }
 
   /**
-   * Gets the user metadata using their address. Response data includes permissions and settings in the contract.
-   * @param params the Neo N3 formatted address of the user.
+   * Loads a user by Neo address.
    *
-   * @return the metadata of the user associated with the queried address
+   * This is the address-oriented counterpart to {@link getUser}. It is useful when the caller knows the wallet address
+   * but not the internal local uid assigned by the contract.
+   *
+   * @param params Address lookup payload.
+   * @returns Parsed user metadata with a normalized Neo account object.
    */
   async getUserWithAddress(params: AddressStub): Promise<UserType> {
     const res = await Utils.testInvoker(this.invoker, this.parser, [
@@ -175,10 +212,13 @@ export class Item {
   }
 
   /**
-   * Sets a global property for a user account.
-   * @param params the properties required to set a property
+   * Sets a user-scoped property.
    *
-   * @return a transaction id; Use Util.transactionCompletion() to resolve the result.
+   * Properties are represented on-chain as byte-oriented key/value pairs. The contract enforces authorization and
+   * property semantics; this method only submits the write transaction.
+   *
+   * @param params User id, global property id, and new property state.
+   * @returns The submitted transaction id.
    */
   async setUserProperty(params: SetUserProperty): Promise<string> {
     return await this.invoker.invokeFunction({
@@ -188,12 +228,11 @@ export class Item {
   }
 
   /**
-   * Sets a global property for a user account
-   * @param params the properties required to set a user property
-   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1-minute
-   * default is used.
+   * Sets a user-scoped property and waits for the boolean contract result.
    *
-   * @return A boolean indicating whether the attempt was successful
+   * @param params User id, global property id, and new property state.
+   * @param timeout Maximum wait time in milliseconds.
+   * @returns `true` when the contract reports a successful update.
    */
   async setUserPropertySync(params: SetUserProperty, timeout?: number): Promise<boolean> {
     const txId = await this.setUserProperty(params)
@@ -203,10 +242,13 @@ export class Item {
   }
 
   /**
-   * Gets the scoped properties assigned to a user.
-   * @param params the properties required to get a user's properties
+   * Retrieves all properties assigned to a user.
    *
-   * @return a property map keyed by global property id bytes encoded as hex
+   * The contract exposes properties through an iterator rather than a fully materialized map. This method traverses the
+   * iterator session and returns a plain object keyed by hex-encoded global property id.
+   *
+   * @param params User lookup stub containing `localUid`.
+   * @returns A property map of `globalPid -> state` in hex-string form.
    */
   async getUserProperties(params: UserStub): Promise<PropertyMap> {
     const res = await this.invoker.testInvoke({
@@ -217,8 +259,9 @@ export class Item {
   }
 
   /**
-   * Gets the total number of users in the system.
-   * @return The total users
+   * Returns the total number of registered users.
+   *
+   * @returns Total user count as reported by the contract.
    */
   async totalUsers(): Promise<number> {
     const res = await Utils.testInvoker(this.invoker, this.parser, [UserAPI.totalUsers(this.scriptHash)])
@@ -232,8 +275,9 @@ export class Item {
   /// ////////////////////////////////////////////////
 
   /**
-   * Gets the total number of items in the system
-   * @return The total items
+   * Returns the total number of ITEM records.
+   *
+   * @returns Total item count.
    */
   async totalItems(): Promise<number> {
     const res = await Utils.testInvoker(this.invoker, this.parser, [ItemAPI.totalItems(this.scriptHash)])
@@ -241,11 +285,13 @@ export class Item {
   }
 
   /**
-   * Creates a new item against an epoch. The user much be a manufacturer to use this method. This method is `usually`
-   * called from inside a contract, but is exposed here to support admin workflows.
-   * @param params the parameters required to create an item.
-   * @return a transaction id; Use Util.transactionCompletion() to resolve the result or the synchronous equivalent
-   * for a direct response.
+   * Creates a new item inside an epoch.
+   *
+   * This is primarily a manufacturer/admin workflow. The contract associates the new item with an epoch and a binding
+   * token id, but the method itself only submits the transaction.
+   *
+   * @param params Epoch id plus the external binding token id to associate with the new item.
+   * @returns The submitted transaction id.
    */
   async createItem(params: CreateItem): Promise<string> {
     return await this.invoker.invokeFunction({
@@ -255,12 +301,11 @@ export class Item {
   }
 
   /**
-   * Creates a new item against an epoch. The user much be a manufacturer to use this method. This method is `usually`
-   * called from inside a contract, but is exposed here to support admin workflows.
-   * @param params the parameters required to create an item.
-   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1-minute timeout is
-   * used.
-   * @return the local NFID of the new item that was created.
+   * Creates a new item and waits for the newly assigned local NFID.
+   *
+   * @param params Epoch id plus binding token id.
+   * @param timeout Maximum wait time in milliseconds.
+   * @returns The created local NFID.
    */
   async createItemSync(params: CreateItem, timeout?: number): Promise<number> {
     const txId = await this.createItem(params)
@@ -270,9 +315,16 @@ export class Item {
   }
 
   /**
-   * Gets the object representation of an item in the system.
-   * @param params the parameters required to get an item
-   * @return an object representing a non-fungible item including tokenized asset contract details
+   * Loads an item by local NFID.
+   *
+   * Unlike simpler read methods, item retrieval requires targeted post-processing because some fields are more useful in
+   * raw byte form than in the parser's default representation. In particular:
+   * - `binding_token_id` is forced to `ByteArray` parsing so token ids remain byte-exact,
+   * - `epoch.binding_script_hash` is normalized to a conventional `0x`-prefixed script hash,
+   * - `seed` is converted from base64 to hex for deterministic downstream handling.
+   *
+   * @param params Item lookup stub containing `localNfid`.
+   * @returns Fully normalized item metadata.
    */
   async getItem(params: ItemStub): Promise<ItemType> {
     const resRaw = await Utils.testInvokerRaw(this.invoker, [ItemAPI.getItem(this.scriptHash, params)])
@@ -295,9 +347,13 @@ export class Item {
   }
 
   /**
-   * Gets the object representation of an item in the system using its public key.
-   * @param params the parameters required to get an item
-   * @return an object representing a non-fungible item including tokenized asset contract details
+   * Loads an item by its asset public key.
+   *
+   * This is the public-key-oriented counterpart to {@link getItem}. The same normalization rules apply to token id,
+   * epoch script hash, and seed fields.
+   *
+   * @param params Public key lookup payload.
+   * @returns Fully normalized item metadata.
    */
   async getItemWithKey(params: KeyStub): Promise<ItemType> {
     const resRaw = await Utils.testInvokerRaw(this.invoker, [ItemAPI.getItemWithKey(this.scriptHash, params)])
@@ -320,11 +376,13 @@ export class Item {
   }
 
   /**
-   * Gets the object representation of an item in the system using a reference to
-   * the associated tokenized asset contract and tokenId. This is especially useful
-   * for application developers who want to use the "native token id" of their project.
-   * @param params the parameters required to get an item
-   * @return an object representing a non-fungible item
+   * Loads an item by its remote tokenized-asset coordinates.
+   *
+   * This lookup path is especially useful for integrators that treat the tokenized asset contract as their primary
+   * source of identity and only need to resolve back into ITEM metadata when necessary.
+   *
+   * @param params Remote token reference containing script hash and token id.
+   * @returns Fully normalized item metadata.
    */
   async getItemWithTac(params: RemoteToken): Promise<ItemType> {
     const resRaw = await Utils.testInvokerRaw(this.invoker, [ItemAPI.getItemWithTac(this.scriptHash, params)])
@@ -346,11 +404,14 @@ export class Item {
     return item
   }
 
-  // TODO - typing
   /**
-   * Gets the properties of the selected item.
-   * @param params the parameters required to get the properties
-   * @return a json object outlining the properties of an NFI
+   * Retrieves all item-scoped properties.
+   *
+   * The underlying contract returns an iterator session. This helper exhausts the iterator and materializes the result
+   * into a plain object keyed by hex property id.
+   *
+   * @param params Item lookup stub containing `localNfid`.
+   * @returns A property map of `globalPid -> state` in hex-string form.
    */
   async getItemProperties(params: ItemStub): Promise<PropertyMap> {
     const res = await this.invoker.testInvoke({
@@ -361,10 +422,11 @@ export class Item {
   }
 
   /**
-   * Sets the property of an item. The signer much be the manufacturer of the item.
-   * @param params
-   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1-minute timeout is used.
-   * @return a boolean indicating whether the attempt was successful
+   * Sets an item-scoped property and waits for the contract result.
+   *
+   * @param params Item id, global property id, and new property state.
+   * @param timeout Maximum wait time in milliseconds.
+   * @returns `true` when the contract reports success.
    */
   async setItemPropertySync(params: SetItemProperty, timeout?: number): Promise<boolean> {
     const txId = await this.setItemProperty(params)
@@ -374,9 +436,10 @@ export class Item {
   }
 
   /**
-   * Sets the property of an item. The signer much be the manufacturer of the item.
-   * @param params
-   * @return a transaction id; Use Utils.transactionCompletion() or the synchronous equivalent of this method to receive a result.
+   * Sets an item-scoped property.
+   *
+   * @param params Item id, global property id, and new property state.
+   * @returns The submitted transaction id.
    */
   async setItemProperty(params: SetItemProperty): Promise<string> {
     return await this.invoker.invokeFunction({
@@ -386,11 +449,14 @@ export class Item {
   }
 
   /**
-   * Creates a new asset in the system and attaches it to the item, creating a complete NFI. The asset will supersede
-   * an asset that is currently bound to the targeted item. The item MUST be in a `configuration` state. The asset must
-   * be globally unique and unbound. This transaction must be signed by a manufacturer.
-   * @param params
-   * @return a transaction id; Use Utils.transactionCompletion() or the synchronous equivalent of this method to receive a result.
+   * Binds a new asset to an item.
+   *
+   * Binding creates or replaces the active asset relationship for an item. The contract enforces the lifecycle rules:
+   * the item must be in configuration state, the asset must be globally unique/unbound, and the caller must have the
+   * required manufacturer authority.
+   *
+   * @param params Item id, configuration id, asset public key, and elliptic curve metadata.
+   * @returns The submitted transaction id.
    */
   async bindItem(params: BindItem): Promise<string> {
     return await this.invoker.invokeFunction({
@@ -400,12 +466,11 @@ export class Item {
   }
 
   /**
-   * Creates a new asset in the system and attaches it to the item, creating a complete NFI. The asset will supersede
-   * an asset that is currently bound to the targeted item. The item MUST be in a `configuration` state. The asset must
-   * be globally unique and unbound. This transaction must be signed by a manufacturer.
-   * @param params
-   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1-minute timeout is used.
-   * @return the asset id (localAsid) representing the new asset that was created in the binding process
+   * Binds a new asset to an item and waits for the created asset id.
+   *
+   * @param params Item id, configuration id, asset public key, and elliptic curve metadata.
+   * @param timeout Maximum wait time in milliseconds.
+   * @returns The created local asset id.
    */
   async bindItemSync(params: BindItem, timeout?: number): Promise<number> {
     const txId = await this.bindItem(params)
@@ -415,10 +480,13 @@ export class Item {
   }
 
   /**
-   * Transitions an item from `configuration` to `locked` state. This transition prevents an NFI from being rebound to a
-   * new asset without approvals by the TAC owner. The signer must be the manufacturer.
-   * @param params
-   * @return a transaction id; Use Utils.transactionCompletion() or the synchronous equivalent of this method to receive a result.
+   * Locks an item against unrestricted rebinding.
+   *
+   * This transitions the item from configuration state into locked state. After locking, rebinding requires the
+   * additional approvals defined by the tokenized asset contract / ITEM lifecycle.
+   *
+   * @param params Item lookup stub containing `localNfid`.
+   * @returns The submitted transaction id.
    */
   async lockItem(params: ItemStub): Promise<string> {
     return await this.invoker.invokeFunction({
@@ -428,11 +496,11 @@ export class Item {
   }
 
   /**
-   * Transitions an item from `configuration` to `locked` state. This transition prevents an NFI from being rebound to a
-   * new asset without approvals by the TAC owner. The signer must be the manufacturer.
-   * @param params
-   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1-minute timeout is used.
-   * @return a boolean indicating whether the lock attempt was successful
+   * Locks an item and waits for the boolean contract result.
+   *
+   * @param params Item lookup stub containing `localNfid`.
+   * @param timeout Maximum wait time in milliseconds.
+   * @returns `true` when the item was successfully locked.
    */
   async lockItemSync(params: ItemStub, timeout?: number): Promise<boolean> {
     const txId = await this.lockItem(params)
@@ -442,9 +510,13 @@ export class Item {
   }
 
   /**
-   * attempts to use a proof to authenticate an item against a challenge
-   * @param params
-   * @return a transaction id; Use Utils.transactionCompletion() or the synchronous equivalent of this method to receive a result.
+   * Submits an authentication attempt for an item.
+   *
+   * This is the stateful, on-chain authentication path. Depending on the challenge mode and `burn` flag, the attempt
+   * may consume replayable proof material and mutate contract state.
+   *
+   * @param params Item id, challenge payload, and burn behavior.
+   * @returns The submitted transaction id.
    */
   async authItem(params: AuthItem): Promise<string> {
     return await this.invoker.invokeFunction({
@@ -454,10 +526,11 @@ export class Item {
   }
 
   /**
-   * attempts to use a proof to authenticate an item against a challenge
-   * @param params
-   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1-minute timeout is used.
-   * @return a boolean indicating whether the challenge was passed
+   * Submits an authentication attempt and waits for the boolean execution result.
+   *
+   * @param params Item id, challenge payload, and burn behavior.
+   * @param timeout Maximum wait time in milliseconds.
+   * @returns `true` when the challenge passes on-chain.
    */
   async authItemSync(params: AuthItem, timeout?: number): Promise<boolean> {
     const txId = await this.authItem(params)
@@ -466,11 +539,14 @@ export class Item {
     return this.parser.parseRpcResponse(resp.executions[0].stack[0] as RpcResponseStackItem)
   }
 
-  // TODO - response typing
   /**
-   * Checks if the challenge can be passed using the proof provided. This method is not published to a block.
-   * @param params
-   * @return a boolean indicating if the challenge passed
+   * Simulates an authentication attempt without publishing a transaction.
+   *
+   * The helper intentionally forces `burn: false` before calling the same contract method used by {@link authItem}.
+   * This makes the method safe for preflight validation while preserving the contract's real authentication logic.
+   *
+   * @param params Item id and challenge payload to validate.
+   * @returns Structured validation result from the contract.
    */
   async isAuthValid(params: IsAuthValid): Promise<AuthValidationResult> {
     const args = { ...params, ...{ burn: false } }
@@ -479,12 +555,13 @@ export class Item {
   }
 
   /**
-   * Invalidates all proofs predating the execution of this method. Purging is a security solution designed to
-   * mitigate signature leakage. It is also very useful when transferring an NFI to a new owner to prevent the old owner
-   * from retaining access rights.
-   * @param params
+   * Purges prior authentication proofs for an item.
    *
-   * @return a transaction id; Use Utils.transactionCompletion() or the synchronous equivalent of this method to receive a result.
+   * Purging is a security control that invalidates proofs predating the purge event. It is commonly used after custody
+   * transfer or suspected proof leakage.
+   *
+   * @param params Item id plus the authorization material required to approve the purge.
+   * @returns The submitted transaction id.
    */
   async purgeItem(params: PurgeItem): Promise<string> {
     return await this.invoker.invokeFunction({
@@ -494,13 +571,11 @@ export class Item {
   }
 
   /**
-   * Invalidates all proofs predating the execution of this method. Purging is a security solution designed to
-   * mitigate signature leakage. It is also very useful when transferring an NFI to a new owner to prevent the old owner
-   * from retaining access rights.
-   * @param params
-   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1-minute timeout is used.
+   * Purges prior authentication proofs and waits for the boolean result.
    *
-   * @return a transaction id; Use Utils.transactionCompletion() or the synchronous equivalent of this method to receive a result.
+   * @param params Item id plus the authorization material required to approve the purge.
+   * @param timeout Maximum wait time in milliseconds.
+   * @returns `true` when the purge succeeds.
    */
   async purgeItemSync(params: PurgeItem, timeout?: number): Promise<boolean> {
     const txId = await this.purgeItem(params)
@@ -510,9 +585,10 @@ export class Item {
   }
 
   /**
-   * Sets an epoch property
-   * @param params
-   * @return a transaction id; Use Utils.transactionCompletion() or the synchronous equivalent of this method to receive a result.
+   * Sets an epoch-scoped property.
+   *
+   * @param params Epoch id, global property id, and new property state.
+   * @returns The submitted transaction id.
    */
   async setEpochProperty(params: SetEpochProperty): Promise<string> {
     return await this.invoker.invokeFunction({
@@ -522,10 +598,11 @@ export class Item {
   }
 
   /**
-   * Sets an epoch property
-   * @param params
-   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1-minute timeout is used.
-   * @return a boolean indicating whether the property was successfully set
+   * Sets an epoch-scoped property and waits for the boolean result.
+   *
+   * @param params Epoch id, global property id, and new property state.
+   * @param timeout Maximum wait time in milliseconds.
+   * @returns `true` when the contract reports success.
    */
   async setEpochPropertySync(params: SetEpochProperty, timeout?: number): Promise<boolean> {
     const txId = await this.setEpochProperty(params)
@@ -535,9 +612,13 @@ export class Item {
   }
 
   /**
-   * Gets the object representation of an epoch
-   * @param params
-   * @return the requested epoch
+   * Loads an epoch by local id.
+   *
+   * The contract returns the binding script hash as a byte array. This helper normalizes it to a conventional
+   * `0x`-prefixed script hash string.
+   *
+   * @param params Epoch lookup stub containing `localEid`.
+   * @returns Normalized epoch metadata.
    */
   async getEpoch(params: EpochStub): Promise<EpochType> {
     const res = await Utils.testInvoker(this.invoker, this.parser, [EpochAPI.getEpoch(this.scriptHash, params)])
@@ -547,10 +628,13 @@ export class Item {
   }
 
   /**
-   * Gets all the items in an epoch. This is particularly used for manufacturers interested in
-   * understanding all the items associated with a tokenized asset contract or for TAC owners to inventory their NFIs.
-   * @param params
-   * @return a list of all the NFIDs associated with an epoch
+   * Lists all item ids associated with an epoch.
+   *
+   * The contract exposes epoch membership through an iterator of byte-encoded ids. This helper traverses the iterator
+   * and converts each id into a JavaScript number.
+   *
+   * @param params Epoch lookup payload.
+   * @returns All local NFIDs belonging to the epoch.
    */
   async getEpochItems(params: { localEid: number }): Promise<number[]> {
     const res = await this.invoker.testInvoke({
@@ -564,11 +648,11 @@ export class Item {
     })
   }
 
-  // TODO - typing
   /**
-   * Gets the configuration properties of an epoch
-   * @param params
-   * @return an object outlining all the configured properties of an epoch
+   * Retrieves all epoch-scoped properties.
+   *
+   * @param params Epoch lookup stub containing `localEid`.
+   * @returns A property map of `globalPid -> state` in hex-string form.
    */
   async getEpochProperties(params: EpochStub): Promise<PropertyMap> {
     const res = await this.invoker.testInvoke({
@@ -579,8 +663,9 @@ export class Item {
   }
 
   /**
-   * Gets the total number of epochs in the system.
-   * @return the total number of epochs
+   * Returns the total number of epochs.
+   *
+   * @returns Total epoch count.
    */
   async totalEpochs(): Promise<number> {
     const res = await Utils.testInvoker(this.invoker, this.parser, [EpochAPI.totalEpochs(this.scriptHash)])
@@ -588,8 +673,9 @@ export class Item {
   }
 
   /**
-   * Creates a new configuration in the system. The signer must be a manufacturer.
-   * @return a transaction id; Use Utils.transactionCompletion() or the synchronous equivalent of this method to receive a result.
+   * Creates a new manufacturing configuration.
+   *
+   * @returns The submitted transaction id.
    */
   async createConfiguration(): Promise<string> {
     return await this.invoker.invokeFunction({
@@ -599,10 +685,10 @@ export class Item {
   }
 
   /**
-   * Creates a new configuration in the system. The signer must be a manufacturer.
-   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1-minute timeout is used.
+   * Creates a new manufacturing configuration and waits for the assigned local configuration id.
    *
-   * @return the Configuration ID (LocalCid) of the new configuration
+   * @param timeout Maximum wait time in milliseconds.
+   * @returns The created local configuration id.
    */
   async createConfigurationSync(timeout?: number): Promise<number> {
     const txId = await this.createConfiguration()
@@ -611,10 +697,11 @@ export class Item {
     return this.parser.parseRpcResponse(resp.executions[0].stack[0] as RpcResponseStackItem)
   }
 
-  /** Gets a manufacturing configuration
+  /**
+   * Loads a manufacturing configuration.
    *
-   * @param params
-   * @return the object formatted representation of a manufacturing configuration
+   * @param params Configuration lookup stub containing `localCid`.
+   * @returns Parsed configuration metadata.
    */
   async getConfiguration(params: ConfigurationStub): Promise<ConfigurationType> {
     const res = await Utils.testInvoker(this.invoker, this.parser, [
@@ -624,9 +711,10 @@ export class Item {
   }
 
   /**
-   * Sets a property of a manufacturing configuration
-   * @param params
-   * @return a transaction id; Use Utils.transactionCompletion() or the synchronous equivalent of this method to receive a result.
+   * Sets a configuration-scoped property.
+   *
+   * @param params Configuration id, global property id, and new property state.
+   * @returns The submitted transaction id.
    */
   async setConfigurationProperty(params: SetConfigurationProperty): Promise<string> {
     return await this.invoker.invokeFunction({
@@ -636,10 +724,11 @@ export class Item {
   }
 
   /**
-   * Sets a property of a manufacturing configuration
-   * @param params
-   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1-minute timeout is used.
-   * @return a boolean indicating whether the property was set
+   * Sets a configuration-scoped property and waits for the boolean result.
+   *
+   * @param params Configuration id, global property id, and new property state.
+   * @param timeout Maximum wait time in milliseconds.
+   * @returns `true` when the contract reports success.
    */
   async setConfigurationPropertySync(params: SetConfigurationProperty, timeout?: number): Promise<boolean> {
     const txId = await this.setConfigurationProperty(params)
@@ -648,6 +737,12 @@ export class Item {
     return this.parser.parseRpcResponse(resp.executions[0].stack[0] as RpcResponseStackItem)
   }
 
+  /**
+   * Retrieves all configuration-scoped properties.
+   *
+   * @param params Configuration lookup stub containing `localCid`.
+   * @returns A property map of `globalPid -> state` in hex-string form.
+   */
   async getConfigurationProperties(params: ConfigurationStub): Promise<PropertyMap> {
     const res = await this.invoker.testInvoke({
       invocations: [ConfigurationAPI.getConfigurationProperties(this.scriptHash, params)],
@@ -656,6 +751,12 @@ export class Item {
     return (await Utils.handlePropertyIterator(res, this.invoker, this.parser)) as PropertyMap
   }
 
+  /**
+   * Lists all asset ids associated with a configuration.
+   *
+   * @param params Configuration lookup stub containing `localCid`.
+   * @returns All local asset ids linked to the configuration.
+   */
   async getConfigurationAssets(params: ConfigurationStub): Promise<number[]> {
     const res = await this.invoker.testInvoke({
       invocations: [ConfigurationAPI.getConfigurationAssets(this.scriptHash, params)],
@@ -667,6 +768,11 @@ export class Item {
     })
   }
 
+  /**
+   * Returns the total number of configurations.
+   *
+   * @returns Total configuration count.
+   */
   async totalConfigurations(): Promise<number> {
     const res = await Utils.testInvoker(this.invoker, this.parser, [
       ConfigurationAPI.totalConfigurations(this.scriptHash),
@@ -674,6 +780,15 @@ export class Item {
     return res[0]
   }
 
+  /**
+   * Loads an asset by local asset id.
+   *
+   * The contract returns the public key in base64-encoded byte form; this helper converts it to a hex string so callers
+   * can compare or persist it consistently.
+   *
+   * @param params Asset lookup stub containing `localAsid`.
+   * @returns Normalized asset metadata.
+   */
   async getAsset(params: AssetStub): Promise<AssetType> {
     const res = await Utils.testInvoker(this.invoker, this.parser, [AssetAPI.getAsset(this.scriptHash, params)])
     const result = res[0]
@@ -681,11 +796,25 @@ export class Item {
     return result
   }
 
+  /**
+   * Loads an asset by public key.
+   *
+   * @param params Public key lookup payload.
+   * @returns Parsed asset metadata.
+   */
   async getAssetWithKey(params: KeyStub): Promise<AssetType> {
     const res = await Utils.testInvoker(this.invoker, this.parser, [AssetAPI.getAssetWithKey(this.scriptHash, params)])
     return res[0]
   }
 
+  /**
+   * Retrieves the burn log for an asset.
+   *
+   * Burn logs are returned through an iterator and materialized into an ordered list of hex-encoded entries.
+   *
+   * @param params Asset lookup stub containing `localAsid`.
+   * @returns Burn-log entries as hex strings.
+   */
   async getAssetBurnLog(params: AssetStub): Promise<string[]> {
     const res = await this.invoker.testInvoke({
       invocations: [AssetAPI.getAssetBurnLog(this.scriptHash, params)],
@@ -695,11 +824,25 @@ export class Item {
     return Utils.handleIterator(res, this.invoker, this.parser)
   }
 
+  /**
+   * Returns the total number of assets.
+   *
+   * @returns Total asset count.
+   */
   async totalAssets(): Promise<number> {
     const res = await Utils.testInvoker(this.invoker, this.parser, [AssetAPI.totalAssets(this.scriptHash)])
     return res[0]
   }
 
+  /**
+   * Reads tokenized-asset properties using an item's public key.
+   *
+   * This method first resolves the ITEM record, then delegates to the bound IS1 contract using the resolved binding
+   * script hash and token id.
+   *
+   * @param params Public key lookup payload.
+   * @returns Property map returned by the bound IS1 contract.
+   */
   async tokenProperties(params: KeyStub): Promise<PropertyMap> {
     const item = await this.getItemWithKey(params)
     const res = await Utils.testInvoker(this.invoker, this.parser, [
@@ -708,6 +851,12 @@ export class Item {
     return res[0]
   }
 
+  /**
+   * Reads tokenized-asset properties using a local NFID.
+   *
+   * @param params Item lookup stub containing `localNfid`.
+   * @returns Property map returned by the bound IS1 contract.
+   */
   async tokenPropertiesWithNfid(params: ItemStub): Promise<PropertyMap> {
     const item = await this.getItem(params)
     const res = await Utils.testInvoker(this.invoker, this.parser, [
@@ -716,7 +865,16 @@ export class Item {
     return res[0]
   }
 
-  // TODO - This needs to be done in a better way using the smart contract or dora and can be parallelized
+  /**
+   * Enumerates remote tokens owned by an address across all known bound contracts.
+   *
+   * This helper is intentionally convenience-first rather than performance-first. It discovers all unique binding
+   * contracts by scanning epochs, then queries each contract's `tokensOf` iterator. Large deployments may prefer a
+   * dedicated indexer or a more parallelized implementation.
+   *
+   * @param params Address whose remote token holdings should be enumerated.
+   * @returns Remote token references across all discovered binding contracts.
+   */
   async itemsOf(params: { address: string }): Promise<RemoteToken[]> {
     const totalEpochs = await this.totalEpochs()
 
@@ -745,6 +903,12 @@ export class Item {
     return items
   }
 
+  /**
+   * Checks claimability for the tokenized asset associated with a public key.
+   *
+   * @param params Public key lookup payload.
+   * @returns Claimability response from the bound IS1 contract.
+   */
   async isClaimable(params: KeyStub): Promise<string[]> {
     const item = await this.getItemWithKey(params)
 
@@ -754,6 +918,12 @@ export class Item {
     return res[0]
   }
 
+  /**
+   * Checks claimability for the tokenized asset associated with a local NFID.
+   *
+   * @param params Item lookup stub containing `localNfid`.
+   * @returns Claimability response from the bound IS1 contract.
+   */
   async isClaimableWithNfid(params: ItemStub): Promise<string[]> {
     const item = await this.getItem(params)
 
@@ -764,10 +934,13 @@ export class Item {
   }
 
   /**
-   * implements the optional "claimItem" method on the IS1 standard to change the owner of the NFI on the tokenized
-   * asset contract using an asset proof. This method calls the tokenized asset contract associated with the item.
-   * @param params
-   * @return a transaction id; Use Utils.transactionCompletion() or the synchronous equivalent of this method to receive a result.
+   * Claims ownership of the bound tokenized asset using an ITEM authentication proof.
+   *
+   * This method does not call the ITEM contract directly after item resolution. Instead, it resolves the bound tokenized
+   * asset contract and invokes the optional IS1 `claim` method on that contract.
+   *
+   * @param params Asset public key, authentication payload, and optional receiver account.
+   * @returns The submitted transaction id.
    */
   async claimItem(params: ClaimItem): Promise<string> {
     const item = await this.getItemWithKey({ pubKey: params.pubKey })
@@ -785,11 +958,11 @@ export class Item {
   }
 
   /**
-   * implements the optional "claimItem" method on the IS1 standard to change the owner of the NFI on the tokenized
-   * asset contract using an asset proof. This method calls the tokenized asset contract associated with the item.
-   * @param params
-   * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1-minute timeout is used.
-   * @return a transaction id; Use Utils.transactionCompletion() or the synchronous equivalent of this method to receive a result.
+   * Claims ownership of the bound tokenized asset and waits for the boolean result.
+   *
+   * @param params Asset public key, authentication payload, and optional receiver account.
+   * @param timeout Maximum wait time in milliseconds.
+   * @returns `true` when the claim succeeds.
    */
   async claimItemSync(params: ClaimItem, timeout?: number): Promise<boolean> {
     const txId = await this.claimItem(params)
@@ -799,9 +972,13 @@ export class Item {
   }
 
   /**
-   * Gets the owner of an item. This method calls the bound tokenized asset contract to look up the owner.
-   * @param params
-   * @return the address of the item owner
+   * Resolves the current owner of an item from the bound tokenized asset contract.
+   *
+   * The IS1 `ownerOf` response is returned as script-hash bytes. This helper converts that value into a standard Neo
+   * address string.
+   *
+   * @param params Item lookup stub containing `localNfid`.
+   * @returns Current owner address.
    */
   async ownerOf(params: ItemStub): Promise<string> {
     const item = await this.getItem(params)
