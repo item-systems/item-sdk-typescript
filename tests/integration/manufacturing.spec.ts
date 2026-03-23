@@ -1,12 +1,12 @@
-import { Item, Utils } from '../src'
+import { Item, Utils } from '../../src'
 import { u, wallet } from '@cityofzion/neon-js'
 import assert from 'assert'
-import { NeoN3EllipticCurves } from '../src/constants'
+import { NeoN3EllipticCurves } from '../../src/constants'
 import { fileURLToPath } from 'url'
 import dotenv from 'dotenv'
 import { dirname } from 'path'
 import * as fs from 'fs'
-import { IsAuthValid, RemoteToken } from '../src/types'
+import { IsAuthValid, RemoteToken } from '../../src/types'
 
 describe('Basic Manufacturing Tests', function () {
   this.timeout(0)
@@ -15,7 +15,7 @@ describe('Basic Manufacturing Tests', function () {
   const __filename = fileURLToPath(import.meta.url)
   const __dirname = dirname(__filename)
   dotenv.config({
-    path: __dirname + `/../.env/${environment}.env`,
+    path: __dirname + `/../../.env/${environment}.env`,
   })
 
   let item: Item
@@ -332,7 +332,8 @@ describe('Basic Manufacturing Tests', function () {
           assert.equal(nfi.epoch.id, targetEpoch, pubKey)
           assert.equal(nfi.epoch.binding_script_hash, targetScriptHash, pubKey)
         } catch (e) {
-          console.log('  missing', i, pubKey, e.message)
+          const message = e instanceof Error ? e.message : String(e)
+          console.log('  missing', i, pubKey, message)
         }
       }
     })
