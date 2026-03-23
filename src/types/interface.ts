@@ -4,61 +4,80 @@ import { NeoN3EllipticCurves } from '../constants'
 
 type WalletAccount = InstanceType<typeof wallet.Account>
 
+/**
+ * Construction-time options for {@link Item.init}.
+ *
+ * Most consumers only need to provide a custom `node` and, for write flows, an `account`. Advanced integrators can
+ * inject their own invoker, listener, or parser implementations to integrate with custom transports or testing setups.
+ */
 export interface ConstructorOptions {
+  /** RPC endpoint used for reads, writes, and event polling. */
   node?: string
+  /** ITEM contract script hash to bind the SDK instance to. */
   scriptHash?: string
+  /** Custom invocation transport. */
   invoker?: Neo3Invoker
+  /** Custom application-log listener. */
   listener?: Neo3EventListener
+  /** Custom Neo VM response parser. */
   parser?: Neo3Parser
+  /** Optional signer account used by default invoker creation. */
   account?: WalletAccount | undefined
 }
 
 /**
- * Defines optional settings for polling methods. Typically, this is used when waiting for a transaction to be
- * minted to a block in synchronous workflows.
+ * Polling configuration for transaction-resolution helpers such as `Utils.transactionCompletion()`.
  *
- * @property period - The period at which to poll the node for a result
- * @property timeout - The period to search for a result before timing out
- * @property node - The node to poll against
- *
- * @example
- * const options: pollingOptions = {
- *   period: 1000, //once per second
- *   timeout: 60000, //1 minute timeout
- *   node: NeoN3NetworkOptions.MainNet //Neo N3 mainnet
- * }
- * */
+ * @property period Delay between polling attempts, in milliseconds.
+ * @property timeout Maximum total wait time, in milliseconds.
+ * @property node RPC endpoint to query for the application log.
+ */
 export type pollingOptions = {
   period: number
   timeout: number
   node: string
 }
 
+/**
+ * Payload used to upgrade or replace the deployed ITEM contract.
+ */
 export type ContractUpdate = {
+  /** Compiled contract script bytes, typically hex-encoded. */
   script: string
+  /** Contract manifest JSON string. */
   manifest: string
+  /** Optional contract-defined update payload. */
   data: any
 }
 
+/** Hex-encoded string used throughout the SDK for byte-oriented values. */
 export type HexString = string
+/** Global property identifier encoded as hex. */
 export type PropertyId = HexString
+/** Property state/value encoded as hex. */
 export type PropertyState = HexString
+/** Token id encoded as hex. */
 export type TokenId = HexString
+/** Authentication challenge message encoded as hex. */
 export type AuthMessage = HexString
+/** Authentication proof/signature encoded as hex. */
 export type AuthProof = HexString
 
+/** Input for setting a user-scoped property. */
 export type SetUserProperty = {
   localUid: number
   globalPid: PropertyId
   state: PropertyState
 }
 
+/** Input for setting an item-scoped property. */
 export type SetItemProperty = {
   localNfid: number
   globalPid: PropertyId
   state: PropertyState
 }
 
+/** Input for binding a new asset to an item. */
 export type BindItem = {
   localNfid: number
   localCid: number
@@ -66,96 +85,148 @@ export type BindItem = {
   assetEllipticCurve: NeoN3EllipticCurves
 }
 
+/** Authorization payload required to purge prior proofs for an item. */
 export type PurgeItem = {
   localNfid: number
   message: AuthMessage
   signature: AuthProof
 }
 
+/** Input for setting an epoch-scoped property. */
 export type SetEpochProperty = {
   localEid: number
   globalPid: PropertyId
   state: PropertyState
 }
 
+/** Lookup stub for a configuration. */
 export type ConfigurationStub = {
   localCid: number
 }
 
+/** Lookup stub for a user. */
 export type UserStub = {
   localUid: number
 }
 
+/** Lookup stub for an address-based query. */
 export type AddressStub = {
   address: string
 }
 
+/** Lookup stub for an item. */
 export type ItemStub = {
   localNfid: number
 }
 
+/** Lookup stub for an epoch. */
 export type EpochStub = {
   localEid: number
 }
 
+/** Input for creating a new item inside an epoch. */
 export type CreateItem = {
   localEid: number
   bindingTokenId: TokenId
 }
 
+/** Lookup stub for a public-key-based query. */
 export type KeyStub = {
   pubKey: string
 }
 
+/** Lookup stub for an asset. */
 export type AssetStub = {
   localAsid: number
 }
 
+/** Input for setting a configuration-scoped property. */
 export type SetConfigurationProperty = {
   localCid: number
   globalPid: PropertyId
   state: PropertyState
 }
 
+/** Property values are represented as hex-encoded byte strings. */
 export type PropertyValue = HexString
+/** Materialized property collection keyed by global property id. */
 export type PropertyMap = Record<PropertyId, PropertyValue>
 
+/**
+ * Result returned by read-only authentication validation helpers.
+ */
 export interface AuthValidationResult {
+  /** Whether the provided challenge/proof combination is currently valid. */
   valid: boolean
 }
 
+/**
+ * Materialized user record returned by the SDK.
+ */
 export interface UserType {
+  /** Internal local user id assigned by the contract. */
   id: number
+  /** Normalized Neo account object for the user's address. */
   address: WalletAccount
 }
 
+/**
+ * Materialized epoch record.
+ */
 export interface EpochType {
+  /** Internal local epoch id. */
   id: number
+  /** Manufacturer/vendor local user id associated with the epoch. */
   vendor: number
+  /** Bound tokenized-asset contract script hash, normalized as `0x...`. */
   binding_script_hash: string
 }
 
+/**
+ * Reference to a token on a remote tokenized-asset contract.
+ */
 export interface RemoteToken {
+  /** Tokenized-asset contract script hash. */
   scriptHash: string
+  /** Token id on the remote contract. */
   tokenId: string
 }
 
+/**
+ * Materialized item record.
+ */
 export interface ItemType {
+  /** Internal local NFID. */
   id: number
+  /** Epoch metadata that defines the binding contract context. */
   epoch: EpochType
+  /** Item seed normalized to hex. */
   seed: string
+  /** Contract-defined lifecycle state. */
   state: string
+  /** Bound token id on the remote tokenized-asset contract. */
   binding_token_id: string
+  /** Historical/local asset ids associated with the item. */
   assets: number[]
 }
 
+/**
+ * Materialized asset record.
+ */
 export interface AssetType {
+  /** Internal local asset id. */
   id: number
+  /** Configuration id used when the asset was created. */
   configuration: number
+  /** Owning local NFID. */
   item: number
+  /** Asset public key normalized to hex. */
   public_key: string
+  /** Whether the asset is currently active for the item. */
   active: boolean
+  /** Elliptic curve identifier used by the asset key. */
   elliptic_curve: number
+  /** Purge heights tracked per challenge family. */
   purge_heights: {
     ils: number
     htls: number
@@ -163,58 +234,38 @@ export interface AssetType {
 }
 
 /**
- * An NFI configuration type
- *
- *
+ * Materialized manufacturing configuration record.
  */
 export interface ConfigurationType {
+  /** Internal local configuration id. */
   id: number
+  /** Manufacturer local user id that owns the configuration. */
   manufacturer: number
 }
 
 /**
- * Outlines the format for a decoded payload received from the NDEF interface of an NFI.
- *
- * @property validSignature - Is the signature of the NFI valid? This test only applies to ECDSA challenges.
- * @property uriPubKey - The URI formatted public key that the NFI is currently using to authenticate.
- * @property pubKeyUnencoded - the unencoded public key that the NFI is currently using to authenticate.
- * @property pubKey - the encoded (default) public key that the NFI is currently using to authenticate.
- * @property message - the message that the NFI was challenged with
- * @property proof - the proof that the NFI is asserting in response to the challenge
- *
- * @example
- * const fuu: NdefDecodeType = {
- *   validSignature: true,
- *   uriPubKey: 'BG9c75Iv3vGxeBshtdWKs5SOwZEH4rMSQmWnepL.v4YZReaoeOb3qb5PuZgj.YzqqT61XbYzUmw.G1SapwLunR8-',
- *   pubKeyUnencoded: '046f5cef922fdef1b1781b21b5d58ab3948ec19107e2b3124265a77a92febf861945e6a878e6f7a9be4fb99823f98ceaa93eb55db633526c3e1b549aa702ee9d1f',
- *   pubKey: '036f5cef922fdef1b1781b21b5d58ab3948ec19107e2b3124265a77a92febf8619',
- *   message: '0000000015',
- *   proof: 'd0f1d268b829af308271cac97176893fa8b69a33660591026f72c066d0fd2cad90b2072ec6179d238083ed9697a9c0dc2ca181fa5ba3e0de4a83d3203b3e43e5'
- * }
+ * Decoded payload received from an ITEM NDEF interface.
  */
 export interface NdefDecodeType {
+  /** Whether the decoded proof verifies against the decoded message and public key. */
   validSignature: boolean
+  /** URL-safe public key representation used in ITEM links. */
   uriPubKey: string
+  /** Uncompressed public key as hex. */
   pubKeyUnencoded: string
+  /** Compressed public key as hex. */
   pubKey: string
+  /** Challenge message as hex. */
   message: string
+  /** Authentication proof/signature as hex. */
   proof: string
 }
 
 /**
- * Defines an authentication payload in the ITEM ecosystem. It contains a challenge class, a message relevant to the scope of the challenge, and a proof against the challenge.
- * This payload is parsed directly from the interface bus with the NFI when interacting with it and is a primary output of Utils.decodeNDEF().
+ * Challenge families supported by the ITEM authentication model.
  *
- * @property message - the message used in the challenge. Refer to the challenge enum for relevant details on what this field should contain.
- * @property proof - the proof provided by the NFI that it has been interfaced with using the message
- * @property challenge - the system-level challenge type that transaction relayer is attempting
- *
- * @example
- * const auth: AuthPayload = {
- *          message: '0000000008', // The challenge message
- *         proof: '7a811313f7de6c2a00c16716a99ed53b0c0208813fb8e65c6166a5f45012512edf6e7535cb54bfc01e4dea5c671005a7b069aa1ef621efd34b7a4dcbef3303f6',
- *         challenge: '01', // Light Integer-Locked Signature authentication mode
- *  }
+ * The permissive vs restrictive distinction and the ILS vs HTLS distinction are enforced by the underlying contract and
+ * verifier logic. The enum values are serialized exactly as expected by the contract.
  */
 export enum AuthChallenge {
   ILS_PERMISSIVE = '01',
@@ -223,36 +274,33 @@ export enum AuthChallenge {
   HTLS_RESTRICTIVE = '04',
 }
 
+/**
+ * Authentication payload exchanged with ITEM challenge methods.
+ */
 export interface AuthPayload {
+  /** Challenge message encoded as hex. */
   message: AuthMessage
+  /** Proof/signature encoded as hex. */
   proof: AuthProof
+  /** Contract challenge mode to evaluate. */
   challenge: AuthChallenge
 }
 
 /**
- * Defines an api call to assert authentication against an NFI using an associated challenge.
- *
- * @property localNfid - The nfid to run the challenge with
- * @property auth - The authenticate challenge payload
- * @property burn - Should the challenge attempt be burned so it cannot be replayed? If true, all future attempts will fail.
- *
- * * @example
- *  * const fu: AuthItem = {
- *  *   localNfid: 100,
- *  *   auth: {
- *  *           message: '0000000008', // The challenge message
- *  *           proof: '7a811313f7de6c2a00c16716a99ed53b0c0208813fb8e65c6166a5f45012512edf6e7535cb54bfc01e4dea5c671005a7b069aa1ef621efd34b7a4dcbef3303f6',
- *  *           challenge: '01', // Light Integer-Locked Signature authentication mode
- *  *   },
- *      burn: true
- *  * }
- *  */
+ * Stateful authentication request submitted on-chain.
+ */
 export interface AuthItem {
+  /** Local NFID to authenticate against. */
   localNfid: number
+  /** Challenge payload captured from the item. */
   auth: AuthPayload
+  /** Whether the proof should be burned to prevent replay. */
   burn: boolean
 }
 
+/**
+ * IS1-level authentication request shape used when interacting directly with a tokenized asset contract.
+ */
 export interface IS1AuthItem {
   tokenId: string
   auth: AuthPayload
@@ -260,29 +308,23 @@ export interface IS1AuthItem {
 }
 
 /**
- * Defines an api call to check if an assert authentication request will pass for an nfi. To execute a relayed version that is
- * minted to a block, use AuthItem.
- *
- * @property localNfid - The nfid to run the challenge with
- * @property auth - The authenticate challenge payload
- *
- * @example
- * const fu: IsAuthValid = {
- *   localNfid: 100,
- *   auth: {
- *           message: '0000000008', // The challenge message
- *           proof: '7a811313f7de6c2a00c16716a99ed53b0c0208813fb8e65c6166a5f45012512edf6e7535cb54bfc01e4dea5c671005a7b069aa1ef621efd34b7a4dcbef3303f6',
- *           challenge: '01', // Light Integer-Locked Signature authentication mode
- *   }
- * }
+ * Read-only authentication validation request.
  */
 export interface IsAuthValid {
+  /** Local NFID to validate against. */
   localNfid: number
+  /** Challenge payload to simulate. */
   auth: AuthPayload
 }
 
+/**
+ * Input for claiming ownership of a bound tokenized asset.
+ */
 export interface ClaimItem {
+  /** Asset public key used to resolve the underlying item. */
   pubKey: string
+  /** Authentication payload proving possession/control. */
   auth: AuthPayload
+  /** Optional receiver account; if omitted, contract defaults apply. */
   receiverAccount?: string
 }

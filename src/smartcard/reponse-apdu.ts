@@ -1,14 +1,18 @@
 import { StatusWord } from './statusword'
 
 /**
- * ISO-7816 response APDU
+ * Parsed representation of an ISO 7816 response APDU.
+ *
+ * Response APDUs always end with a two-byte status word. This wrapper exposes
+ * the status word and payload separately so higher-level code can branch on card
+ * outcomes without manually slicing buffers.
  */
 export class ResponseAPDU {
   private readonly _buffer: Uint8Array
   private _view: DataView
 
   /**
-   * @param data full response data including status word
+   * @param data Full response bytes including the trailing status word.
    */
   constructor(data: Uint8Array) {
     if (data.length < 2) {
@@ -18,19 +22,35 @@ export class ResponseAPDU {
     this._view = new DataView(this._buffer.buffer)
   }
 
+  /**
+   * Return the 16-bit status word from the end of the APDU.
+   */
   getSW(): number {
     return this._view.getUint16(this._buffer.length - 2)
   }
 
+  /**
+   * Return the response payload excluding the trailing status word.
+   */
   getData(): Uint8Array {
     return this._buffer.slice(0, this._buffer.length - 2)
   }
 
+  /**
+   * Return the original raw APDU bytes.
+   */
   toArray(): Uint8Array {
     return this._buffer
   }
 }
 
+/**
+ * Response wrapper for applet-selection responses.
+ *
+ * Different firmware generations return slightly different payload layouts, so
+ * this helper centralizes the logic for extracting the card public key from the
+ * select response.
+ */
 export class SelectResponse extends ResponseAPDU {
   private static TAG_DK1_V100_LENGTH = 90
   private static PUBLIC_KEY_LENGTH = 65
@@ -42,6 +62,9 @@ export class SelectResponse extends ResponseAPDU {
     super(apdu)
   }
 
+  /**
+   * Extract the uncompressed public key advertised by the selected applet.
+   */
   getPublicKey(): Uint8Array {
     const d = this.getData()
     if (d.length === SelectResponse.TAG_DK1_V100_LENGTH) {
@@ -56,7 +79,11 @@ export class SelectResponse extends ResponseAPDU {
 }
 
 /**
- * The response APDU to a `SignCommand`.
+ * Response wrapper for `SignCommand`.
+ *
+ * The card returns a tagged structure containing the signature and the public
+ * key used to produce it. This parser validates the expected framing and exposes
+ * both values separately.
  */
 export class SignResponse extends ResponseAPDU {
   private static TAG_SIGNATURE_PUBLIC_KEY = 0xa2
@@ -91,7 +118,8 @@ export class SignResponse extends ResponseAPDU {
 
     this.publicKey = data.slice(data.length - 65)
 
-    // offset is the place where the signature data starts
+    // Offset is the place where the signature data starts after the variable-
+    // length DER-ish framing bytes.
     let offset = 2
     if (data[1] === 0x81) {
       offset += 1
@@ -107,10 +135,16 @@ export class SignResponse extends ResponseAPDU {
     this.signature = data.slice(offset, data.length - 67)
   }
 
+  /**
+   * Return the public key associated with the signature response.
+   */
   getPublicKey(): Uint8Array {
     return this.publicKey
   }
 
+  /**
+   * Return the raw signature bytes.
+   */
   getSignature(): Uint8Array {
     return this.signature
   }
