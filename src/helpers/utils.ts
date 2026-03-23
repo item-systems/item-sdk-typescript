@@ -206,6 +206,39 @@ export class Utils {
     })
   }
 
+  static async handlePropertyIterator(
+    res: any,
+    invoker: Neo3Invoker,
+    parser: Neo3Parser
+  ): Promise<Record<string, string>> {
+    if (!res.stack) {
+      return {}
+    }
+
+    const properties: Record<string, string> = {}
+    const count = 20
+    let traversedAll = false
+
+    while (!traversedAll) {
+      const iteratorList = await invoker.traverseIterator(res.session, res.stack[0].id, count)
+      iteratorList.forEach(item => {
+        if (!TypeChecker.isStackTypeStruct(item) || item.value.length < 2) {
+          throw new Error('unrecognized property response')
+        }
+
+        const key = parser.parseRpcResponse(item.value[0], { type: 'ByteArray' }) as string
+        const value = parser.parseRpcResponse(item.value[1], { type: 'ByteArray' }) as string
+        properties[key] = value
+      })
+
+      if (iteratorList.length < count) {
+        traversedAll = true
+      }
+    }
+
+    return properties
+  }
+
   static async handleIterator(res: any, invoker: Neo3Invoker, parser: Neo3Parser): Promise<any[]> {
     if (!res.stack) {
       return []

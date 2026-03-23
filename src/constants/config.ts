@@ -11,4 +11,9 @@ export enum NeoN3EllipticCurves {
   SECP256R1KECCAK256 = 123,
 }
 
-export enum Challenges {}
+export enum Challenges {
+  ILS_PERMISSIVE = '01',
+  ILS_RESTRICTIVE = '02',
+  HTLS_PERMISSIVE = '03',
+  HTLS_RESTRICTIVE = '04',
+}

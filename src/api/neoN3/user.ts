@@ -48,6 +48,14 @@ export class UserAPI {
     }
   }
 
+  static getUserProperties(scriptHash: string, params: UserStub): ContractInvocation {
+    return {
+      scriptHash,
+      operation: 'getUserProperties',
+      args: [{ type: 'Integer', value: params.localUid.toString() }],
+    }
+  }
+
   static totalUsers(scriptHash: string): ContractInvocation {
     return {
       scriptHash,

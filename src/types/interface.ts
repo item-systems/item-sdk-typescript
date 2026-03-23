@@ -40,16 +40,23 @@ export type ContractUpdate = {
   data: any
 }
 
+export type HexString = string
+export type PropertyId = HexString
+export type PropertyState = HexString
+export type TokenId = HexString
+export type AuthMessage = HexString
+export type AuthProof = HexString
+
 export type SetUserProperty = {
   localUid: number
-  globalPid: string
-  state: string
+  globalPid: PropertyId
+  state: PropertyState
 }
 
 export type SetItemProperty = {
   localNfid: number
-  globalPid: string
-  state: string
+  globalPid: PropertyId
+  state: PropertyState
 }
 
 export type BindItem = {
@@ -61,14 +68,14 @@ export type BindItem = {
 
 export type PurgeItem = {
   localNfid: number
-  message: string
-  signature: string
+  message: AuthMessage
+  signature: AuthProof
 }
 
 export type SetEpochProperty = {
   localEid: number
-  globalPid: string
-  state: string
+  globalPid: PropertyId
+  state: PropertyState
 }
 
 export type ConfigurationStub = {
@@ -91,6 +98,11 @@ export type EpochStub = {
   localEid: number
 }
 
+export type CreateItem = {
+  localEid: number
+  bindingTokenId: TokenId
+}
+
 export type KeyStub = {
   pubKey: string
 }
@@ -101,8 +113,15 @@ export type AssetStub = {
 
 export type SetConfigurationProperty = {
   localCid: number
-  globalPid: string
-  state: string
+  globalPid: PropertyId
+  state: PropertyState
+}
+
+export type PropertyValue = HexString
+export type PropertyMap = Record<PropertyId, PropertyValue>
+
+export interface AuthValidationResult {
+  valid: boolean
 }
 
 export interface UserType {
@@ -197,10 +216,17 @@ export interface NdefDecodeType {
  *         challenge: '01', // Light Integer-Locked Signature authentication mode
  *  }
  */
+export enum AuthChallenge {
+  ILS_PERMISSIVE = '01',
+  ILS_RESTRICTIVE = '02',
+  HTLS_PERMISSIVE = '03',
+  HTLS_RESTRICTIVE = '04',
+}
+
 export interface AuthPayload {
-  message: string
-  proof: string
-  challenge: string
+  message: AuthMessage
+  proof: AuthProof
+  challenge: AuthChallenge
 }
 
 /**

@@ -1,6 +1,7 @@
 import { AdminAPI, AssetAPI, ConfigurationAPI, EpochAPI, ItemAPI, UserAPI } from './api/neoN3'
 import {
   AddressStub,
+  CreateItem,
   AssetStub,
   AssetType,
   AuthItem,
@@ -15,9 +16,11 @@ import {
   IsAuthValid,
   ItemStub,
   ItemType,
+  PropertyMap,
   KeyStub,
   PurgeItem,
   RemoteToken,
+  AuthValidationResult,
   SetConfigurationProperty,
   SetEpochProperty,
   SetItemProperty,
@@ -200,6 +203,20 @@ export class Item {
   }
 
   /**
+   * Gets the scoped properties assigned to a user.
+   * @param params the properties required to get a user's properties
+   *
+   * @return a property map keyed by global property id bytes encoded as hex
+   */
+  async getUserProperties(params: UserStub): Promise<PropertyMap> {
+    const res = await this.invoker.testInvoke({
+      invocations: [UserAPI.getUserProperties(this.scriptHash, params)],
+      signers: [],
+    })
+    return (await Utils.handlePropertyIterator(res, this.invoker, this.parser)) as PropertyMap
+  }
+
+  /**
    * Gets the total number of users in the system.
    * @return The total users
    */
@@ -230,7 +247,7 @@ export class Item {
    * @return a transaction id; Use Util.transactionCompletion() to resolve the result or the synchronous equivalent
    * for a direct response.
    */
-  async createItem(params: EpochStub): Promise<string> {
+  async createItem(params: CreateItem): Promise<string> {
     return await this.invoker.invokeFunction({
       invocations: [ItemAPI.createItem(this.scriptHash, params)],
       signers: [],
@@ -245,7 +262,7 @@ export class Item {
    * used.
    * @return the local NFID of the new item that was created.
    */
-  async createItemSync(params: EpochStub, timeout?: number): Promise<number> {
+  async createItemSync(params: CreateItem, timeout?: number): Promise<number> {
     const txId = await this.createItem(params)
     const resp = await this.listener.waitForApplicationLog(txId, timeout ?? TIMEOUT)
 
@@ -335,9 +352,12 @@ export class Item {
    * @param params the parameters required to get the properties
    * @return a json object outlining the properties of an NFI
    */
-  async getItemProperties(params: ItemStub): Promise<any[]> {
-    const res = await Utils.testInvoker(this.invoker, this.parser, [ItemAPI.getItemProperties(this.scriptHash, params)])
-    return res[0]
+  async getItemProperties(params: ItemStub): Promise<PropertyMap> {
+    const res = await this.invoker.testInvoke({
+      invocations: [ItemAPI.getItemProperties(this.scriptHash, params)],
+      signers: [],
+    })
+    return (await Utils.handlePropertyIterator(res, this.invoker, this.parser)) as PropertyMap
   }
 
   /**
@@ -452,7 +472,7 @@ export class Item {
    * @param params
    * @return a boolean indicating if the challenge passed
    */
-  async isAuthValid(params: IsAuthValid): Promise<EpochType> {
+  async isAuthValid(params: IsAuthValid): Promise<AuthValidationResult> {
     const args = { ...params, ...{ burn: false } }
     const res = await Utils.testInvoker(this.invoker, this.parser, [ItemAPI.authItem(this.scriptHash, args)])
     return res[0]
@@ -550,12 +570,12 @@ export class Item {
    * @param params
    * @return an object outlining all the configured properties of an epoch
    */
-  async getEpochProperties(params: EpochStub): Promise<any[]> {
+  async getEpochProperties(params: EpochStub): Promise<PropertyMap> {
     const res = await this.invoker.testInvoke({
       invocations: [EpochAPI.getEpochProperties(this.scriptHash, params)],
       signers: [],
     })
-    return Utils.handleIterator(res, this.invoker, this.parser)
+    return (await Utils.handlePropertyIterator(res, this.invoker, this.parser)) as PropertyMap
   }
 
   /**
@@ -621,18 +641,19 @@ export class Item {
    * @param timeout the timeout to wait for resolution in milliseconds. If one is not provided, a 1-minute timeout is used.
    * @return a boolean indicating whether the property was set
    */
-  async setConfigurationPropertySync(params: SetConfigurationProperty, timeout?: number): Promise<number> {
+  async setConfigurationPropertySync(params: SetConfigurationProperty, timeout?: number): Promise<boolean> {
     const txId = await this.setConfigurationProperty(params)
     const resp = await this.listener.waitForApplicationLog(txId, timeout ?? TIMEOUT)
 
     return this.parser.parseRpcResponse(resp.executions[0].stack[0] as RpcResponseStackItem)
   }
 
-  async getConfigurationProperties(params: ConfigurationStub): Promise<any[]> {
-    const res = await Utils.testInvoker(this.invoker, this.parser, [
-      ConfigurationAPI.getConfigurationProperties(this.scriptHash, params),
-    ])
-    return Utils.handleIterator(res, this.invoker, this.parser)
+  async getConfigurationProperties(params: ConfigurationStub): Promise<PropertyMap> {
+    const res = await this.invoker.testInvoke({
+      invocations: [ConfigurationAPI.getConfigurationProperties(this.scriptHash, params)],
+      signers: [],
+    })
+    return (await Utils.handlePropertyIterator(res, this.invoker, this.parser)) as PropertyMap
   }
 
   async getConfigurationAssets(params: ConfigurationStub): Promise<number[]> {
@@ -679,7 +700,7 @@ export class Item {
     return res[0]
   }
 
-  async tokenProperties(params: KeyStub): Promise<any> {
+  async tokenProperties(params: KeyStub): Promise<PropertyMap> {
     const item = await this.getItemWithKey(params)
     const res = await Utils.testInvoker(this.invoker, this.parser, [
       IS1API.properties(item.epoch.binding_script_hash, { tokenId: item.binding_token_id }),
@@ -687,7 +708,7 @@ export class Item {
     return res[0]
   }
 
-  async tokenPropertiesWithNfid(params: ItemStub): Promise<any> {
+  async tokenPropertiesWithNfid(params: ItemStub): Promise<PropertyMap> {
     const item = await this.getItem(params)
     const res = await Utils.testInvoker(this.invoker, this.parser, [
       IS1API.properties(item.epoch.binding_script_hash, { tokenId: item.binding_token_id }),

@@ -1,13 +1,16 @@
 import { u } from '@cityofzion/neon-js'
 import { ContractInvocation } from '@cityofzion/neon-dappkit-types'
-import { AuthItem, BindItem, EpochStub, ItemStub, KeyStub, PurgeItem, RemoteToken, SetItemProperty } from '../../types'
+import { AuthItem, BindItem, CreateItem, ItemStub, KeyStub, PurgeItem, RemoteToken, SetItemProperty } from '../../types'
 
 export class ItemAPI {
-  static createItem(scriptHash: string, params: EpochStub): ContractInvocation {
+  static createItem(scriptHash: string, params: CreateItem): ContractInvocation {
     return {
       scriptHash,
       operation: 'createItem',
-      args: [{ type: 'Integer', value: params.localEid.toString() }],
+      args: [
+        { type: 'Integer', value: params.localEid.toString() },
+        { type: 'ByteArray', value: u.hex2base64(params.bindingTokenId) },
+      ],
     }
   }
 
