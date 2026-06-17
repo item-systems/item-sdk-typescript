@@ -1,11 +1,13 @@
 import { Item, types } from '@item-systems/item'
 
+// Illustrative example only.
+// Replace placeholder ITEM ids and auth payload values with real values from your environment.
 async function main() {
   const item = await Item.init()
 
   const auth = {
-    message: '00112233',
-    proof: 'aabbccdd',
+    message: '00112233', // placeholder hex payload
+    proof: 'aabbccdd', // placeholder proof/signature payload
     challenge: types.AuthChallenge.ILS_PERMISSIVE,
   }
 

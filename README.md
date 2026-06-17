@@ -287,6 +287,8 @@ console.log(itemRecord.epoch.binding_script_hash)
 
 ### Fetch an item by public key
 
+> Note: placeholder values below are illustrative only. Replace them with real public keys, auth payloads, script hashes, and accounts from your environment.
+
 ```ts
 const itemRecord = await item.getItemWithKey({
   pubKey: '03abc123...',
