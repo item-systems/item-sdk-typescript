@@ -3,6 +3,13 @@ import { CommandApdu } from './command-apdu'
 import { Transport } from './transport/transport'
 import { ResponseAPDU } from './reponse-apdu'
 
+/**
+ * Reader interface for card communication.
+ *
+ * The reader layer sits above a transport and below any secure-channel wrapper.
+ * It is responsible for enforcing connection state and for exposing both raw and
+ * structured APDU send paths.
+ */
 export interface CardReader {
   /**
    * Establish a connection.
@@ -15,36 +22,32 @@ export interface CardReader {
   disconnect(): Promise<void>
 
   /**
-   * Returns if the connection is currently active.
+   * Returns whether the connection is currently active.
    */
   connected(): boolean
 
   /**
-   * Transmit raw bytes to the card
-   * @param commandAPDU ISO7816 command APDU
+   * Transmit a raw command APDU to the card.
    */
   transmit(commandAPDU: Uint8Array): Promise<Uint8Array>
 
   /**
-   * Sends an ISO 7816-4 command APDU and returns the response APDU.
-   *
-   * @param cla - Class byte of the APDU. Defines the type of command, logical channel, and security context.
-   * @param ins - Instruction byte of the APDU. Specifies the operation to perform (e.g., SELECT, READ, WRITE).
-   * @param p1 - Parameter 1 byte. Instruction-specific parameter, often used for addressing or options.
-   * @param p2 - Parameter 2 byte. Instruction-specific parameter, often used for addressing or options.
-   * @param lc - Length of the data field (number of bytes in the `data` array). For commands without data, this is typically 0.
-   * @param data - Data field of the APDU. Contains additional information required for the command (optional, can be empty).
-   * @returns Response APDU as a `Uint8Array`, containing response data and status words (SW1-SW2) according to ISO 7816-4.
+   * Assemble and send an APDU from its component fields.
    */
   send(cla: Uint8, ins: Uint8, p1: Uint8, p2: Uint8, lc: Uint8, data: Uint8Array): Promise<Uint8Array>
 
   /**
-   * Send ISO7816 Command APDU types.
-   * @param apdu
+   * Send a typed command APDU and parse the response into a `ResponseAPDU`.
    */
   sendCommand(apdu: CommandApdu): Promise<ResponseAPDU>
 }
 
+/**
+ * Default reader implementation backed by a `Transport`.
+ *
+ * This class provides the minimal connection-state checks and APDU convenience
+ * helpers needed by the secure-channel layer and tests.
+ */
 export class Reader implements CardReader {
   private _transport: Transport
   private _connected = false
@@ -81,6 +84,9 @@ export class Reader implements CardReader {
     return new ResponseAPDU(await this._transport.transmit(apdu.toArray()))
   }
 
+  /**
+   * Fail fast when callers attempt to use the reader before connecting.
+   */
   private _assertConnected() {
     if (!this._connected) {
       throw new Error('Reader is not connected')

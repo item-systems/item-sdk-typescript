@@ -1,0 +1,15 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src/index.ts"],
+  "entryPointStrategy": "resolve",
+  "out": "site/api",
+  "plugin": [],
+  "exclude": ["**/*.spec.ts", "tests/**/*", "dist/**/*"],
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "excludeInternal": true,
+  "readme": "README.md",
+  "name": "ITEM SDK",
+  "categorizeByGroup": true,
+  "sort": ["source-order", "alphabetical"]
+}

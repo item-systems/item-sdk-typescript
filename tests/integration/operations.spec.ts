@@ -1,4 +1,4 @@
-import { Item, Utils } from '../src'
+import { Item, Utils } from '../../src'
 // @ts-ignore
 import * as fs from 'fs'
 import * as Neon from '@cityofzion/neon-js'
@@ -16,7 +16,7 @@ describe('It should run ops', function () {
   const __filename = fileURLToPath(import.meta.url)
   const __dirname = dirname(__filename)
   dotenv.config({
-    path: __dirname + `/../.env/${environment}.env`,
+    path: __dirname + `/../../.env/${environment}.env`,
   })
 
   let item: Item

@@ -1,5 +1,8 @@
 /**
- * ISO7816 status words returned from the Item firmware.
+ * ISO7816 status words returned from ITEM firmware and smartcard applets.
+ *
+ * These constants are surfaced so higher-level flows can branch on protocol-
+ * level outcomes without hard-coding numeric literals throughout the SDK.
  */
 export const enum StatusWord {
   OK = 0x9000,

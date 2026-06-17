@@ -3,14 +3,17 @@ import { ContractInvocation } from '@cityofzion/neon-dappkit-types'
 import { AddressStub, SetUserProperty, UserStub } from '../../types'
 
 /**
+ * Invocation builders for user identity records managed by the ITEM contract.
  *
+ * Users are the contract's internal identity abstraction for address-linked
+ * actors. Creation and property mutation methods are write operations; lookup
+ * and counter methods are read-only.
  */
 export class UserAPI {
   /**
-   * Creates a new user in the internal identity solution for NFIs.
-   * @param scriptHash the scripthash of the target contract
-   * @param params {Object} The input parameters
-   * @param params.address {string} The address of the new account. This value is global unique.
+   * Create a new user record for a blockchain address.
+   *
+   * The address must be globally unique within the contract's identity model.
    */
   static createUser(scriptHash: string, params: AddressStub): ContractInvocation {
     return {
@@ -20,6 +23,9 @@ export class UserAPI {
     }
   }
 
+  /**
+   * Fetch a user by its contract-local user identifier.
+   */
   static getUser(scriptHash: string, params: UserStub): ContractInvocation {
     return {
       scriptHash,
@@ -28,6 +34,9 @@ export class UserAPI {
     }
   }
 
+  /**
+   * Fetch a user record by blockchain address.
+   */
   static getUserWithAddress(scriptHash: string, params: AddressStub): ContractInvocation {
     return {
       scriptHash,
@@ -36,6 +45,12 @@ export class UserAPI {
     }
   }
 
+  /**
+   * Set or replace a user property value.
+   *
+   * `globalPid` and `state` are hex strings at the SDK boundary and are encoded
+   * here into the byte-array representation expected by the contract ABI.
+   */
   static setUserProperty(scriptHash: string, params: SetUserProperty): ContractInvocation {
     return {
       scriptHash,
@@ -48,6 +63,20 @@ export class UserAPI {
     }
   }
 
+  /**
+   * Fetch the full property map for a user.
+   */
+  static getUserProperties(scriptHash: string, params: UserStub): ContractInvocation {
+    return {
+      scriptHash,
+      operation: 'getUserProperties',
+      args: [{ type: 'Integer', value: params.localUid.toString() }],
+    }
+  }
+
+  /**
+   * Fetch the total number of users currently tracked by the contract.
+   */
   static totalUsers(scriptHash: string): ContractInvocation {
     return {
       scriptHash,

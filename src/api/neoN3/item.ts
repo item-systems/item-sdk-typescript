@@ -1,16 +1,38 @@
 import { u } from '@cityofzion/neon-js'
 import { ContractInvocation } from '@cityofzion/neon-dappkit-types'
-import { AuthItem, BindItem, EpochStub, ItemStub, KeyStub, PurgeItem, RemoteToken, SetItemProperty } from '../../types'
+import { AuthItem, BindItem, CreateItem, ItemStub, KeyStub, PurgeItem, RemoteToken, SetItemProperty } from '../../types'
 
+/**
+ * Invocation builders for item lifecycle, lookup, authentication, and mutation
+ * operations.
+ *
+ * This is the most operationally important builder in the SDK because it spans
+ * issuance, lookup, property mutation, asset binding, lock state, and
+ * proof-based authentication flows. Callers should distinguish carefully between
+ * read-only methods (safe for test-invoke) and write methods that produce
+ * transactions and may have irreversible effects such as burn-log updates.
+ */
 export class ItemAPI {
-  static createItem(scriptHash: string, params: EpochStub): ContractInvocation {
+  /**
+   * Create a new item inside the given epoch, bound to a remote token id.
+   *
+   * `bindingTokenId` is expected as a hex string and is encoded into the byte
+   * representation required by the contract ABI.
+   */
+  static createItem(scriptHash: string, params: CreateItem): ContractInvocation {
     return {
       scriptHash,
       operation: 'createItem',
-      args: [{ type: 'Integer', value: params.localEid.toString() }],
+      args: [
+        { type: 'Integer', value: params.localEid.toString() },
+        { type: 'ByteArray', value: u.hex2base64(params.bindingTokenId) },
+      ],
     }
   }
 
+  /**
+   * Fetch an item by its contract-local item identifier.
+   */
   static getItem(scriptHash: string, params: ItemStub): ContractInvocation {
     return {
       scriptHash,
@@ -19,6 +41,9 @@ export class ItemAPI {
     }
   }
 
+  /**
+   * Fetch an item by the public key of its bound asset.
+   */
   static getItemWithKey(scriptHash: string, params: KeyStub): ContractInvocation {
     return {
       scriptHash,
@@ -27,6 +52,13 @@ export class ItemAPI {
     }
   }
 
+  /**
+   * Fetch an item by a remote token reference.
+   *
+   * This is useful when the ITEM contract mirrors or binds state from another
+   * contract collection and the caller only has the external script hash and
+   * token id.
+   */
   static getItemWithTac(scriptHash: string, params: RemoteToken): ContractInvocation {
     return {
       scriptHash,
@@ -38,6 +70,9 @@ export class ItemAPI {
     }
   }
 
+  /**
+   * Fetch the property map currently stored for an item.
+   */
   static getItemProperties(scriptHash: string, params: ItemStub): ContractInvocation {
     return {
       scriptHash,
@@ -46,6 +81,9 @@ export class ItemAPI {
     }
   }
 
+  /**
+   * Fetch the total number of items currently tracked by the contract.
+   */
   static totalItems(scriptHash: string): ContractInvocation {
     return {
       scriptHash,
@@ -54,6 +92,12 @@ export class ItemAPI {
     }
   }
 
+  /**
+   * Set or replace an item property value.
+   *
+   * The property id and state payload are accepted as hex strings and converted
+   * into the byte-array representation expected by Neon invocation payloads.
+   */
   static setItemProperty(scriptHash: string, params: SetItemProperty): ContractInvocation {
     return {
       scriptHash,
@@ -66,6 +110,13 @@ export class ItemAPI {
     }
   }
 
+  /**
+   * Bind an item to a configuration and asset public key.
+   *
+   * This is the bridge between logical item state and the cryptographic material
+   * later used during authentication. The elliptic-curve identifier must match
+   * the contract's expected enumeration.
+   */
   static bindItem(scriptHash: string, params: BindItem): ContractInvocation {
     return {
       scriptHash,
@@ -79,6 +130,12 @@ export class ItemAPI {
     }
   }
 
+  /**
+   * Transition an item into its locked state.
+   *
+   * Locking semantics are contract-defined, but integrators typically use this
+   * to prevent further mutable lifecycle actions after provisioning.
+   */
   static lockItem(scriptHash: string, params: ItemStub): ContractInvocation {
     return {
       scriptHash,
@@ -87,6 +144,14 @@ export class ItemAPI {
     }
   }
 
+  /**
+   * Submit an authentication proof for an item.
+   *
+   * The message, proof, and challenge are all contract-facing byte payloads. The
+   * challenge is reversed before encoding to match the contract's integer/byte
+   * interpretation rules. `burn` controls whether the proof should be consumed in
+   * a one-time flow.
+   */
   static authItem(scriptHash: string, params: AuthItem): ContractInvocation {
     return {
       scriptHash,
@@ -101,6 +166,13 @@ export class ItemAPI {
     }
   }
 
+  /**
+   * Purge an item using an off-chain signature-based authorization flow.
+   *
+   * This is a destructive lifecycle action and should be treated as irreversible
+   * from an integrator perspective unless the contract explicitly documents a
+   * recovery path.
+   */
   static purgeItem(scriptHash: string, params: PurgeItem): ContractInvocation {
     return {
       scriptHash,
