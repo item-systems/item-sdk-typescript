@@ -2,6 +2,8 @@
 
 This guide turns the raw API surface into end-to-end integration flows.
 
+All literal ids, public keys, auth payloads, script hashes, and account strings in code snippets are illustrative placeholders unless explicitly noted otherwise.
+
 Use it when you know the business task you need to complete, but not yet which SDK methods to combine.
 
 ## Before you start

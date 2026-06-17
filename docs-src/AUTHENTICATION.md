@@ -2,6 +2,8 @@
 
 This SDK exposes both off-chain validation and on-chain authentication workflows.
 
+All literal ids, public keys, accounts, messages, and proofs shown below are placeholders unless explicitly noted otherwise.
+
 ## Core types
 
 ```ts

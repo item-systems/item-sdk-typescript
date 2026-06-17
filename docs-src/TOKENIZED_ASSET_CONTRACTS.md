@@ -2,6 +2,8 @@
 
 Several SDK methods bridge from ITEM records to the tokenized asset contract bound to an epoch.
 
+All literal script hashes, token ids, public keys, auth payloads, and account strings shown below are placeholders unless explicitly noted otherwise.
+
 ## Why this matters
 
 An ITEM record stores enough information to locate the associated tokenized asset contract and token id. The SDK uses that linkage to expose convenience methods that would otherwise require multiple manual lookups.
