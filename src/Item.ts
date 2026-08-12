@@ -610,6 +610,22 @@ export class Item {
   }
 
   /**
+   * Creates a new epoch through the ITEM contract's TAC-gated epoch entrypoint.
+   *
+   * The bound tokenized asset contract is responsible for invoking this operation;
+   * callers should provide a signer/transport that is authorized by that external
+   * contract flow.
+   *
+   * @returns The submitted transaction id.
+   */
+  async createEpoch(): Promise<string> {
+    return await this.invoker.invokeFunction({
+      invocations: [EpochAPI.createEpoch(this.scriptHash)],
+      signers: [],
+    })
+  }
+
+  /**
    * Sets an epoch-scoped property.
    *
    * @param params Epoch id, global property id, and new property state.
