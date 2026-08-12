@@ -282,8 +282,15 @@ export interface AuthPayload {
   message: AuthMessage
   /** Proof/signature encoded as hex. */
   proof: AuthProof
-  /** Contract challenge mode to evaluate. */
-  challenge: AuthChallenge
+  /** Contract challenge mode to evaluate. Optional; defaults to ILS_PERMISSIVE when omitted. */
+  challenge?: AuthChallenge
+  /**
+   * Optional off-chain payload format/provenance marker.
+   *
+   * This metadata is retained for application-level processing only and is not serialized into ITEM or IS1 contract
+   * invocations.
+   */
+  structure?: string
 }
 
 /**
@@ -316,6 +323,14 @@ export interface IsAuthValid {
   /** Challenge payload to simulate. */
   auth: AuthPayload
 }
+
+/**
+ * Input for the canonical read-only authentication verification helper.
+ *
+ * This alias preserves compatibility with the original {@link IsAuthValid} request type while aligning the type name
+ * with {@link Item.verifyAuth}.
+ */
+export type VerifyAuth = IsAuthValid
 
 /**
  * Input for claiming ownership of a bound tokenized asset.

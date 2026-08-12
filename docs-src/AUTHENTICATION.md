@@ -20,7 +20,8 @@ Relevant types:
 `AuthPayload` contains:
 - `message: string` — hex challenge payload
 - `proof: string` — hex proof/signature payload
-- `challenge: AuthChallenge`
+- `challenge?: AuthChallenge` — optional; defaults to `ILS_PERMISSIVE` when omitted
+- `structure?: string` — optional marker for off‑chain payload provenance/format (not sent on‑chain)
 
 ## Challenge values
 
@@ -34,17 +35,20 @@ Available values:
 - `HTLS_PERMISSIVE`
 - `HTLS_RESTRICTIVE`
 
-## Off-chain validation: `isAuthValid`
+## Read-only verification: `verifyAuth`
 
-Use `isAuthValid` when you want to test whether a payload would pass without publishing a transaction.
+Use `verifyAuth` when you want to test whether a payload would pass without publishing a transaction. The SDK calls the
+contract's `authItem` operation through `testInvoke`, always forces `burn: false`, and normalizes the contract boolean to
+`{ valid: boolean }`.
 
 ```ts
-const result = await item.isAuthValid({
+const result = await item.verifyAuth({
   localNfid: 42,
   auth: {
     message: '00112233',
     proof: 'aabbccdd',
-    challenge: types.AuthChallenge.ILS_PERMISSIVE,
+    structure: 'item-auth-v1', // optional application metadata; not sent on-chain
+    // challenge omitted -> defaults to ILS_PERMISSIVE
   },
 })
 
@@ -56,6 +60,12 @@ This is useful for:
 - debugging challenge/proof formatting
 - reducing unnecessary writes
 
+`isAuthValid` remains available as a deprecated compatibility alias and returns the same structured result:
+
+```ts
+const result = await item.isAuthValid({ localNfid: 42, auth })
+```
+
 ## On-chain authentication: `authItem` / `authItemSync`
 
 Use `authItem` to submit the transaction and receive a txid:
@@ -66,7 +76,7 @@ const txid = await item.authItem({
   auth: {
     message: '00112233',
     proof: 'aabbccdd',
-    challenge: types.AuthChallenge.HTLS_RESTRICTIVE,
+    // challenge omitted -> defaults to ILS_PERMISSIVE
   },
   burn: false,
 })
@@ -80,7 +90,7 @@ const ok = await item.authItemSync({
   auth: {
     message: '00112233',
     proof: 'aabbccdd',
-    challenge: types.AuthChallenge.HTLS_RESTRICTIVE,
+    // challenge omitted -> defaults to ILS_PERMISSIVE
   },
   burn: false,
 })
@@ -96,7 +106,7 @@ const ok = await item.claimItemSync({
   auth: {
     message: '00112233',
     proof: 'aabbccdd',
-    challenge: types.AuthChallenge.ILS_PERMISSIVE,
+    // challenge omitted -> defaults to ILS_PERMISSIVE
   },
   receiverAccount: 'NXYZ...',
 })
@@ -120,6 +130,7 @@ const ok = await item.purgeItemSync({
 - Public keys should match the format expected by the called method.
 - Contract authorization still applies; a valid payload does not bypass permissions.
 - `burn` changes authentication semantics and should be chosen intentionally.
+- If you need a non‑default challenge mode, set `auth.challenge` explicitly.
 
 ## Related helpers
 

@@ -1,6 +1,6 @@
 import { Arg, ContractInvocation } from '@cityofzion/neon-dappkit-types'
 import { u } from '@cityofzion/neon-js'
-import { AuthPayload, IS1AuthItem } from '../../types'
+import { AuthChallenge, AuthPayload, IS1AuthItem } from '../../types'
 
 /**
  * Invocation builders for IS1-compatible item contracts.
@@ -50,7 +50,7 @@ export class IS1API {
     const authPayload: Arg[] = [
       { type: 'ByteArray', value: u.hex2base64(params.auth.message) },
       { type: 'ByteArray', value: u.hex2base64(params.auth.proof) },
-      { type: 'ByteArray', value: u.hex2base64(params.auth.challenge) },
+      { type: 'ByteArray', value: u.hex2base64(params.auth.challenge ?? AuthChallenge.ILS_PERMISSIVE) },
     ]
 
     return {
@@ -74,7 +74,10 @@ export class IS1API {
     const authPayload: Arg[] = [
       { type: 'ByteArray', value: u.hex2base64(params.auth.message) },
       { type: 'ByteArray', value: u.hex2base64(params.auth.proof) },
-      { type: 'ByteArray', value: u.hex2base64(u.reverseHex(params.auth.challenge)) },
+      {
+        type: 'ByteArray',
+        value: u.hex2base64(u.reverseHex(params.auth.challenge ?? AuthChallenge.ILS_PERMISSIVE)),
+      },
     ]
 
     return {

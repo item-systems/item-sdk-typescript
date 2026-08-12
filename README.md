@@ -221,7 +221,8 @@ Write / lifecycle:
 Authentication:
 - `authItem`
 - `authItemSync`
-- `isAuthValid`
+- `verifyAuth` (canonical read-only preflight)
+- `isAuthValid` (deprecated compatibility alias)
 
 ### Epochs
 
@@ -306,7 +307,7 @@ const auth = {
   challenge: types.AuthChallenge.ILS_PERMISSIVE,
 }
 
-const validation = await item.isAuthValid({
+const validation = await item.verifyAuth({
   localNfid: 42,
   auth,
 })

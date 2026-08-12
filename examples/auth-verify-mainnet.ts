@@ -15,8 +15,10 @@
 
 import { Item, types } from '@item-systems/item'
 
-function pickChallenge(input?: string): types.AuthChallenge {
-  switch ((input || '').toUpperCase()) {
+function pickChallenge(input?: string): types.AuthChallenge | undefined {
+  if (!input) return undefined
+
+  switch (input.toUpperCase()) {
     case 'ILS_PERMISSIVE':
       return types.AuthChallenge.ILS_PERMISSIVE
     case 'ILS_RESTRICTIVE':
@@ -26,7 +28,7 @@ function pickChallenge(input?: string): types.AuthChallenge {
     case 'HTLS_RESTRICTIVE':
       return types.AuthChallenge.HTLS_RESTRICTIVE
     default:
-      return types.AuthChallenge.ILS_PERMISSIVE
+      throw new Error(`Unsupported ITEM_AUTH_CHALLENGE: ${input}`)
   }
 }
 
@@ -37,7 +39,9 @@ async function main() {
   const challenge = pickChallenge(process.env.ITEM_AUTH_CHALLENGE)
 
   if (!localNfidRaw || !message || !proof) {
-    console.error('Missing required environment variables. Expected: ITEM_LOCAL_NFID, ITEM_AUTH_MESSAGE_HEX, ITEM_AUTH_PROOF_HEX')
+    console.error(
+      'Missing required environment variables. Expected: ITEM_LOCAL_NFID, ITEM_AUTH_MESSAGE_HEX, ITEM_AUTH_PROOF_HEX'
+    )
     process.exit(2)
   }
 
@@ -53,25 +57,31 @@ async function main() {
 
   const item = await Item.init(initOpts)
 
-  const validation = await item.isAuthValid({
+  const validation = await item.verifyAuth({
     localNfid,
     auth: {
       message,
       proof,
-      challenge,
+      ...(challenge ? { challenge } : {}),
     },
   })
 
   // Contract default auth window is used unless the deployment overrides it.
-  console.log(JSON.stringify({
-    network: initOpts.node ? 'custom' : 'MainNet (default)',
-    scriptHash: initOpts.scriptHash || 'default',
-    challenge,
-    valid: validation.valid,
-  }, null, 2))
+  console.log(
+    JSON.stringify(
+      {
+        network: initOpts.node ? 'custom' : 'MainNet (default)',
+        scriptHash: initOpts.scriptHash || 'default',
+        challenge: challenge ?? types.AuthChallenge.ILS_PERMISSIVE,
+        valid: validation.valid,
+      },
+      null,
+      2
+    )
+  )
 }
 
-main().catch((err) => {
+main().catch(err => {
   console.error(err)
   process.exit(1)
 })

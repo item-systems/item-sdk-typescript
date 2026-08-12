@@ -60,7 +60,8 @@ Write methods generally come in two forms:
 ### Authentication
 - `authItem({ localNfid, auth, burn })`
 - `authItemSync({ localNfid, auth, burn }, timeout?)`
-- `isAuthValid({ localNfid, auth })`
+- `verifyAuth({ localNfid, auth })` — canonical read-only preflight
+- `isAuthValid({ localNfid, auth })` — deprecated compatibility alias
 
 ## Epochs
 
@@ -123,7 +124,8 @@ From `types`:
 - `AuthPayload`
 - `AuthItem`
 - `ClaimItem`
-- `IsAuthValid`
+- `VerifyAuth`
+- `IsAuthValid` (compatibility alias input)
 - `ItemType`
 - `AssetType`
 - `ConfigurationType`

@@ -23,7 +23,7 @@
     "lint": "eslint --fix .",
     "docs": "typedoc",
     "test": "npm run test:unit",
-    "test:unit": "ts-mocha \"tests/smartcard/**/*.spec.ts\"",
+    "test:unit": "ts-mocha \"tests/smartcard/**/*.spec.ts\" \"tests/item/**/*.spec.ts\"",
     "test:integration": "ts-mocha \"tests/integration/**/*.spec.ts\"",
     "test:manual": "ts-mocha \"tests/manual/**/*.spec.ts\"",
     "test:all": "npm run test:unit && npm run test:integration && npm run test:manual",

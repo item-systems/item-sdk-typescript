@@ -1,6 +1,16 @@
 import { u } from '@cityofzion/neon-js'
 import { ContractInvocation } from '@cityofzion/neon-dappkit-types'
-import { AuthItem, BindItem, CreateItem, ItemStub, KeyStub, PurgeItem, RemoteToken, SetItemProperty } from '../../types'
+import {
+  AuthChallenge,
+  AuthItem,
+  BindItem,
+  CreateItem,
+  ItemStub,
+  KeyStub,
+  PurgeItem,
+  RemoteToken,
+  SetItemProperty,
+} from '../../types'
 
 /**
  * Invocation builders for item lifecycle, lookup, authentication, and mutation
@@ -160,7 +170,8 @@ export class ItemAPI {
         { type: 'Integer', value: params.localNfid.toString() },
         { type: 'ByteArray', value: u.hex2base64(params.auth.message) },
         { type: 'ByteArray', value: u.hex2base64(params.auth.proof) },
-        { type: 'ByteArray', value: u.hex2base64(u.reverseHex(params.auth.challenge)) },
+        // If challenge is omitted, use the accepted SDK default while preserving the contract's one-byte wire value.
+        { type: 'ByteArray', value: u.hex2base64(u.reverseHex(params.auth.challenge ?? AuthChallenge.ILS_PERMISSIVE)) },
         { type: 'Boolean', value: params.burn },
       ],
     }

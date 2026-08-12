@@ -8,7 +8,8 @@ Unless explicitly stated otherwise, treat them as illustrative reference snippet
 
 - `init-readonly.ts` — read-only initialization and item lookup
 - `init-signed.ts` — signed initialization for write operations
-- `auth-validation.ts` — off-chain and on-chain authentication examples
+- `auth-validation.ts` — canonical `verifyAuth` preflight plus clearly separated on-chain authentication example
+- `auth-verify-mainnet.ts` — MainNet-by-default, read-only `verifyAuth` example using environment-provided inputs
 - `tac-workflows.ts` — tokenized asset contract lookup and claim examples
 
 ## Environment setup
@@ -42,5 +43,3 @@ npx ts-node examples/init-readonly.ts
 - `../docs-src/WORKFLOW_PLAYBOOKS.md`
 - `../docs-src/AUTHENTICATION.md`
 - `../docs-src/ENVIRONMENTS_AND_COMPATIBILITY.md`
-
-- `auth-verify-mainnet.ts` — read-only auth validity check using env-provided inputs (MainNet by default)

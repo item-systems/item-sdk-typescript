@@ -11,7 +11,7 @@ async function main() {
     challenge: types.AuthChallenge.ILS_PERMISSIVE,
   }
 
-  const validation = await item.isAuthValid({
+  const validation = await item.verifyAuth({
     localNfid: 42,
     auth,
   })
