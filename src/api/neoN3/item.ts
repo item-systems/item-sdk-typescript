@@ -157,10 +157,12 @@ export class ItemAPI {
   /**
    * Submit an authentication proof for an item.
    *
-   * The message, proof, and challenge are all contract-facing byte payloads. The
-   * challenge is reversed before encoding to match the contract's integer/byte
-   * interpretation rules. `burn` controls whether the proof should be consumed in
-   * a one-time flow.
+   * The contract interprets the **message** bytes according to the selected
+   * challenge family (ILS converts reversed message bytes to an integer; HTLS
+   * derives a block payload). Challenge selectors themselves are the one-byte
+   * ABI values `01` through `04`. The SDK keeps its historical selector
+   * reversal before serialization; for those one-byte values it is byte-identical
+   * and does not change the selected challenge.
    */
   static authItem(scriptHash: string, params: AuthItem): ContractInvocation {
     return {
