@@ -14,6 +14,7 @@ describe('SignResponse', () => {
     const expectedPublicKey = hexToUint8(
       '0414b2b16f4d4fdf1dba184d5a28556fbe41b0f47d84fa906fe43509989bded400a6c8d1b49a933e66fc637c5495dd8ffa79d6f2b5f4a0020f0a99e03cc0b26084'
     )
+    expect(sr.getProof()).to.deep.equal(expectedSig)
     expect(sr.getSignature()).to.deep.equal(expectedSig)
     expect(sr.getPublicKey()).to.deep.equal(expectedPublicKey)
   })

@@ -54,8 +54,8 @@ Write methods generally come in two forms:
 - `bindItemSync({ localNfid, localCid, pubKey, assetEllipticCurve }, timeout?)`
 - `lockItem({ localNfid })`
 - `lockItemSync({ localNfid }, timeout?)`
-- `purgeItem({ localNfid, message, signature })`
-- `purgeItemSync({ localNfid, message, signature }, timeout?)`
+- `purgeItem({ localNfid, message, proof })`
+- `purgeItemSync({ localNfid, message, proof }, timeout?)`
 
 ### Authentication
 - `authItem({ localNfid, auth, burn })`

@@ -178,21 +178,49 @@ export class ItemAPI {
   }
 
   /**
-   * Purge an item using an off-chain signature-based authorization flow.
+   * Purge an item using an off-chain proof-based authorization flow.
+   *
+   * The deployed contract ABI calls the third argument `proof`. `proof` is the
+   * canonical SDK field; the deprecated `signature` input remains accepted for
+   * a one-major-version migration window. If both are supplied, they must be
+   * identical so the SDK never chooses authorization material implicitly.
    *
    * This is a destructive lifecycle action and should be treated as irreversible
    * from an integrator perspective unless the contract explicitly documents a
    * recovery path.
    */
   static purgeItem(scriptHash: string, params: PurgeItem): ContractInvocation {
+    const proof = ItemAPI.resolvePurgeProof(params)
+
     return {
       scriptHash,
       operation: 'purgeItem',
       args: [
         { type: 'Integer', value: params.localNfid.toString() },
         { type: 'ByteArray', value: u.hex2base64(params.message) },
-        { type: 'ByteArray', value: u.hex2base64(params.signature) },
+        { type: 'ByteArray', value: u.hex2base64(proof) },
       ],
     }
+  }
+
+  /**
+   * Resolve the canonical purge proof while preserving a deprecated signature
+   * input for existing callers. This guard runs before invocation construction,
+   * so ambiguous or missing authorization material never reaches the contract.
+   */
+  private static resolvePurgeProof(params: PurgeItem): string {
+    const proof = params.proof
+    const signature = params.signature
+
+    if (proof && signature && proof !== signature) {
+      throw new TypeError('PurgeItem.proof and deprecated PurgeItem.signature must match when both are supplied')
+    }
+
+    const resolved = proof ?? signature
+    if (!resolved) {
+      throw new TypeError('PurgeItem.proof is required; deprecated PurgeItem.signature is accepted for compatibility')
+    }
+
+    return resolved
   }
 }

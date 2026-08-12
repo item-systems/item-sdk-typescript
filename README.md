@@ -24,6 +24,7 @@
 - [Workflow playbooks](docs-src/WORKFLOW_PLAYBOOKS.md)
 - [Architecture, data model, and lifecycle](docs-src/ARCHITECTURE_AND_DATA_MODEL.md)
 - [Authentication](docs-src/AUTHENTICATION.md)
+- [Proof nomenclature migration](docs-src/PROOF_NOMENCLATURE_MIGRATION.md)
 - [Tokenized asset contract workflows](docs-src/TOKENIZED_ASSET_CONTRACTS.md)
 - [Troubleshooting and error handling](docs-src/TROUBLESHOOTING.md)
 - [Security and production integration guidance](docs-src/SECURITY_AND_PRODUCTION_GUIDANCE.md)

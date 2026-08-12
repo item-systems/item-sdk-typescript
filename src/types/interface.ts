@@ -60,7 +60,7 @@ export type PropertyState = HexString
 export type TokenId = HexString
 /** Authentication challenge message encoded as hex. */
 export type AuthMessage = HexString
-/** Authentication proof/signature encoded as hex. */
+/** Hex-encoded ITEM authorization proof. */
 export type AuthProof = HexString
 
 /** Input for setting a user-scoped property. */
@@ -86,11 +86,29 @@ export type BindItem = {
 }
 
 /** Authorization payload required to purge prior proofs for an item. */
-export type PurgeItem = {
-  localNfid: number
-  message: AuthMessage
-  signature: AuthProof
-}
+export type PurgeItem =
+  | {
+      localNfid: number
+      message: AuthMessage
+      /** Canonical ITEM authorization proof encoded as hex. */
+      proof: AuthProof
+      /**
+       * @deprecated Use `proof`. Retained for one major release so existing callers can migrate without changing
+       * contract wire bytes.
+       */
+      signature?: AuthProof
+    }
+  | {
+      localNfid: number
+      message: AuthMessage
+      /** Canonical ITEM authorization proof encoded as hex. */
+      proof?: AuthProof
+      /**
+       * @deprecated Use `proof`. Retained for one major release so existing callers can migrate without changing
+       * contract wire bytes.
+       */
+      signature: AuthProof
+    }
 
 /** Input for setting an epoch-scoped property. */
 export type SetEpochProperty = {
@@ -257,7 +275,7 @@ export interface NdefDecodeType {
   pubKey: string
   /** Challenge message as hex. */
   message: string
-  /** Authentication proof/signature as hex. */
+  /** ITEM authorization proof as hex. */
   proof: string
 }
 
@@ -280,7 +298,7 @@ export enum AuthChallenge {
 export interface AuthPayload {
   /** Challenge message encoded as hex. */
   message: AuthMessage
-  /** Proof/signature encoded as hex. */
+  /** ITEM authorization proof encoded as hex. */
   proof: AuthProof
   /** Contract challenge mode to evaluate. Optional; defaults to ILS_PERMISSIVE when omitted. */
   challenge?: AuthChallenge

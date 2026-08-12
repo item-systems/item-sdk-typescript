@@ -19,7 +19,7 @@ Relevant types:
 
 `AuthPayload` contains:
 - `message: string` — hex challenge payload
-- `proof: string` — hex proof/signature payload
+- `proof: string` — hex authorization proof payload
 - `challenge?: AuthChallenge` — optional; defaults to `ILS_PERMISSIVE` when omitted
 - `structure?: string` — optional marker for off‑chain payload provenance/format (not sent on‑chain)
 
@@ -120,13 +120,14 @@ const ok = await item.claimItemSync({
 const ok = await item.purgeItemSync({
   localNfid: 42,
   message: '00112233',
-  signature: 'aabbccdd',
+  proof: 'aabbccdd',
 })
 ```
 
 ## Formatting notes
 
 - Message and proof fields are hex strings.
+- `purgeItem` accepts canonical `proof`. The legacy `signature` input remains a deprecated compatibility alias for the current major version; do not supply both with different values.
 - Public keys should match the format expected by the called method.
 - Contract authorization still applies; a valid payload does not bypass permissions.
 - `burn` changes authentication semantics and should be chosen intentionally.
