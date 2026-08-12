@@ -221,7 +221,7 @@ Use this when previous challenge material must be invalidated.
 
 ### Typical sequence
 
-1. Obtain the correct purge message/signature pair.
+1. Obtain the correct purge message/proof pair.
 2. Submit `purgeItem()` or `purgeItemSync()`.
 3. Re-run validation to confirm old proof material is no longer accepted.
 
@@ -231,7 +231,7 @@ Use this when previous challenge material must be invalidated.
 const ok = await item.purgeItemSync({
   localNfid: 42,
   message: '00112233',
-  signature: 'aabbccdd',
+  proof: 'aabbccdd',
 })
 
 console.log({ ok })
