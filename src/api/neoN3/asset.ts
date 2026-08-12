@@ -23,15 +23,15 @@ export class AssetAPI {
   /**
    * Fetch an asset by its registered public key.
    *
-   * The contract expects the key in the exact wire format used when the asset
-   * was bound or registered. No normalization is applied in this low-level
-   * builder.
+   * The ITEM ABI declares this argument as an ECPoint. Neo invocation payloads
+   * encode that contract value as a byte array, preserving the exact compressed
+   * or uncompressed public-key bytes supplied by the caller.
    */
   static getAssetWithKey(scriptHash: string, params: KeyStub): ContractInvocation {
     return {
       scriptHash,
       operation: 'getAssetWithKey',
-      args: [{ type: 'Hash160', value: params.pubKey }],
+      args: [{ type: 'ByteArray', value: params.pubKey }],
     }
   }
 

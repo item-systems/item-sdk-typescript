@@ -124,14 +124,17 @@ const ok = await item.purgeItemSync({
 })
 ```
 
-## Formatting notes
+## Challenge-byte ABI behavior
 
-- Message and proof fields are hex strings.
+- `message` and `proof` are hex-encoded byte payloads.
+- The ITEM contract reverses **message** bytes before converting them to an integer for ILS/HTLS policy checks. Preserve the message bytes exactly as captured by the device/NDEF payload; do not pre-reverse them in application code.
+- Challenge selectors are one-byte ABI values: `01` (`ILS_PERMISSIVE`), `02` (`ILS_RESTRICTIVE`), `03` (`HTLS_PERMISSIVE`), and `04` (`HTLS_RESTRICTIVE`).
+- The SDK retains its historical challenge-selector reversal immediately before encoding. Because every currently supported selector is exactly one byte, the serialized value is unchanged. This compatibility transform is distinct from the contract's message-byte interpretation.
 - `purgeItem` accepts canonical `proof`. The legacy `signature` input remains a deprecated compatibility alias for the current major version; do not supply both with different values.
 - Public keys should match the format expected by the called method.
 - Contract authorization still applies; a valid payload does not bypass permissions.
 - `burn` changes authentication semantics and should be chosen intentionally.
-- If you need a non‑default challenge mode, set `auth.challenge` explicitly.
+- If you need a non-default challenge mode, set `auth.challenge` explicitly.
 
 ## Related helpers
 
