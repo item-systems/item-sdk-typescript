@@ -29,6 +29,20 @@
 | ITEM lookup | resolved the public key to NFID `4169`; active asset `3153` |
 | expected / observed | `{ valid: true }` |
 
+## V2 — Tampered-proof negative behavior
+
+V2 uses the V1 message and all other inputs unchanged, mutating only the final proof byte:
+
+- original final byte: `93`
+- tampered final byte: `00`
+- tampered proof: `cb06f21ab36c4361a0f6f999024080d79d4d69f8b87cbaeae2691b55556b787bf8ba4cbb2913a23f0aa353d74d6d072eaac79410a98dd522d2e4dc65fe90d800`
+
+**Qualification timestamp:** 2026-08-12T22:03:26Z
+
+**Observed MainNet behavior:** `testInvoke` faults with `ITEM: Invalid proof` instead of returning a VM boolean `false`.
+
+**Expected runner outcome:** rejected promise / contract fault containing `Invalid proof`. This is the current contract behavior for malformed proof bytes and is the correct negative assertion; SDK callers must distinguish this from a completed execution returning `{ valid: false }`.
+
 ## Reproduction outline
 
 ```ts
