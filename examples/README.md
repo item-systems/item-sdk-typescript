@@ -42,3 +42,5 @@ npx ts-node examples/init-readonly.ts
 - `../docs-src/WORKFLOW_PLAYBOOKS.md`
 - `../docs-src/AUTHENTICATION.md`
 - `../docs-src/ENVIRONMENTS_AND_COMPATIBILITY.md`
+
+- `auth-verify-mainnet.ts` — read-only auth validity check using env-provided inputs (MainNet by default)
