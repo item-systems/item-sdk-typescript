@@ -82,7 +82,7 @@ console.log(log)
 
 Pass a larger timeout and explicitly set the same node for both submission and polling.
 
-## Symptom: `isAuthValid()` returns `valid: false`
+## Symptom: `verifyAuth()` returns `valid: false`
 
 ### Likely causes
 
@@ -213,7 +213,7 @@ A retry may create duplicate or conflicting attempts. Prefer idempotent applicat
 
 Examples:
 
-- `isAuthValid()` before `authItem()`
+- `verifyAuth()` before `authItem()`
 - `isClaimable()` before `claimItem()`
 - `getItem()` before `ownerOf()`
 

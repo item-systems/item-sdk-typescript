@@ -21,6 +21,7 @@ import {
   PurgeItem,
   RemoteToken,
   AuthValidationResult,
+  VerifyAuth,
   SetConfigurationProperty,
   SetEpochProperty,
   SetItemProperty,
@@ -540,18 +541,42 @@ export class Item {
   }
 
   /**
+   * Verifies an authentication payload without publishing a transaction.
+   *
+   * This is the canonical read-only authentication helper. It simulates the contract's `authItem` operation with
+   * `burn: false`, then normalizes the contract boolean into the SDK's structured result shape. Contract faults reject
+   * the promise; a completed verification returns `{ valid: false }` when the contract result is false.
+   *
+   * @param params Item id and challenge payload to verify.
+   * @returns Structured validation result normalized from the contract boolean.
+   */
+  async verifyAuth(params: VerifyAuth): Promise<AuthValidationResult> {
+    const args: AuthItem = {
+      localNfid: params.localNfid,
+      auth: params.auth,
+      burn: false,
+    }
+    const res = await Utils.testInvoker(this.invoker, this.parser, [ItemAPI.authItem(this.scriptHash, args)])
+    const valid = res[0]
+
+    if (typeof valid !== 'boolean') {
+      throw new TypeError('authItem simulation returned a non-boolean result')
+    }
+
+    return { valid }
+  }
+
+  /**
    * Simulates an authentication attempt without publishing a transaction.
    *
-   * The helper intentionally forces `burn: false` before calling the same contract method used by {@link authItem}.
-   * This makes the method safe for preflight validation while preserving the contract's real authentication logic.
+   * @deprecated Use {@link verifyAuth}. This compatibility alias will remain available through the current major
+   * version and returns the same structured result.
    *
    * @param params Item id and challenge payload to validate.
-   * @returns Structured validation result from the contract.
+   * @returns Structured validation result from {@link verifyAuth}.
    */
   async isAuthValid(params: IsAuthValid): Promise<AuthValidationResult> {
-    const args = { ...params, ...{ burn: false } }
-    const res = await Utils.testInvoker(this.invoker, this.parser, [ItemAPI.authItem(this.scriptHash, args)])
-    return res[0]
+    return this.verifyAuth(params)
   }
 
   /**

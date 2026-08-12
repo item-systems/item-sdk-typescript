@@ -228,14 +228,16 @@ Auth flows revolve around `AuthPayload`:
 interface AuthPayload {
   message: string
   proof: string
-  challenge: AuthChallenge
+  challenge?: AuthChallenge
+  structure?: string
 }
 ```
 
 Important implications:
 
 - `message` and `proof` are hex strings
-- challenge type changes validation semantics
+- challenge type changes validation semantics; when omitted, the SDK serializes `ILS_PERMISSIVE`
+- `structure` is optional application metadata and is not sent to ITEM or IS1 contracts
 - `burn` in auth/claim flows affects replay behavior and should be treated as a business decision, not just a technical flag
 
 ## Initialization architecture

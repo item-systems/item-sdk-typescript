@@ -140,7 +140,7 @@ Use this when your application obtains an auth payload from an ITEM interface an
 ### Typical sequence
 
 1. Acquire or decode an auth payload.
-2. Run `isAuthValid()` as a preflight check.
+2. Run `verifyAuth()` as a preflight check.
 3. If valid, submit `authItem()` or `authItemSync()`.
 4. Decide whether the proof should be burned.
 
@@ -155,7 +155,7 @@ const auth = {
   challenge: types.AuthChallenge.ILS_PERMISSIVE,
 }
 
-const preflight = await item.isAuthValid({
+const preflight = await item.verifyAuth({
   localNfid: 42,
   auth,
 })
