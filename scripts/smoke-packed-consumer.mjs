@@ -15,23 +15,24 @@ try {
   run('npm', ['install', '--silent', tarball])
 
   fs.writeFileSync(path.join(tmp, 'esm.mjs'), `
-import { Item, Utils, constants, types } from '@item-systems/item'
-if (!Item || !Utils || !constants || !types) throw new Error('missing ESM public exports')
+import { Item, Utils, SignResponse, constants, types } from '@item-systems/item'
+if (!Item || !Utils || !SignResponse || !constants || !types) throw new Error('missing ESM public exports')
 console.log('esm ok')
 `)
   run('node', ['esm.mjs'])
 
   fs.writeFileSync(path.join(tmp, 'cjs.cjs'), `
-const { Item, Utils, constants, types } = require('@item-systems/item')
-if (!Item || !Utils || !constants || !types) throw new Error('missing CJS public exports')
+const { Item, Utils, SignResponse, constants, types } = require('@item-systems/item')
+if (!Item || !Utils || !SignResponse || !constants || !types) throw new Error('missing CJS public exports')
 console.log('cjs ok')
 `)
   run('node', ['cjs.cjs'])
 
   fs.writeFileSync(path.join(tmp, 'tscheck.ts'), `
-import { Item, Utils, constants, types } from '@item-systems/item'
+import { Item, Utils, SignResponse, constants, types } from '@item-systems/item'
 void Item
 void Utils
+void SignResponse
 void constants
 void types
 `)

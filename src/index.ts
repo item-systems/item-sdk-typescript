@@ -6,5 +6,6 @@
  */
 export * from './Item'
 export * from './helpers'
+export { SignResponse } from './smartcard/reponse-apdu'
 export * as types from './types'
 export * as constants from './constants'

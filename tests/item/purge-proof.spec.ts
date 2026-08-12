@@ -1,5 +1,5 @@
 import { expect } from 'chai'
-import { ItemAPI } from '../../dist/esm/api/neoN3/item.js'
+import { ItemAPI } from '../../src/api/neoN3/item'
 
 const SCRIPT_HASH = '0x3491b358a9ddce38cb567e2bb8bd1bf783cd556d'
 const MESSAGE = '00112233'
