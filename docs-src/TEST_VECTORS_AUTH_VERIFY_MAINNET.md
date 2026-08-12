@@ -43,6 +43,19 @@ V2 uses the V1 message and all other inputs unchanged, mutating only the final p
 
 **Expected runner outcome:** rejected promise / contract fault containing `Invalid proof`. This is the current contract behavior for malformed proof bytes and is the correct negative assertion; SDK callers must distinguish this from a completed execution returning `{ valid: false }`.
 
+## V3 — Post-purge replay
+
+**Status:** unavailable; do not fabricate.
+
+No public-safe replay fixture has been qualified. The historical public payload sweep did identify two stale ILS payloads that now fault with `ITEM: Proof below write pointer`, but neither is proven to be a post-purge replay and must not be relabeled as one:
+
+| NFID | Asset | Current observed reason |
+|---|---:|---|
+| `4684` | `2409` | `ITEM: Proof below write pointer` |
+| `3870` | `2054` | `ITEM: Proof below write pointer` |
+
+A V3 vector can be added only with a public, attributable fixture whose purge/replay state is independently established from on-chain evidence.
+
 ## Reproduction outline
 
 ```ts
