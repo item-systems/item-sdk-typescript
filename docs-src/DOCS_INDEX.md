@@ -13,6 +13,7 @@ Use this page as the human-oriented map of the SDK documentation.
 - `WORKFLOW_PLAYBOOKS.md` — end-to-end integration flows
 - `ARCHITECTURE_AND_DATA_MODEL.md` — domain model, relationships, and lifecycle
 - `AUTHENTICATION.md` — auth payloads, validation, auth, claim, and purge flows
+- `TEST_VECTORS_AUTH_VERIFY_MAINNET.md` — timestamped public MainNet auth-vector evidence and reproduction boundary
 - `PROOF_NOMENCLATURE_MIGRATION.md` — canonical proof terms, compatibility aliases, and smartcard action boundary
 - `TOKENIZED_ASSET_CONTRACTS.md` — ITEM ↔ tokenized asset contract bridge methods
 - `UTILS.md` — polling, deployment, NDEF, key, and helper utilities
