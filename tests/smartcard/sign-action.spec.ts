@@ -30,7 +30,7 @@ class RecordingTransport extends Transport {
 }
 
 describe('Smartcard sign action', () => {
-  it('dispatches the canonical sign APDU and parses the card signature response', async () => {
+  it('dispatches the canonical sign APDU and exposes a proof with a signature compatibility alias', async () => {
     const messageHash = hexToUint8('315f5bdb76d078c43b8ac0064e4a0164612b1fce77c869345bfc94c75894edd3')
     const cardResponse = hexToUint8(
       'a2818a304502201d2f5bcc0f223855efcbad399a1e5e4367f7ef376e4eefa471035b0a4952410b022100dfd71fecd03e689e797280272e60db4d293304bd3266959b9e82dfc9f3bd8efb04410414b2b16f4d4fdf1dba184d5a28556fbe41b0f47d84fa906fe43509989bded400a6c8d1b49a933e66fc637c5495dd8ffa79d6f2b5f4a0020f0a99e03cc0b260849000'
@@ -48,11 +48,11 @@ describe('Smartcard sign action', () => {
       hexToUint8('a012000020315f5bdb76d078c43b8ac0064e4a0164612b1fce77c869345bfc94c75894edd3'),
     ])
     expect(response.getSW()).to.equal(0x9000)
-    expect(signed.getSignature()).to.deep.equal(
-      hexToUint8(
-        '304502201d2f5bcc0f223855efcbad399a1e5e4367f7ef376e4eefa471035b0a4952410b022100dfd71fecd03e689e797280272e60db4d293304bd3266959b9e82dfc9f3bd8efb'
-      )
+    const expectedProof = hexToUint8(
+      '304502201d2f5bcc0f223855efcbad399a1e5e4367f7ef376e4eefa471035b0a4952410b022100dfd71fecd03e689e797280272e60db4d293304bd3266959b9e82dfc9f3bd8efb'
     )
+    expect(signed.getProof()).to.deep.equal(expectedProof)
+    expect(signed.getSignature()).to.deep.equal(expectedProof)
     expect(signed.getPublicKey()).to.deep.equal(
       hexToUint8(
         '0414b2b16f4d4fdf1dba184d5a28556fbe41b0f47d84fa906fe43509989bded400a6c8d1b49a933e66fc637c5495dd8ffa79d6f2b5f4a0020f0a99e03cc0b26084'

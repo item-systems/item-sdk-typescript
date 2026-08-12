@@ -81,15 +81,16 @@ export class SelectResponse extends ResponseAPDU {
 /**
  * Response wrapper for `SignCommand`.
  *
- * The card returns a tagged structure containing the signature and the public
- * key used to produce it. This parser validates the expected framing and exposes
- * both values separately.
+ * The card returns a tagged structure containing the proof and the public key
+ * used to produce it. The card operation remains a cryptographic signing
+ * operation; `proof` is the canonical ITEM SDK term for the returned
+ * authorization material.
  */
 export class SignResponse extends ResponseAPDU {
   private static TAG_SIGNATURE_PUBLIC_KEY = 0xa2
   private static TAG_OCTET_STRING = 0x04
   private static PUBLIC_KEY_LENGTH = 0x41
-  private signature: Uint8Array
+  private proof: Uint8Array
   private publicKey: Uint8Array
 
   constructor(apdu: Uint8Array) {
@@ -100,13 +101,13 @@ export class SignResponse extends ResponseAPDU {
     }
 
     const data = this.getData()
-    // status word + 2 tags + 65 bytes of public key + ?? of signature
+    // status word + 2 tags + 65 bytes of public key + proof bytes
     if (data.length <= 2 + 2 + 65) {
       throw new Error('Insufficient data')
     }
 
     if (data[0] !== SignResponse.TAG_SIGNATURE_PUBLIC_KEY) {
-      throw new Error('did not find signature tag')
+      throw new Error('did not find proof/public-key tag')
     }
 
     if (
@@ -118,7 +119,7 @@ export class SignResponse extends ResponseAPDU {
 
     this.publicKey = data.slice(data.length - 65)
 
-    // Offset is the place where the signature data starts after the variable-
+    // Offset is the place where the proof data starts after the variable-
     // length DER-ish framing bytes.
     let offset = 2
     if (data[1] === 0x81) {
@@ -130,22 +131,30 @@ export class SignResponse extends ResponseAPDU {
     } else if (data[1] === 0x84) {
       offset += 4
     } else if (data[1] > 0x80) {
-      throw new Error(`Invalid signature length field: ${data[1]}`)
+      throw new Error(`Invalid proof length field: ${data[1]}`)
     }
-    this.signature = data.slice(offset, data.length - 67)
+    this.proof = data.slice(offset, data.length - 67)
   }
 
   /**
-   * Return the public key associated with the signature response.
+   * Return the public key associated with the returned proof.
    */
   getPublicKey(): Uint8Array {
     return this.publicKey
   }
 
   /**
-   * Return the raw signature bytes.
+   * Return the raw authorization proof bytes produced by the card signing action.
+   */
+  getProof(): Uint8Array {
+    return this.proof
+  }
+
+  /**
+   * @deprecated Use {@link getProof}. Retained for smartcard SDK compatibility;
+   * it returns the same raw DER-encoded proof bytes.
    */
   getSignature(): Uint8Array {
-    return this.signature
+    return this.getProof()
   }
 }
