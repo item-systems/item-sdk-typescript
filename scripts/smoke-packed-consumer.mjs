@@ -41,4 +41,5 @@ void types
   console.log(`packed consumer smoke passed in ${tmp}`)
 } finally {
   if (fs.existsSync(tarball)) fs.rmSync(tarball)
+  fs.rmSync(tmp, { recursive: true, force: true })
 }
