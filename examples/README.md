@@ -38,7 +38,27 @@ A common local approach is to run them through your preferred TypeScript runner,
 npx ts-node examples/init-readonly.ts
 ```
 
-## Related docs
+## Automated read-only regression runner
+
+`test:mainnet:readonly` is an **opt-in** MainNet regression runner. It rebuilds the SDK, runs only `testInvoke` verification, and never submits a signer, burn, purge, or write.
+
+It intentionally requires explicit environment fixture values so the default test suite stays deterministic and does not silently depend on mutable MainNet lifecycle state:
+
+```bash
+export ITEM_MAINNET_VECTOR_NFID="4169"
+export ITEM_MAINNET_VECTOR_MESSAGE_HEX="0000000011"
+export ITEM_MAINNET_VECTOR_PROOF_HEX="cb06f21ab36c4361a0f6f999024080d79d4d69f8b87cbaeae2691b55556b787bf8ba4cbb2913a23f0aa353d74d6d072eaac79410a98dd522d2e4dc65fe90d893"
+export ITEM_MAINNET_VECTOR_CHALLENGE="ILS_PERMISSIVE"
+npm run test:mainnet:readonly
+```
+
+The runner asserts both:
+
+1. the supplied known-good proof returns `{ valid: true }`; and
+2. changing only its final byte returns `{ valid: false, reason: 'invalid-proof' }`.
+
+MainNet item lifecycle state can change. Requalify fixture inputs against [`TEST_VECTORS_AUTH_VERIFY_MAINNET.md`](../docs-src/TEST_VECTORS_AUTH_VERIFY_MAINNET.md) before using this runner as a release gate. It is deliberately excluded from default and pull-request CI.
+
 
 - `../docs-src/WORKFLOW_PLAYBOOKS.md`
 - `../docs-src/AUTHENTICATION.md`
