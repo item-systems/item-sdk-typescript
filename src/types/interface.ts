@@ -179,6 +179,33 @@ export interface AuthValidationResult {
 }
 
 /**
+ * Stable ITEM contract rejection categories exposed by the read-only outcome helper.
+ *
+ * These values describe known assertion messages emitted by the deployed ITEM
+ * contract. Transport/provider failures and unknown contract faults are never
+ * coerced into these categories and continue to reject the caller's promise.
+ */
+export type AuthVerificationFailureReason =
+  | 'returned-false'
+  | 'invalid-proof'
+  | 'proof-burned'
+  | 'proof-below'
+  | 'invalid-challenge'
+  | 'invalid-block'
+
+/**
+ * Result returned by {@link Item.verifyAuthOutcome}.
+ *
+ * `verifyAuth` remains the strict compatibility API: contract faults reject.
+ * This discriminated outcome is intended for application flows that need to
+ * render expected proof/challenge rejections without treating them as transport
+ * failures.
+ */
+export type AuthVerificationOutcome =
+  | { valid: true }
+  | { valid: false; reason: AuthVerificationFailureReason }
+
+/**
  * Materialized user record returned by the SDK.
  */
 export interface UserType {
