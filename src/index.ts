@@ -6,6 +6,7 @@
  */
 export * from './Item'
 export * from './helpers'
+export * as smartcard from './smartcard'
 export * as abi from './abi'
 export * as types from './types'
 export * as constants from './constants'
