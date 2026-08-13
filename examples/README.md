@@ -20,12 +20,19 @@ Most examples assume one or more of these environment variables when adapted for
 - `ITEM_SCRIPT_HASH` — override the default ITEM contract deployment
 - `NEO_PRIVATE_KEY` — signer for write examples
 
-Example shell setup:
+Example shell setup for a read-only MainNet integration:
+
+```bash
+export NEO_RPC_URL="https://mainnet1.neo.coz.io:443"
+export ITEM_SCRIPT_HASH="0x3491b358a9ddce38cb567e2bb8bd1bf783cd556d"
+```
+
+For a non-production rehearsal, explicitly choose a TestNet or staging RPC and deployment-specific script hash rather than treating it as the default:
 
 ```bash
 export NEO_RPC_URL="https://testnet1.neo.coz.io:443"
-export ITEM_SCRIPT_HASH="0x..."
-export NEO_PRIVATE_KEY="<private-key>"
+export ITEM_SCRIPT_HASH="0x<testnet-or-staging-deployment>"
+export NEO_PRIVATE_KEY="<staging-signer-only>"
 ```
 
 ## Running examples
