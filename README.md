@@ -371,8 +371,17 @@ If you are building a real integration, read these before shipping:
 
 ## Development
 
+`dist/` is generated and intentionally not tracked. Do not consume this repository through a local `file:` dependency before building it: package exports resolve to generated ESM/CJS artifacts. For a fresh source checkout, use the canonical verification gate below; release packaging is additionally protected by the packed-consumer smoke test.
+
+```bash
+npm run test:ci
+```
+
+For individual steps:
+
 ```bash
 npm run tsc
 npm test
+npm run smoke:packed
 npm run docs
 ```
