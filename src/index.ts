@@ -6,6 +6,9 @@
  */
 export * from './Item'
 export * from './helpers'
+/** Additive direct type imports; the `types.*` namespace remains supported for compatibility. */
+export type * from './types'
+export { AuthChallenge } from './types'
 export * as smartcard from './smartcard'
 export * as abi from './abi'
 export * as types from './types'
