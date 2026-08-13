@@ -58,6 +58,27 @@ describe('Purge proof nomenclature', () => {
     ).to.throw('PurgeItem.proof and deprecated PurgeItem.signature must match when both are supplied')
   })
 
+  it('rejects dual fields that differ even when canonical proof is explicitly empty', () => {
+    expect(() =>
+      purgeArgumentValue({
+        localNfid: 42,
+        message: MESSAGE,
+        proof: '',
+        signature: PROOF,
+      })
+    ).to.throw('PurgeItem.proof and deprecated PurgeItem.signature must match when both are supplied')
+  })
+
+  it('does not confuse an explicit empty proof with missing authorization material', () => {
+    expect(
+      purgeArgumentValue({
+        localNfid: 42,
+        message: MESSAGE,
+        proof: '',
+      })
+    ).to.equal('')
+  })
+
   it('rejects missing proof material before it reaches the contract invocation', () => {
     expect(() => purgeArgumentValue({ localNfid: 42, message: MESSAGE })).to.throw('PurgeItem.proof is required')
   })
