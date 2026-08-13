@@ -234,6 +234,8 @@ Read:
 - `totalEpochs`
 
 Write:
+- `createEpoch` *(TAC-gated; see the epoch creation boundary below)*
+- `createEpochSync` *(TAC-gated; waits for the assigned local epoch id)*
 - `setEpochProperty`
 - `setEpochPropertySync`
 
@@ -278,6 +280,32 @@ These methods bridge from ITEM records to the bound tokenized asset contract:
 - `updateSync`
 
 ## Common workflows
+
+### Supported smartcard imports
+
+Portable smartcard protocol helpers are available through the root `smartcard` namespace:
+
+```ts
+import { smartcard } from '@item-systems/item'
+
+const command = new smartcard.SignCommand(messageHash)
+const response = new smartcard.SignResponse(responseApdu)
+const proof = response.getProof()
+```
+
+`smartcard` includes APDU, reader, transport abstraction, mock transport, secure-channel, and byte/hex primitives. `DesktopTransport` remains deliberately outside this default surface because desktop reader access requires the optional `pcsc-mini` dependency and compatible hardware/runtime setup.
+
+### Create a TAC-gated epoch
+
+`createEpoch()` submits the ITEM contract's TAC-gated epoch operation. It does **not** make an arbitrary direct client-side epoch creation path available: the bound tokenized-asset contract must invoke or authorize the operation according to its own integration flow.
+
+```ts
+const txid = await item.createEpoch()
+// Or wait for the assigned local epoch id:
+const localEid = await item.createEpochSync()
+```
+
+Use a signer and invocation path that the bound tokenized-asset contract accepts. For the related read/write lifecycle, see the [tokenized asset contract workflows](docs-src/TOKENIZED_ASSET_CONTRACTS.md).
 
 ### Fetch an item by local ITEM id
 

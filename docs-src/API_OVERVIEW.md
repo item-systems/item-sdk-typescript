@@ -72,6 +72,8 @@ Write methods generally come in two forms:
 - `totalEpochs()`
 
 ### Writes
+- `createEpoch()` — TAC-gated; the bound tokenized-asset contract must authorize the invocation.
+- `createEpochSync(timeout?)` — TAC-gated; waits for the assigned local epoch id.
 - `setEpochProperty({ localEid, globalPid, state })`
 - `setEpochPropertySync({ localEid, globalPid, state }, timeout?)`
 
@@ -117,6 +119,19 @@ These methods cross the boundary from ITEM records into the bound tokenized asse
 
 ## Important exported types
 
+The namespace form remains supported:
+
+```ts
+import { types } from '@item-systems/item'
+const legacyStyle: types.AuthPayload = { message: '00', proof: '00' }
+```
+
+Direct type imports are also supported and are preferred for new TypeScript code:
+
+```ts
+import type { AuthPayload, AuthValidationResult, ItemType } from '@item-systems/item'
+```
+
 From `types`:
 - `ConstructorOptions`
 - `PropertyMap`
@@ -137,3 +152,15 @@ From `constants`:
 - `NeoN3NetworkOptions`
 - `NeoN3EllipticCurves`
 - `Challenges`
+
+## Supported smartcard surface
+
+Portable smartcard protocol helpers are exported through the root `smartcard` namespace:
+
+```ts
+import { smartcard } from '@item-systems/item'
+
+const command = new smartcard.SignCommand(messageHash)
+```
+
+This surface includes APDU/response types, `Reader`, the abstract `Transport`, `MockTransport`, secure-channel primitives, status words, and byte/hex helpers. It intentionally excludes `DesktopTransport`, which requires the optional `pcsc-mini` dependency and compatible reader hardware.
