@@ -20,14 +20,8 @@ jobs:
         run: npm ci --force
       - name: Lint
         run: npm run lint
-      - name: Build
-        run: NODE_ENV=production CI=false npm run tsc
-      - name: Run Test Suite
-        run: npm run test
-      - name: Verify Packed Package
-        run: npm run smoke:packed
-      - name: Build Docs
-        run: NODE_ENV=production CI=false npm run docs
+      - name: Verify SDK package
+        run: NODE_ENV=production CI=false npm run test:ci
       - name: Audit production dependencies
         run: npm audit --omit=optional
         continue-on-error: true

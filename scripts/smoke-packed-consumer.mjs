@@ -15,25 +15,36 @@ try {
   run('npm', ['install', '--silent', tarball])
 
   fs.writeFileSync(path.join(tmp, 'esm.mjs'), `
-import { Item, Utils, constants, types } from '@item-systems/item'
-if (!Item || !Utils || !constants || !types) throw new Error('missing ESM public exports')
+import { Item, Utils, constants, types, smartcard } from '@item-systems/item'
+if (!Item || !Utils || !constants || !types || !smartcard?.Reader || !smartcard?.SignCommand || !smartcard?.SignResponse) {
+  throw new Error('missing ESM public exports')
+}
 console.log('esm ok')
 `)
   run('node', ['esm.mjs'])
 
   fs.writeFileSync(path.join(tmp, 'cjs.cjs'), `
-const { Item, Utils, constants, types } = require('@item-systems/item')
-if (!Item || !Utils || !constants || !types) throw new Error('missing CJS public exports')
+const { Item, Utils, constants, types, smartcard } = require('@item-systems/item')
+if (!Item || !Utils || !constants || !types || !smartcard?.Reader || !smartcard?.SignCommand || !smartcard?.SignResponse) {
+  throw new Error('missing CJS public exports')
+}
 console.log('cjs ok')
 `)
   run('node', ['cjs.cjs'])
 
   fs.writeFileSync(path.join(tmp, 'tscheck.ts'), `
-import { Item, Utils, constants, types } from '@item-systems/item'
+import { Item, Utils, constants, types, smartcard, type AuthPayload, type AuthValidationResult, type ItemType } from '@item-systems/item'
 void Item
 void Utils
 void constants
 void types
+void smartcard
+const auth: AuthPayload = { message: '00', proof: '00' }
+const validation: AuthValidationResult = { valid: false }
+const record: ItemType | undefined = undefined
+void auth
+void validation
+void record
 `)
   run('npm', ['install', '--silent', '--save-dev', 'typescript@^5.0.0'])
   run('npx', ['tsc', 'tscheck.ts', '--module', 'NodeNext', '--moduleResolution', 'NodeNext', '--target', 'ES2022', '--noEmit'])
@@ -41,4 +52,5 @@ void types
   console.log(`packed consumer smoke passed in ${tmp}`)
 } finally {
   if (fs.existsSync(tarball)) fs.rmSync(tarball)
+  fs.rmSync(tmp, { recursive: true, force: true })
 }

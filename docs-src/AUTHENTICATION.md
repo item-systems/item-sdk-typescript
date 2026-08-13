@@ -66,6 +66,41 @@ This is useful for:
 const result = await item.isAuthValid({ localNfid: 42, auth })
 ```
 
+## Application-oriented verification: `verifyAuthOutcome`
+
+Use `verifyAuthOutcome` when an application needs a stable, expected-invalid result for known ITEM contract rejections while still surfacing provider and unknown-contract failures for investigation.
+
+```ts
+const outcome = await item.verifyAuthOutcome({
+  localNfid: 42,
+  auth: {
+    message,
+    proof,
+  },
+})
+
+if (outcome.valid) {
+  // Continue the application flow. This preflight submitted no transaction.
+} else if (outcome.reason === 'invalid-proof') {
+  // Show a bounded retry/scan-again state.
+} else {
+  // Handle the documented ITEM outcome deliberately.
+}
+```
+
+Known `reason` values are:
+
+| Reason | ITEM observable condition | Suggested application handling |
+| --- | --- | --- |
+| `returned-false` | completed VM invocation returned `false` | Treat as an expected failed preflight; retain diagnostic context. |
+| `invalid-proof` | `ITEM: Invalid proof` | Ask for a fresh scan/proof; do not imply signer or transport failure. |
+| `proof-burned` | `ITEM: Proof has already been used` | Treat proof material as consumed; require a new permitted challenge. |
+| `proof-below` | `ITEM: Proof below write pointer` | Treat the payload as stale for the current lifecycle state. |
+| `invalid-challenge` | `ITEM: Invalid Challenge Type` | Correct the selected challenge encoding/mode before retrying. |
+| `invalid-block` | `ITEM: Invalid bock` (current contract message) | Refresh HTLS block context or escalate as an input/configuration issue. |
+
+`verifyAuthOutcome` **does not** convert unknown contract faults, malformed VM responses, or RPC/provider failures into `{ valid: false }`. Those failures reject the promise so applications can distinguish an expected proof rejection from an integration outage or an unrecognized contract change.
+
 ## On-chain authentication: `authItem` / `authItemSync`
 
 Use `authItem` to submit the transaction and receive a txid:

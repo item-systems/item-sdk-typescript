@@ -21,6 +21,8 @@ import {
   PurgeItem,
   RemoteToken,
   AuthValidationResult,
+  AuthVerificationOutcome,
+  AuthVerificationFailureReason,
   VerifyAuth,
   SetConfigurationProperty,
   SetEpochProperty,
@@ -564,6 +566,51 @@ export class Item {
     }
 
     return { valid }
+  }
+
+  /**
+   * Verifies an authentication payload and classifies known ITEM contract rejections.
+   *
+   * Use this helper when an application needs to distinguish an expected invalid
+   * proof/challenge outcome from a provider or unexpected VM failure. It never
+   * suppresses unknown errors: only exact, documented ITEM rejection messages are
+   * converted into `{ valid: false, reason }` results. Transport failures, malformed
+   * provider responses, and unknown contract faults still reject the promise.
+   *
+   * @param params Item id and challenge payload to verify.
+   * @returns A valid result or a categorized, expected contract rejection.
+   */
+  async verifyAuthOutcome(params: VerifyAuth): Promise<AuthVerificationOutcome> {
+    try {
+      const { valid } = await this.verifyAuth(params)
+      return valid ? { valid: true } : { valid: false, reason: 'returned-false' }
+    } catch (error) {
+      const reason = Item.authVerificationFailureReason(error)
+      if (reason) {
+        return { valid: false, reason }
+      }
+      throw error
+    }
+  }
+
+  /**
+   * Maps exact ITEM assertion messages to stable public outcome categories.
+   *
+   * This mapping deliberately avoids substring guesses beyond the documented
+   * assertion text. Unknown faults retain their original error path so callers
+   * can distinguish integration failures from invalid proof material.
+   */
+  private static authVerificationFailureReason(error: unknown): AuthVerificationFailureReason | undefined {
+    const message = error instanceof Error ? error.message : String(error)
+    const knownReasons: Array<[string, AuthVerificationFailureReason]> = [
+      ['ITEM: Invalid proof', 'invalid-proof'],
+      ['ITEM: Proof has already been used', 'proof-burned'],
+      ['ITEM: Proof below write pointer', 'proof-below'],
+      ['ITEM: Invalid Challenge Type', 'invalid-challenge'],
+      ['ITEM: Invalid bock', 'invalid-block'],
+    ]
+
+    return knownReasons.find(([contractMessage]) => message.includes(contractMessage))?.[1]
   }
 
   /**
