@@ -213,16 +213,21 @@ export class ItemAPI {
   private static resolvePurgeProof(params: PurgeItem): string {
     const proof = params.proof
     const signature = params.signature
+    const hasProof = proof !== undefined
+    const hasSignature = signature !== undefined
 
-    if (proof && signature && proof !== signature) {
+    if (hasProof && hasSignature && proof !== signature) {
       throw new TypeError('PurgeItem.proof and deprecated PurgeItem.signature must match when both are supplied')
     }
 
     const resolved = proof ?? signature
-    if (!resolved) {
+    if (resolved === undefined) {
       throw new TypeError('PurgeItem.proof is required; deprecated PurgeItem.signature is accepted for compatibility')
     }
 
+    // Preserve the existing invocation-builder behavior for supplied hex values,
+    // including an explicit empty string. Hex/content validation remains owned by
+    // the established encoding utility and deployed contract boundary.
     return resolved
   }
 }
