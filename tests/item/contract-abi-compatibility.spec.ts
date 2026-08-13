@@ -86,7 +86,8 @@ describe('ITEM contract ABI compatibility inventory', () => {
       'unlockItem',
     ])
     for (const operation of abi.ITEM_UNEXPOSED_OPERATIONS) {
-      expect(operation.reason).to.be.a('string').and.not.empty
+      expect(operation.reason).to.be.a('string')
+      expect(operation.reason.length).to.be.greaterThan(0)
     }
   })
 })
