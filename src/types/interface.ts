@@ -44,7 +44,7 @@ export type pollingOptions = {
 export type ContractUpdate = {
   /** Compiled contract script bytes, typically hex-encoded. */
   script: string
-  /** Contract manifest JSON string. */
+  /** Contract manifest bytes encoded as hexadecimal. */
   manifest: string
   /** Optional contract-defined update payload. */
   data: any
