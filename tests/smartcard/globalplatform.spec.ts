@@ -21,7 +21,11 @@ import {
 } from '../../src/smartcard/globalplatform/crypto'
 import { Scp02Session } from '../../src/smartcard/globalplatform/scp02'
 import { Scp03Session } from '../../src/smartcard/globalplatform/scp03'
-import { buildLoadFileDataBlock, extractCapComponentsFromZip } from '../../src/smartcard/globalplatform/cap-parser'
+import {
+  buildLoadFileDataBlock,
+  extractCapComponentsFromZip,
+  parseRawComponentStream,
+} from '../../src/smartcard/globalplatform/cap-parser'
 import { deflateRawSync } from 'zlib'
 
 describe('GlobalPlatform Cryptography and Secure Channel Protocols', () => {
@@ -156,34 +160,103 @@ describe('GlobalPlatform Cryptography and Secure Channel Protocols', () => {
   })
 
   describe('CAP Parser & Load File Data Block (Tag 0xC4) Construction', () => {
-    function buildMockZip(entries: Array<{ name: string; data: Uint8Array }>): Uint8Array {
+    function buildMockZip(entries: Array<{ name: string; data: Uint8Array; useDataDescriptor?: boolean }>): Uint8Array {
       const chunks: Buffer[] = []
+      const cdEntries: Buffer[] = []
+      let localOffset = 0
+
       for (const entry of entries) {
         const nameBuf = Buffer.from(entry.name, 'utf8')
         const deflated = deflateRawSync(Buffer.from(entry.data))
+        const flags = entry.useDataDescriptor ? 0x0008 : 0x0000
+
+        // Local File Header (30 bytes)
         const header = Buffer.alloc(30)
-        header.writeUInt32LE(0x04034b50, 0)
+        header.writeUInt32LE(0x04034b50, 0) // Magic
         header.writeUInt16LE(20, 4) // Version needed
-        header.writeUInt16LE(0, 6) // Flags
-        header.writeUInt16LE(8, 8) // Deflate
+        header.writeUInt16LE(flags, 6) // General Purpose Bit Flag
+        header.writeUInt16LE(8, 8) // Compression Method: Deflate
         header.writeUInt16LE(0, 10) // Mod time
         header.writeUInt16LE(0, 12) // Mod date
-        header.writeUInt32LE(0, 14) // CRC32 (ignored in test)
-        header.writeUInt32LE(deflated.length, 18) // Compressed size
-        header.writeUInt32LE(entry.data.length, 22) // Uncompressed size
+
+        if (entry.useDataDescriptor) {
+          // In data descriptor mode, local header sizes/crc can be zero
+          header.writeUInt32LE(0, 14)
+          header.writeUInt32LE(0, 18)
+          header.writeUInt32LE(0, 22)
+        } else {
+          header.writeUInt32LE(0x12345678, 14) // Mock CRC
+          header.writeUInt32LE(deflated.length, 18)
+          header.writeUInt32LE(entry.data.length, 22)
+        }
+
         header.writeUInt16LE(nameBuf.length, 26)
         header.writeUInt16LE(0, 28) // Extra field length
 
         chunks.push(header, nameBuf, deflated)
+
+        let entryDataSize = 30 + nameBuf.length + deflated.length
+
+        if (entry.useDataDescriptor) {
+          // Data descriptor (16 bytes: 0x08074b50, CRC, compSize, uncompSize)
+          const desc = Buffer.alloc(16)
+          desc.writeUInt32LE(0x08074b50, 0)
+          desc.writeUInt32LE(0x12345678, 4)
+          desc.writeUInt32LE(deflated.length, 8)
+          desc.writeUInt32LE(entry.data.length, 12)
+          chunks.push(desc)
+          entryDataSize += 16
+        }
+
+        // Central Directory Header (46 bytes)
+        const cdHdr = Buffer.alloc(46)
+        cdHdr.writeUInt32LE(0x02014b50, 0) // CD Magic
+        cdHdr.writeUInt16LE(20, 4) // Version made by
+        cdHdr.writeUInt16LE(20, 6) // Version needed
+        cdHdr.writeUInt16LE(flags, 8) // Flags
+        cdHdr.writeUInt16LE(8, 10) // Deflate
+        cdHdr.writeUInt16LE(0, 12)
+        cdHdr.writeUInt16LE(0, 14)
+        cdHdr.writeUInt32LE(0x12345678, 16) // CRC
+        cdHdr.writeUInt32LE(deflated.length, 20) // Authoritative Compressed Size
+        cdHdr.writeUInt32LE(entry.data.length, 24) // Authoritative Uncompressed Size
+        cdHdr.writeUInt16LE(nameBuf.length, 28)
+        cdHdr.writeUInt16LE(0, 30) // Extra length
+        cdHdr.writeUInt16LE(0, 32) // Comment length
+        cdHdr.writeUInt16LE(0, 34) // Disk start
+        cdHdr.writeUInt16LE(0, 36) // Internal attr
+        cdHdr.writeUInt32LE(0, 38) // External attr
+        cdHdr.writeUInt32LE(localOffset, 42) // Local header offset
+
+        cdEntries.push(cdHdr, nameBuf)
+        localOffset += entryDataSize
       }
-      return new Uint8Array(Buffer.concat(chunks))
+
+      // End of Central Directory Record (22 bytes)
+      const cdOffset = localOffset
+      let cdSize = 0
+      for (const b of cdEntries) {
+        cdSize += b.length
+      }
+
+      const eocd = Buffer.alloc(22)
+      eocd.writeUInt32LE(0x06054b50, 0) // EOCD magic
+      eocd.writeUInt16LE(0, 4) // Disk number
+      eocd.writeUInt16LE(0, 6) // CD start disk
+      eocd.writeUInt16LE(entries.length, 8) // Entries on this disk
+      eocd.writeUInt16LE(entries.length, 10) // Total entries
+      eocd.writeUInt32LE(cdSize, 12) // CD size
+      eocd.writeUInt32LE(cdOffset, 16) // CD offset
+      eocd.writeUInt16LE(0, 20) // Comment len
+
+      return new Uint8Array(Buffer.concat([...chunks, ...cdEntries, eocd]))
     }
 
     it('unpacks ZIP CAP archive and builds Tag 0xC4 Load File Data Block', () => {
       // Mock components: Header (tag 1), Directory (tag 2), Import (tag 4)
-      const headerComp = new Uint8Array([0x01, 0x00, 0x04, 0xaa, 0xbb])
-      const dirComp = new Uint8Array([0x02, 0x00, 0x03, 0xcc, 0xdd])
-      const importComp = new Uint8Array([0x04, 0x00, 0x02, 0xee])
+      const headerComp = new Uint8Array([0x01, 0x00, 0x04, 0xaa, 0xbb, 0xcc, 0xdd])
+      const dirComp = new Uint8Array([0x02, 0x00, 0x03, 0xee, 0xff, 0x11])
+      const importComp = new Uint8Array([0x04, 0x00, 0x02, 0x22, 0x33])
 
       const zipCap = buildMockZip([
         { name: 'pkg/javacard/Import.cap', data: importComp },
@@ -198,12 +271,49 @@ describe('GlobalPlatform Cryptography and Secure Channel Protocols', () => {
 
       const c4Block = buildLoadFileDataBlock(zipCap)
       expect(c4Block[0]).to.equal(0xc4) // Tag 0xC4
-      // Total payload length = header (5) + dir (5) + import (4) = 14
-      expect(c4Block[1]).to.equal(14)
-      // Check canonical order: Header (Tag 1), Directory (Tag 2), Import (Tag 4)
+      // Total payload length = header (7) + dir (6) + import (5) = 18
+      expect(c4Block[1]).to.equal(18)
+      // Canonical order: Header (Tag 1), Directory (Tag 2), Import (Tag 4)
       expect(c4Block[2]).to.equal(0x01)
-      expect(c4Block[7]).to.equal(0x02)
-      expect(c4Block[12]).to.equal(0x04)
+      expect(c4Block[9]).to.equal(0x02)
+      expect(c4Block[15]).to.equal(0x04)
+    })
+
+    it('handles ZIP archives produced with Data Descriptors (streaming mode / bit 3)', () => {
+      const headerComp = new Uint8Array([0x01, 0x00, 0x04, 0xaa, 0xbb, 0xcc, 0xdd])
+      const dirComp = new Uint8Array([0x02, 0x00, 0x03, 0xee, 0xff, 0x11])
+
+      const zipWithDataDesc = buildMockZip([
+        { name: 'pkg/Header.cap', data: headerComp, useDataDescriptor: true },
+        { name: 'pkg/Directory.cap', data: dirComp, useDataDescriptor: true },
+      ])
+
+      const components = extractCapComponentsFromZip(zipWithDataDesc)
+      expect(components.get(1)).to.deep.equal(headerComp)
+      expect(components.get(2)).to.deep.equal(dirComp)
+
+      const c4Block = buildLoadFileDataBlock(zipWithDataDesc)
+      expect(c4Block[0]).to.equal(0xc4)
+      expect(c4Block[1]).to.equal(13) // 7 + 6
+    })
+
+    it('wraps raw concatenated components in Tag 0xC4 framing without bypassing', () => {
+      // Raw stream without ZIP wrapper: Header (Tag 1, 7B) + Directory (Tag 2, 6B)
+      const headerComp = new Uint8Array([0x01, 0x00, 0x04, 0xaa, 0xbb, 0xcc, 0xdd])
+      const dirComp = new Uint8Array([0x02, 0x00, 0x03, 0xee, 0xff, 0x11])
+      const rawStream = new Uint8Array(headerComp.length + dirComp.length)
+      rawStream.set(headerComp, 0)
+      rawStream.set(dirComp, headerComp.length)
+
+      const parsed = parseRawComponentStream(rawStream)
+      expect(parsed.get(1)).to.deep.equal(headerComp)
+      expect(parsed.get(2)).to.deep.equal(dirComp)
+
+      const c4Block = buildLoadFileDataBlock(rawStream)
+      expect(c4Block[0]).to.equal(0xc4) // Must be Tag 0xC4
+      expect(c4Block[1]).to.equal(13) // DER length
+      expect(c4Block[2]).to.equal(0x01) // Header component
+      expect(c4Block[9]).to.equal(0x02) // Directory component
     })
   })
 })
@@ -262,6 +372,55 @@ describe('GlobalPlatform Card Manager and Provisioner Workflows', () => {
     expect(session).to.be.instanceOf(Scp02Session)
   })
 
+  it('clamps requested maxChunkSize (e.g. 240) to safe limit (224) avoiding short APDU overflow', async () => {
+    const hostChallenge = hexToUint8('1122334455667788')
+    const seqCounter = hexToUint8('0001')
+    const cardChallenge = hexToUint8('AABBCCDDEEFF')
+    const { sEnc } = Scp02Session.deriveSessionKeys(keySet.encKey, keySet.macKey, keySet.dekKey, seqCounter)
+
+    const cardChallenge8 = new Uint8Array(8)
+    cardChallenge8.set(seqCounter, 0)
+    cardChallenge8.set(cardChallenge, 2)
+    const cardCryptogram = Scp02Session.calculateCardCryptogram(sEnc, hostChallenge, cardChallenge8)
+
+    const initUpdateResp = new Uint8Array([
+      ...hexToUint8('01020304050607080910'),
+      0x01,
+      0x02,
+      ...seqCounter,
+      ...cardChallenge,
+      ...cardCryptogram,
+      0x90,
+      0x00,
+    ])
+
+    // 500 bytes payload: with chunk size 224, it will be 3 chunks (224, 224, 52)
+    const dummyC4 = new Uint8Array(500)
+    dummyC4[0] = 0xc4
+    dummyC4[1] = 0x82
+    dummyC4[2] = 0x01
+    dummyC4[3] = 0xf0
+
+    const transport = new MockTransport([
+      new Uint8Array([0x90, 0x00]), // 1. SELECT
+      initUpdateResp, // 2. INIT UPDATE
+      new Uint8Array([0x90, 0x00]), // 3. EXT AUTH
+      new Uint8Array([0x90, 0x00]), // 4. INSTALL [for load]
+      new Uint8Array([0x90, 0x00]), // 5. LOAD chunk 1
+      new Uint8Array([0x90, 0x00]), // 6. LOAD chunk 2
+      new Uint8Array([0x90, 0x00]), // 7. LOAD chunk 3
+    ])
+
+    const reader = new Reader(transport)
+    await reader.connect()
+    const cardManager = new GlobalPlatformCardManager(reader)
+    await cardManager.selectCardManager(DEFAULT_ISD_AID)
+    await cardManager.openSecureChannelScp02(keySet, GpSecurityLevel.C_DECRYPTION_AND_C_MAC, hostChallenge)
+
+    // Requesting 240 bytes chunk size must be clamped to safe 224 bytes
+    await cardManager.loadCap(dummyC4, 'FF6974656D', DEFAULT_ISD_AID, 240)
+  })
+
   it('executes SCP03 with correct 1-byte option offset parsing', async () => {
     const hostChallenge = hexToUint8('1122334455667788')
     const aesKey = hexToUint8('404142434445464748494A4B4C4D4E4F404142434445464748494A4B4C4D4E4F')
@@ -305,7 +464,7 @@ describe('GlobalPlatform Card Manager and Provisioner Workflows', () => {
     expect(session).to.be.instanceOf(Scp03Session)
   })
 
-  it('re-throws genuine deletion errors while ignoring benign 0x6A88 not found errors during clean wipe', async () => {
+  it('re-throws genuine deletion errors (0x6982, 0x6A80) while ignoring only 0x6A88 not found errors during clean wipe', async () => {
     const hostChallenge = hexToUint8('1122334455667788')
     const seqCounter = hexToUint8('0001')
     const cardChallenge = hexToUint8('AABBCCDDEEFF')
@@ -327,7 +486,7 @@ describe('GlobalPlatform Card Manager and Provisioner Workflows', () => {
       0x00,
     ])
 
-    // Scenario 1: SW 0x6A88 (Not found) is ignored during wipe
+    // Scenario 1: SW 0x6A88 (Referenced data not found) is ignored during wipe
     const transportPass = new MockTransport([
       new Uint8Array([0x90, 0x00]), // 1. SELECT
       initUpdateResp, // 2. INIT UPDATE
@@ -357,21 +516,21 @@ describe('GlobalPlatform Card Manager and Provisioner Workflows', () => {
       }
     )
 
-    // Scenario 2: SW 0x6982 (Security status not satisfied) MUST be re-thrown!
-    const transportFail = new MockTransport([
+    // Scenario 2: SW 0x6982 (Security status not satisfied) MUST be re-thrown
+    const transportFailAuth = new MockTransport([
       new Uint8Array([0x90, 0x00]), // 1. SELECT
       initUpdateResp, // 2. INIT UPDATE
       new Uint8Array([0x90, 0x00]), // 3. EXT AUTH
       new Uint8Array([0x69, 0x82]), // 4. DELETE -> 0x6982 (Auth error)
     ])
 
-    const readerFail = new Reader(transportFail)
-    await readerFail.connect()
-    const provFail = new GlobalPlatformProvisioner(readerFail)
+    const readerFailAuth = new Reader(transportFailAuth)
+    await readerFailAuth.connect()
+    const provFailAuth = new GlobalPlatformProvisioner(readerFailAuth)
 
-    let caughtError: Error | null = null
+    let caughtErrorAuth: Error | null = null
     try {
-      await provFail.provisionTopology(
+      await provFailAuth.provisionTopology(
         [
           {
             name: 'pkg',
@@ -388,12 +547,50 @@ describe('GlobalPlatform Card Manager and Provisioner Workflows', () => {
         }
       )
     } catch (e: unknown) {
-      caughtError = e as Error
+      caughtErrorAuth = e as Error
     }
 
-    expect(caughtError).to.be.instanceOf(Error)
-    expect(caughtError?.message).to.include('Failed to delete package')
-    expect(caughtError?.message).to.include('0x6982')
+    expect(caughtErrorAuth).to.be.instanceOf(Error)
+    expect(caughtErrorAuth?.message).to.include('Failed to delete package')
+    expect(caughtErrorAuth?.message).to.include('0x6982')
+
+    // Scenario 3: SW 0x6A80 (Incorrect parameters in data field) MUST ALSO be re-thrown (not ignored!)
+    const transportFailParam = new MockTransport([
+      new Uint8Array([0x90, 0x00]), // 1. SELECT
+      initUpdateResp, // 2. INIT UPDATE
+      new Uint8Array([0x90, 0x00]), // 3. EXT AUTH
+      new Uint8Array([0x6a, 0x80]), // 4. DELETE -> 0x6A80 (Parameter error)
+    ])
+
+    const readerFailParam = new Reader(transportFailParam)
+    await readerFailParam.connect()
+    const provFailParam = new GlobalPlatformProvisioner(readerFailParam)
+
+    let caughtErrorParam: Error | null = null
+    try {
+      await provFailParam.provisionTopology(
+        [
+          {
+            name: 'pkg',
+            packageAid: 'FF6974656D',
+            capBytes: new Uint8Array([0xc4, 0x02, 0x01, 0x00]),
+            isLibrary: true,
+          },
+        ],
+        {
+          keySet,
+          hostChallenge,
+          cleanWipeExisting: true,
+          existingAidsToDelete: ['FF6974656D'],
+        }
+      )
+    } catch (e: unknown) {
+      caughtErrorParam = e as Error
+    }
+
+    expect(caughtErrorParam).to.be.instanceOf(Error)
+    expect(caughtErrorParam?.message).to.include('Failed to delete package')
+    expect(caughtErrorParam?.message).to.include('0x6A80')
   })
 
   it('provisions a multi-CAP topology using GlobalPlatformProvisioner', async () => {

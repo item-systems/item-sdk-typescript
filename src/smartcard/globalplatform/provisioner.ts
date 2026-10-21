@@ -66,10 +66,12 @@ export class GlobalPlatformProvisioner {
           await this.cardManager.delete(aid, true)
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err)
-          // Only ignore benign "not found" / "referenced data not found" status words (0x6A88 or 0x6A80)
-          const isNotFound = msg.includes('0x6A88') || msg.includes('0x6A80')
+          // Only ignore benign "Referenced data not found" status word (0x6A88)
+          // Per ISO 7816-4 & GlobalPlatform: 0x6A88 specifically means the target AID does not exist on card.
+          // 0x6A80 ("Incorrect parameters / data field invalid") indicates malformed APDU/TLV payload and must NOT be ignored.
+          const isNotFound = msg.includes('0x6A88')
           if (!isNotFound) {
-            // Re-throw genuine errors (auth mismatch 0x6982, condition of use 0x6985, transport errors)
+            // Re-throw genuine errors (auth mismatch 0x6982, condition of use 0x6985, param error 0x6A80, transport errors)
             throw new Error(`Failed to delete package ${aid} during clean wipe: ${msg}`)
           }
         }

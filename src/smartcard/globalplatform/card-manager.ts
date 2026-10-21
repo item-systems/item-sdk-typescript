@@ -35,11 +35,19 @@ export interface GpStatusResult {
 export const DEFAULT_ISD_AID = 'A000000151000000'
 
 /**
- * Default max chunk size for LOAD APDUs (224 bytes).
- * Ensures that when encrypted (ISO 9797 Method 2 padding adds up to 16 bytes)
- * and MACed (8 bytes), the total APDU Lc does not exceed 255 bytes (single-byte Lc).
+ * Absolute maximum safe plaintext chunk size for LOAD APDUs under short APDUs (224 bytes).
+ *
+ * For short APDUs (single-byte Lc):
+ * - Plaintext chunk: up to 224 bytes.
+ * - ISO/IEC 9797-1 Method 2 padding (block size 8 for SCP02, 16 for SCP03): adds 1 to 16 bytes (up to 240 bytes ciphertext).
+ * - C-MAC (8 bytes): 240 + 8 = 248 bytes.
+ * - Total wrapped Lc = 248 <= 255.
+ *
+ * Any chunk size > 224 bytes will cause the wrapped encrypted/MACed APDU to exceed the
+ * 255-byte short APDU limit, producing invalid/malformed APDUs.
  */
 export const DEFAULT_MAX_LOAD_CHUNK_SIZE = 224
+export const ABSOLUTE_MAX_SAFE_LOAD_CHUNK_SIZE = 224
 
 /**
  * High-level GlobalPlatform Card Manager Client.
@@ -207,10 +215,13 @@ export class GlobalPlatformCardManager {
    * Automatically unpacks ZIP-formatted CAP archives and constructs the canonical
    * GlobalPlatform Load File Data Block (Tag 0xC4) containing the ordered component TLVs.
    *
-   * @param capBytes Raw CAP binary content (ZIP archive or Load File Data Block)
+   * Clamps the chunk size to ABSOLUTE_MAX_SAFE_LOAD_CHUNK_SIZE (224 bytes) to guarantee
+   * that encrypted and MACed short APDUs never exceed 255 bytes.
+   *
+   * @param capBytes Raw CAP binary content (ZIP archive, raw component stream, or Load File Data Block)
    * @param packageAid Executable Load File AID
    * @param securityDomainAid Target Security Domain AID (default ISD)
-   * @param maxChunkSize Chunk size for LOAD APDUs (default 224 bytes, preventing short APDU overflow)
+   * @param maxChunkSize Chunk size for LOAD APDUs (default 224 bytes; clamped to max 224)
    */
   public async loadCap(
     capBytes: Uint8Array,
@@ -220,6 +231,9 @@ export class GlobalPlatformCardManager {
   ): Promise<void> {
     const pkgAidBytes = hexToUint8(packageAid)
     const isdAidBytes = hexToUint8(securityDomainAid)
+
+    // Clamp chunk size to safe maximum (224 bytes) to prevent APDU Lc overflow under encryption & MAC
+    const effectiveChunkSize = Math.max(16, Math.min(maxChunkSize, ABSOLUTE_MAX_SAFE_LOAD_CHUNK_SIZE))
 
     // Build canonical GlobalPlatform Load File Data Block (Tag 0xC4)
     const loadFileDataBlock = buildLoadFileDataBlock(capBytes)
@@ -263,13 +277,19 @@ export class GlobalPlatformCardManager {
 
     while (capOffset < loadFileDataBlock.length) {
       const remaining = loadFileDataBlock.length - capOffset
-      const chunkSize = Math.min(remaining, maxChunkSize)
+      const chunkSize = Math.min(remaining, effectiveChunkSize)
       const isLastChunk = capOffset + chunkSize === loadFileDataBlock.length
       const p1 = isLastChunk ? 0x80 : 0x00
 
       const chunk = loadFileDataBlock.subarray(capOffset, capOffset + chunkSize)
       const loadApdu = new Uint8Array([0x80, 0xe8, p1, blockNumber & 0xff, chunk.length, ...chunk])
       const wrappedLoad = this.wrapApdu(loadApdu)
+
+      // Verify wrapped APDU does not exceed short APDU single-byte limit (255 bytes payload)
+      if (wrappedLoad.length > 261) {
+        // 5 header + 255 data + 1 Le
+        throw new Error(`LOAD APDU block ${blockNumber} length (${wrappedLoad.length} bytes) exceeds short APDU limit!`)
+      }
 
       const loadResp = await this.reader.transmit(wrappedLoad)
       this.assertSuccess(
