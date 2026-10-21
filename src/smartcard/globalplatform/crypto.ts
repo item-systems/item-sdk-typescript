@@ -739,15 +739,15 @@ export function calculateAesCmac(key: Uint8Array, data: Uint8Array): Uint8Array 
 /**
  * Generate cryptographically secure random bytes in any runtime:
  * - Web Browsers & React Native (via globalThis.crypto.getRandomValues)
- * - Node.js (via node:crypto dynamic/direct or WebCrypto globalThis.crypto)
+ * - Node.js (via standard WebCrypto globalThis.crypto)
  *
  * Strictly throws an Error if cryptographically secure random generation is unavailable,
- * never falling back to insecure Math.random().
+ * never falling back to insecure Math.random() and never importing Node.js 'crypto' module.
  */
 export function getRandomBytes(length: number): Uint8Array {
   const bytes = new Uint8Array(length)
 
-  // 1. Check WebCrypto standard (available in Browsers, React Native Hermes/JSC with polyfill, Node.js 19+)
+  // WebCrypto standard (available in Browsers, React Native Hermes/JSC with polyfill, Node.js 19+)
   if (
     typeof globalThis !== 'undefined' &&
     globalThis.crypto &&
@@ -757,20 +757,8 @@ export function getRandomBytes(length: number): Uint8Array {
     return bytes
   }
 
-  // 2. Check Node.js crypto module if available in environment
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const nodeCrypto = typeof require === 'function' ? require('crypto') : null
-    if (nodeCrypto && typeof nodeCrypto.randomFillSync === 'function') {
-      nodeCrypto.randomFillSync(bytes)
-      return bytes
-    }
-  } catch {
-    // Ignore and check next
-  }
-
   throw new Error(
     'Cryptographically secure random number generator is unavailable in current runtime. ' +
-      'Ensure WebCrypto (globalThis.crypto.getRandomValues) or Node.js crypto is accessible.'
+      'Ensure WebCrypto (globalThis.crypto.getRandomValues) is accessible.'
   )
 }

@@ -175,6 +175,117 @@ function buildValidMockCap(pkgAidHex: string, importedAids: string[] = [], apple
   return rawStream
 }
 
+// Helper to build a mock CAP packed as a real ZIP archive
+function buildMockZipCap(pkgAidHex: string, importedAids: string[] = [], appletAids: string[] = []): Uint8Array {
+  const rawComponents = buildValidMockCap(pkgAidHex, importedAids, appletAids)
+  const components = parseRawComponentStream(rawComponents)
+
+  const tagNames: Record<number, string> = {
+    1: 'Header.cap',
+    2: 'Directory.cap',
+    3: 'Applet.cap',
+    4: 'Import.cap',
+    5: 'ConstantPool.cap',
+    6: 'Class.cap',
+    7: 'Method.cap',
+    8: 'StaticField.cap',
+    9: 'RefLocation.cap',
+  }
+
+  const zipEntries: Array<{ name: string; uncompressed: Uint8Array; compressed: Uint8Array }> = []
+
+  for (const [tag, bytes] of components.entries()) {
+    const name = `test/pkg/javacard/${tagNames[tag] || `Component${tag}.cap`}`
+    const compressed = new Uint8Array(deflateRawSync(Buffer.from(bytes)))
+    zipEntries.push({ name, uncompressed: bytes, compressed })
+  }
+
+  // Calculate local headers + central directory
+  let localHeadersLen = 0
+  for (const entry of zipEntries) {
+    const nameBytes = new TextEncoder().encode(entry.name)
+    localHeadersLen += 30 + nameBytes.length + entry.compressed.length
+  }
+
+  let cdLen = 0
+  for (const entry of zipEntries) {
+    const nameBytes = new TextEncoder().encode(entry.name)
+    cdLen += 46 + nameBytes.length
+  }
+
+  const eocdLen = 22
+  const totalZipLen = localHeadersLen + cdLen + eocdLen
+  const zipBytes = new Uint8Array(totalZipLen)
+  const view = new DataView(zipBytes.buffer)
+
+  let localOffset = 0
+  let cdOffset = localHeadersLen
+  const localHeaderOffsets: number[] = []
+
+  for (const entry of zipEntries) {
+    localHeaderOffsets.push(localOffset)
+    const nameBytes = new TextEncoder().encode(entry.name)
+
+    // Local file header: 0x04034B50
+    view.setUint32(localOffset, 0x04034b50, true)
+    view.setUint16(localOffset + 4, 20, true) // version needed
+    view.setUint16(localOffset + 6, 0, true) // flags
+    view.setUint16(localOffset + 8, 8, true) // compression = deflate
+    view.setUint16(localOffset + 10, 0, true) // mod time
+    view.setUint16(localOffset + 12, 0, true) // mod date
+    view.setUint32(localOffset + 14, 0, true) // crc32
+    view.setUint32(localOffset + 18, entry.compressed.length, true)
+    view.setUint32(localOffset + 22, entry.uncompressed.length, true)
+    view.setUint16(localOffset + 26, nameBytes.length, true)
+    view.setUint16(localOffset + 28, 0, true) // extra len
+
+    zipBytes.set(nameBytes, localOffset + 30)
+    zipBytes.set(entry.compressed, localOffset + 30 + nameBytes.length)
+
+    localOffset += 30 + nameBytes.length + entry.compressed.length
+  }
+
+  for (let i = 0; i < zipEntries.length; i++) {
+    const entry = zipEntries[i]
+    const nameBytes = new TextEncoder().encode(entry.name)
+    const localHeaderOffset = localHeaderOffsets[i]
+
+    // Central directory header: 0x02014B50
+    view.setUint32(cdOffset, 0x02014b50, true)
+    view.setUint16(cdOffset + 4, 20, true) // version made by
+    view.setUint16(cdOffset + 6, 20, true) // version needed
+    view.setUint16(cdOffset + 8, 0, true) // flags
+    view.setUint16(cdOffset + 10, 8, true) // compression = deflate
+    view.setUint16(cdOffset + 12, 0, true) // mod time
+    view.setUint16(cdOffset + 14, 0, true) // mod date
+    view.setUint32(cdOffset + 16, 0, true) // crc32
+    view.setUint32(cdOffset + 20, entry.compressed.length, true)
+    view.setUint32(cdOffset + 24, entry.uncompressed.length, true)
+    view.setUint16(cdOffset + 28, nameBytes.length, true)
+    view.setUint16(cdOffset + 30, 0, true) // extra len
+    view.setUint16(cdOffset + 32, 0, true) // comment len
+    view.setUint16(cdOffset + 34, 0, true) // disk start
+    view.setUint16(cdOffset + 36, 0, true) // int attrs
+    view.setUint32(cdOffset + 38, 0, true) // ext attrs
+    view.setUint32(cdOffset + 42, localHeaderOffset, true)
+
+    zipBytes.set(nameBytes, cdOffset + 46)
+    cdOffset += 46 + nameBytes.length
+  }
+
+  // End of Central Directory: 0x06054B50
+  view.setUint32(cdOffset, 0x06054b50, true)
+  view.setUint16(cdOffset + 4, 0, true) // disk number
+  view.setUint16(cdOffset + 6, 0, true) // cd disk start
+  view.setUint16(cdOffset + 8, zipEntries.length, true) // cd records on disk
+  view.setUint16(cdOffset + 10, zipEntries.length, true) // total cd records
+  view.setUint32(cdOffset + 12, cdLen, true) // cd size
+  view.setUint32(cdOffset + 16, localHeadersLen, true) // cd offset
+  view.setUint16(cdOffset + 20, 0, true) // comment len
+
+  return zipBytes
+}
+
 describe('GlobalPlatform Cryptography and Secure Channel Protocols (Pure TypeScript)', () => {
   const factory3DesKey = hexToUint8('404142434445464748494A4B4C4D4E4F')
   const factoryAesKey = hexToUint8('404142434445464748494A4B4C4D4E4F404142434445464748494A4B4C4D4E4F')
@@ -408,6 +519,12 @@ describe('GlobalPlatform Cryptography and Secure Channel Protocols (Pure TypeScr
         { name: 'pkg/Directory.cap', data: dirComp, useDataDescriptor: true },
       ])
 
+      const zipCap = buildMockZipCap('FF6974656D01', ['A0000000620001'])
+      const zipComponents = extractCapComponentsFromZip(zipCap)
+      expect(zipComponents.has(1)).to.equal(true) // Header.cap
+      expect(zipComponents.has(2)).to.equal(true) // Directory.cap
+      expect(zipComponents.has(4)).to.equal(true) // Import.cap
+
       const components = extractCapComponentsFromZip(zipWithDataDesc)
       expect(components.get(1)).to.deep.equal(headerComp)
       expect(components.get(2)).to.deep.equal(dirComp)
@@ -570,6 +687,79 @@ describe('GlobalPlatform Card Manager, Inventory & Resilient Provisioning Workfl
     expect(inventory.executableModules.length).to.equal(1)
     expect(inventory.appletsAndSecurityDomains.length).to.equal(1)
     expect(inventory.appletsAndSecurityDomains[0].aid).to.equal('FF6974656D01')
+  })
+
+  it('parses multiple multi-module Executable Load Files correctly in GET STATUS', async () => {
+    const hostChallenge = hexToUint8('1122334455667788')
+    const initUpdateResp = mockInitUpdateResponse()
+
+    // 1. P1=0x20: ELF 1 (FF6974656D01) and ELF 2 (FF6974656D02)
+    const getStatusElf = new Uint8Array([
+      0x06,
+      0xff,
+      0x69,
+      0x74,
+      0x65,
+      0x6d,
+      0x01,
+      0x01, // ELF 1
+      0x06,
+      0xff,
+      0x69,
+      0x74,
+      0x65,
+      0x6d,
+      0x02,
+      0x01, // ELF 2
+      0x90,
+      0x00,
+    ])
+    // 2. P1=0x10: ELF 1 has 2 modules (Mod 1A: FF6974656D0101, Mod 1B: FF6974656D0102)
+    //             ELF 2 has 1 module (Mod 2A: FF6974656D0201)
+    const getStatusMod = new Uint8Array([
+      // ELF 1: [len 6] [AID FF6974656D01] [state 01] [numModules 2] [m1Len 7] [FF6974656D0101] [m2Len 7] [FF6974656D0102]
+      0x06,
+      0xff, 0x69, 0x74, 0x65, 0x6d, 0x01, 0x01, 0x02, 0x07, 0xff, 0x69, 0x74, 0x65, 0x6d, 0x01, 0x01, 0x07, 0xff, 0x69,
+      0x74, 0x65, 0x6d, 0x01, 0x02,
+      // ELF 2: [len 6] [AID FF6974656D02] [state 01] [numModules 1] [m1Len 7] [FF6974656D0201]
+      0x06, 0xff, 0x69, 0x74, 0x65, 0x6d, 0x02, 0x01, 0x01, 0x07, 0xff, 0x69, 0x74, 0x65, 0x6d, 0x02, 0x01, 0x90, 0x00,
+    ])
+    // 3. P1=0x40: 2 Applet instances
+    const getStatusApp = new Uint8Array([
+      0x07, 0xff, 0x69, 0x74, 0x65, 0x6d, 0x01, 0x01, 0x07, 0x01, 0x00, 0x07, 0xff, 0x69, 0x74, 0x65, 0x6d, 0x02, 0x01,
+      0x07, 0x01, 0x00, 0x90, 0x00,
+    ])
+
+    const transport = new MockTransport([
+      new Uint8Array([0x90, 0x00]), // 1. SELECT
+      initUpdateResp, // 2. INIT UPDATE
+      new Uint8Array([0x90, 0x00]), // 3. EXT AUTH
+      getStatusElf, // 4. GET STATUS (0x20)
+      getStatusMod, // 5. GET STATUS (0x10)
+      getStatusApp, // 6. GET STATUS (0x40)
+    ])
+
+    const reader = new Reader(transport)
+    await reader.connect()
+    const cardManager = new GlobalPlatformCardManager(reader)
+    await cardManager.selectCardManager(DEFAULT_ISD_AID)
+    await cardManager.openSecureChannelScp02(keySet, GpSecurityLevel.C_DECRYPTION_AND_C_MAC, hostChallenge)
+
+    const inventory = await cardManager.getCardInventory()
+    expect(inventory.executableLoadFiles.length).to.equal(2)
+    expect(inventory.executableLoadFiles[0].aid).to.equal('FF6974656D01')
+    expect(inventory.executableLoadFiles[1].aid).to.equal('FF6974656D02')
+
+    // Executable modules must contain entries for all 3 modules across the 2 ELFs without losing any records
+    expect(inventory.executableModules.length).to.equal(3)
+    expect(inventory.executableModules[0].executableLoadFileAid).to.equal('FF6974656D01')
+    expect(inventory.executableModules[0].executableModuleAid).to.equal('FF6974656D0101')
+    expect(inventory.executableModules[1].executableLoadFileAid).to.equal('FF6974656D01')
+    expect(inventory.executableModules[1].executableModuleAid).to.equal('FF6974656D0102')
+    expect(inventory.executableModules[2].executableLoadFileAid).to.equal('FF6974656D02')
+    expect(inventory.executableModules[2].executableModuleAid).to.equal('FF6974656D0201')
+
+    expect(inventory.appletsAndSecurityDomains.length).to.equal(2)
   })
 
   it('supports cancellation via AbortSignal in all loops', async () => {
