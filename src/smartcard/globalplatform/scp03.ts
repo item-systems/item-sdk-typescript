@@ -42,9 +42,14 @@ export class Scp03Session {
   }
 
   /**
-   * Derive SCP03 session keys via NIST SP 800-108 KDF with AES-CMAC.
+   * Derive SCP03 session keys via NIST SP 800-108 KDF in Counter Mode with AES-CMAC.
    *
-   * Derivation Data: Label (11B zero || constant 1B) || 0x00 || L (2B) || i=1 (1B) || Context (hostChal || cardChal)
+   * Per GP 2.3 Amendment D Section 4.1.5:
+   * Derivation Data: Label (11B zero || constant 1B) || 0x00 || L (2B) || i (1B) || Context (hostChal || cardChal)
+   *
+   * For AES-128 (16B / 128-bit key), 1 iteration (i=1, 16 bytes) is produced.
+   * For AES-192 (24B) or AES-256 (32B), multiple iterations (i=1, i=2...) are concatenated
+   * and truncated to the required key length.
    */
   public static deriveSessionKeys(
     staticKey: Uint8Array,
@@ -54,25 +59,39 @@ export class Scp03Session {
     const keyLenBits = staticKey.length * 8
     const lBytes = [(keyLenBits >> 8) & 0xff, keyLenBits & 0xff]
 
-    const buildDerivationData = (constant: number): Uint8Array => {
-      const data = new Uint8Array(11 + 1 + 1 + 2 + 1 + hostChallenge.length + cardChallenge.length)
-      // 11 bytes of 0x00
-      data[11] = constant
-      data[12] = 0x00 // separator
-      data[13] = lBytes[0]
-      data[14] = lBytes[1]
-      data[15] = 0x01 // counter i = 1
-      data.set(hostChallenge, 16)
-      data.set(cardChallenge, 16 + hostChallenge.length)
-      return data
+    const kdf = (constant: number): Uint8Array => {
+      const neededBytes = staticKey.length
+      const result = new Uint8Array(neededBytes)
+      let generated = 0
+      let counter = 1
+
+      while (generated < neededBytes) {
+        const data = new Uint8Array(11 + 1 + 1 + 2 + 1 + hostChallenge.length + cardChallenge.length)
+        // 11 bytes of 0x00
+        data[11] = constant
+        data[12] = 0x00 // separator
+        data[13] = lBytes[0]
+        data[14] = lBytes[1]
+        data[15] = counter & 0xff // counter i
+        data.set(hostChallenge, 16)
+        data.set(cardChallenge, 16 + hostChallenge.length)
+
+        const block = calculateAesCmac(staticKey, data)
+        const toCopy = Math.min(block.length, neededBytes - generated)
+        result.set(block.subarray(0, toCopy), generated)
+        generated += toCopy
+        counter++
+      }
+
+      return result
     }
 
     // Constants from GP 2.3 Amendment D:
     // S-ENC: 0x04, S-MAC: 0x06, S-RMAC: 0x07, S-DEK: 0x08
-    const sEnc = calculateAesCmac(staticKey, buildDerivationData(0x04))
-    const sMac = calculateAesCmac(staticKey, buildDerivationData(0x06))
-    const sRMac = calculateAesCmac(staticKey, buildDerivationData(0x07))
-    const sDek = calculateAesCmac(staticKey, buildDerivationData(0x08))
+    const sEnc = kdf(0x04)
+    const sMac = kdf(0x06)
+    const sRMac = kdf(0x07)
+    const sDek = kdf(0x08)
 
     return { sEnc, sMac, sRMac, sDek }
   }

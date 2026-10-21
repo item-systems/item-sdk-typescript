@@ -21,6 +21,8 @@ import {
 } from '../../src/smartcard/globalplatform/crypto'
 import { Scp02Session } from '../../src/smartcard/globalplatform/scp02'
 import { Scp03Session } from '../../src/smartcard/globalplatform/scp03'
+import { buildLoadFileDataBlock, extractCapComponentsFromZip } from '../../src/smartcard/globalplatform/cap-parser'
+import { deflateRawSync } from 'zlib'
 
 describe('GlobalPlatform Cryptography and Secure Channel Protocols', () => {
   const factory3DesKey = hexToUint8('404142434445464748494A4B4C4D4E4F') // 16-byte default test key (40..4F)
@@ -67,7 +69,7 @@ describe('GlobalPlatform Cryptography and Secure Channel Protocols', () => {
   })
 
   describe('SCP02 Session & Key Derivation', () => {
-    it('derives session keys and computes card/host cryptograms', () => {
+    it('derives session keys using 3DES-CBC per GP 2.2 Appendix E.4.1', () => {
       const seqCounter = hexToUint8('0001')
       const { sEnc, sMac, sDek } = Scp02Session.deriveSessionKeys(
         factory3DesKey,
@@ -108,22 +110,35 @@ describe('GlobalPlatform Cryptography and Secure Channel Protocols', () => {
     })
   })
 
-  describe('SCP03 Session & Key Derivation', () => {
-    it('derives session keys and computes SCP03 cryptograms', () => {
+  describe('SCP03 Session & Multi-Block Key Derivation', () => {
+    it('derives 32-byte session keys for AES-256 via multi-block SP 800-108 KDF', () => {
       const hostChallenge = hexToUint8('1122334455667788')
       const cardChallenge = hexToUint8('8877665544332211')
 
+      // factoryAesKey is 32 bytes (AES-256)
       const { sEnc, sMac, sRMac, sDek } = Scp03Session.deriveSessionKeys(factoryAesKey, hostChallenge, cardChallenge)
-      expect(sEnc.length).to.equal(16)
-      expect(sMac.length).to.equal(16)
-      expect(sRMac.length).to.equal(16)
-      expect(sDek.length).to.equal(16)
+      expect(sEnc.length).to.equal(32)
+      expect(sMac.length).to.equal(32)
+      expect(sRMac.length).to.equal(32)
+      expect(sDek.length).to.equal(32)
 
       const cardCryptogram = Scp03Session.calculateCardCryptogram(sMac, hostChallenge, cardChallenge)
       expect(cardCryptogram.length).to.equal(8)
 
       const hostCryptogram = Scp03Session.calculateHostCryptogram(sMac, hostChallenge, cardChallenge)
       expect(hostCryptogram.length).to.equal(8)
+    })
+
+    it('derives 16-byte session keys for AES-128', () => {
+      const aes128Key = hexToUint8('404142434445464748494A4B4C4D4E4F')
+      const hostChallenge = hexToUint8('1122334455667788')
+      const cardChallenge = hexToUint8('8877665544332211')
+
+      const { sEnc, sMac, sRMac, sDek } = Scp03Session.deriveSessionKeys(aes128Key, hostChallenge, cardChallenge)
+      expect(sEnc.length).to.equal(16)
+      expect(sMac.length).to.equal(16)
+      expect(sRMac.length).to.equal(16)
+      expect(sDek.length).to.equal(16)
     })
 
     it('wraps command APDUs with SCP03 C-MAC and C-DECRYPTION', () => {
@@ -139,6 +154,58 @@ describe('GlobalPlatform Cryptography and Secure Channel Protocols', () => {
       expect(wrapped[1]).to.equal(0xe4)
     })
   })
+
+  describe('CAP Parser & Load File Data Block (Tag 0xC4) Construction', () => {
+    function buildMockZip(entries: Array<{ name: string; data: Uint8Array }>): Uint8Array {
+      const chunks: Buffer[] = []
+      for (const entry of entries) {
+        const nameBuf = Buffer.from(entry.name, 'utf8')
+        const deflated = deflateRawSync(Buffer.from(entry.data))
+        const header = Buffer.alloc(30)
+        header.writeUInt32LE(0x04034b50, 0)
+        header.writeUInt16LE(20, 4) // Version needed
+        header.writeUInt16LE(0, 6) // Flags
+        header.writeUInt16LE(8, 8) // Deflate
+        header.writeUInt16LE(0, 10) // Mod time
+        header.writeUInt16LE(0, 12) // Mod date
+        header.writeUInt32LE(0, 14) // CRC32 (ignored in test)
+        header.writeUInt32LE(deflated.length, 18) // Compressed size
+        header.writeUInt32LE(entry.data.length, 22) // Uncompressed size
+        header.writeUInt16LE(nameBuf.length, 26)
+        header.writeUInt16LE(0, 28) // Extra field length
+
+        chunks.push(header, nameBuf, deflated)
+      }
+      return new Uint8Array(Buffer.concat(chunks))
+    }
+
+    it('unpacks ZIP CAP archive and builds Tag 0xC4 Load File Data Block', () => {
+      // Mock components: Header (tag 1), Directory (tag 2), Import (tag 4)
+      const headerComp = new Uint8Array([0x01, 0x00, 0x04, 0xaa, 0xbb])
+      const dirComp = new Uint8Array([0x02, 0x00, 0x03, 0xcc, 0xdd])
+      const importComp = new Uint8Array([0x04, 0x00, 0x02, 0xee])
+
+      const zipCap = buildMockZip([
+        { name: 'pkg/javacard/Import.cap', data: importComp },
+        { name: 'pkg/javacard/Header.cap', data: headerComp },
+        { name: 'pkg/javacard/Directory.cap', data: dirComp },
+      ])
+
+      const components = extractCapComponentsFromZip(zipCap)
+      expect(components.get(1)).to.deep.equal(headerComp)
+      expect(components.get(2)).to.deep.equal(dirComp)
+      expect(components.get(4)).to.deep.equal(importComp)
+
+      const c4Block = buildLoadFileDataBlock(zipCap)
+      expect(c4Block[0]).to.equal(0xc4) // Tag 0xC4
+      // Total payload length = header (5) + dir (5) + import (4) = 14
+      expect(c4Block[1]).to.equal(14)
+      // Check canonical order: Header (Tag 1), Directory (Tag 2), Import (Tag 4)
+      expect(c4Block[2]).to.equal(0x01)
+      expect(c4Block[7]).to.equal(0x02)
+      expect(c4Block[12]).to.equal(0x04)
+    })
+  })
 })
 
 describe('GlobalPlatform Card Manager and Provisioner Workflows', () => {
@@ -149,7 +216,7 @@ describe('GlobalPlatform Card Manager and Provisioner Workflows', () => {
     dekKey: hexToUint8('404142434445464748494A4B4C4D4E4F'),
   }
 
-  it('executes SELECT, INITIALIZE UPDATE, and EXTERNAL AUTHENTICATE sequence against MockTransport', async () => {
+  it('executes SELECT, INITIALIZE UPDATE, and EXTERNAL AUTHENTICATE sequence (with unencrypted HostCrypto) against MockTransport', async () => {
     const hostChallenge = hexToUint8('1122334455667788')
     const seqCounter = hexToUint8('0001')
     const cardChallenge = hexToUint8('AABBCCDDEEFF')
@@ -195,6 +262,140 @@ describe('GlobalPlatform Card Manager and Provisioner Workflows', () => {
     expect(session).to.be.instanceOf(Scp02Session)
   })
 
+  it('executes SCP03 with correct 1-byte option offset parsing', async () => {
+    const hostChallenge = hexToUint8('1122334455667788')
+    const aesKey = hexToUint8('404142434445464748494A4B4C4D4E4F404142434445464748494A4B4C4D4E4F')
+    const cardChallenge = hexToUint8('AABBCCDDEEFF0011')
+
+    const { sMac } = Scp03Session.deriveSessionKeys(aesKey, hostChallenge, cardChallenge)
+    const cardCryptogram = Scp03Session.calculateCardCryptogram(sMac, hostChallenge, cardChallenge)
+
+    // Construct mock SCP03 INITIALIZE UPDATE response (29 bytes + SW 9000):
+    // KeyDiv(10B, 0..9) || KeyVer(1B, 10) || SCP(1B, 11) || Option(1B, 12) || CardChal(8B, 13..20) || CardCrypto(8B, 21..28) || 9000
+    const initUpdateResp = new Uint8Array([
+      ...hexToUint8('01020304050607080910'),
+      0x01, // Key Version (index 10)
+      0x03, // SCP03 (index 11)
+      0x10, // SCP03 Implementation option (index 12)
+      ...cardChallenge, // Card Challenge (index 13..20)
+      ...cardCryptogram, // Card Cryptogram (index 21..28)
+      0x90,
+      0x00,
+    ])
+
+    const transport = new MockTransport([
+      new Uint8Array([0x90, 0x00]), // 1. SELECT Card Manager
+      initUpdateResp, // 2. INITIALIZE UPDATE
+      new Uint8Array([0x90, 0x00]), // 3. EXTERNAL AUTHENTICATE
+    ])
+
+    const reader = new Reader(transport)
+    await reader.connect()
+
+    const cardManager = new GlobalPlatformCardManager(reader)
+    await cardManager.selectCardManager(DEFAULT_ISD_AID)
+
+    const session = await cardManager.openSecureChannelScp03(
+      aesKey,
+      0x01,
+      GpSecurityLevel.C_DECRYPTION_AND_C_MAC,
+      hostChallenge
+    )
+
+    expect(session).to.be.instanceOf(Scp03Session)
+  })
+
+  it('re-throws genuine deletion errors while ignoring benign 0x6A88 not found errors during clean wipe', async () => {
+    const hostChallenge = hexToUint8('1122334455667788')
+    const seqCounter = hexToUint8('0001')
+    const cardChallenge = hexToUint8('AABBCCDDEEFF')
+
+    const { sEnc } = Scp02Session.deriveSessionKeys(keySet.encKey, keySet.macKey, keySet.dekKey, seqCounter)
+    const cardChallenge8 = new Uint8Array(8)
+    cardChallenge8.set(seqCounter, 0)
+    cardChallenge8.set(cardChallenge, 2)
+    const cardCryptogram = Scp02Session.calculateCardCryptogram(sEnc, hostChallenge, cardChallenge8)
+
+    const initUpdateResp = new Uint8Array([
+      ...hexToUint8('01020304050607080910'),
+      0x01,
+      0x02,
+      ...seqCounter,
+      ...cardChallenge,
+      ...cardCryptogram,
+      0x90,
+      0x00,
+    ])
+
+    // Scenario 1: SW 0x6A88 (Not found) is ignored during wipe
+    const transportPass = new MockTransport([
+      new Uint8Array([0x90, 0x00]), // 1. SELECT
+      initUpdateResp, // 2. INIT UPDATE
+      new Uint8Array([0x90, 0x00]), // 3. EXT AUTH
+      new Uint8Array([0x6a, 0x88]), // 4. DELETE -> 0x6A88 (Not found, ignored)
+      new Uint8Array([0x90, 0x00]), // 5. INSTALL [for load]
+      new Uint8Array([0x90, 0x00]), // 6. LOAD
+    ])
+
+    const readerPass = new Reader(transportPass)
+    await readerPass.connect()
+    const provPass = new GlobalPlatformProvisioner(readerPass)
+    await provPass.provisionTopology(
+      [
+        {
+          name: 'pkg',
+          packageAid: 'FF6974656D',
+          capBytes: new Uint8Array([0xc4, 0x02, 0x01, 0x00]),
+          isLibrary: true,
+        },
+      ],
+      {
+        keySet,
+        hostChallenge,
+        cleanWipeExisting: true,
+        existingAidsToDelete: ['FF6974656D'],
+      }
+    )
+
+    // Scenario 2: SW 0x6982 (Security status not satisfied) MUST be re-thrown!
+    const transportFail = new MockTransport([
+      new Uint8Array([0x90, 0x00]), // 1. SELECT
+      initUpdateResp, // 2. INIT UPDATE
+      new Uint8Array([0x90, 0x00]), // 3. EXT AUTH
+      new Uint8Array([0x69, 0x82]), // 4. DELETE -> 0x6982 (Auth error)
+    ])
+
+    const readerFail = new Reader(transportFail)
+    await readerFail.connect()
+    const provFail = new GlobalPlatformProvisioner(readerFail)
+
+    let caughtError: Error | null = null
+    try {
+      await provFail.provisionTopology(
+        [
+          {
+            name: 'pkg',
+            packageAid: 'FF6974656D',
+            capBytes: new Uint8Array([0xc4, 0x02, 0x01, 0x00]),
+            isLibrary: true,
+          },
+        ],
+        {
+          keySet,
+          hostChallenge,
+          cleanWipeExisting: true,
+          existingAidsToDelete: ['FF6974656D'],
+        }
+      )
+    } catch (e: unknown) {
+      caughtError = e as Error
+    }
+
+    expect(caughtError).to.be.instanceOf(Error)
+    expect(caughtError?.message).to.include('Failed to delete package')
+    expect(caughtError?.message).to.include('0x6982')
+  })
+
   it('provisions a multi-CAP topology using GlobalPlatformProvisioner', async () => {
     const hostChallenge = hexToUint8('1122334455667788')
     const seqCounter = hexToUint8('0001')
@@ -238,13 +439,13 @@ describe('GlobalPlatform Card Manager and Provisioner Workflows', () => {
       {
         name: '01_item-api',
         packageAid: 'FF6974656D7379730300FF',
-        capBytes: new Uint8Array([0x01, 0x02, 0x03, 0x04]),
+        capBytes: new Uint8Array([0xc4, 0x04, 0x01, 0x00, 0x02, 0x00]),
         isLibrary: true,
       },
       {
         name: '02_item-javacard',
         packageAid: 'FF6974656D737973030000',
-        capBytes: new Uint8Array([0x05, 0x06, 0x07, 0x08]),
+        capBytes: new Uint8Array([0xc4, 0x04, 0x01, 0x00, 0x02, 0x00]),
         appletAid: 'FF6974656D73797303000000',
         instanceAid: 'FF6974656D73797303000000',
         privileges: '00',
