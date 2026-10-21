@@ -137,3 +137,28 @@ From `constants`:
 - `NeoN3NetworkOptions`
 - `NeoN3EllipticCurves`
 - `Challenges`
+
+
+## Smartcard and Microkernel Subsystem
+
+Exported via `smartcard` namespace:
+
+### Reader and Transport
+- `CardReader` — high-level card command dispatcher
+- `PcscTransport` — PC/SC smartcard interface
+- `WebcardTransport` — WebCard browser transport
+- `MockTransport` — deterministic mock transport for automated testing
+
+### Secure Tunnel (v1)
+- `SecureChannel` — ECDH P-256 session handshake, AES-256-CBC encryption, AES-CMAC integrity
+
+### In-Band Bytecode Loader
+- `InBandBytecodeLoader` — streaming JavaCard CAP binaries over `INS 0x30` with on-card SHA-256 validation
+
+### SIO Plugin Management
+- `PluginManager` — administrative client for `PluginRegistry` (register, query, update, delete, set active NDEF provider)
+
+### Microkernel APDUs and Parsers
+- Commands: `TunnelCommand`, `MasterKeyStatsCommand`, `MasterKeySetPolicyCommand`, `MasterKeyDeleteCommand`, `KeyRingSetPolicyCommand`, `KeyRingDeleteCommand`, `KeyRingDeriveCommand`, `PluginRegisterCommand`, `PluginQueryCommand`, `PluginUpdateCommand`, `PluginDeleteCommand`, `PluginSetActiveNdefProviderCommand`, `PackageBeginCommand`, `PackageStreamCommand`, `PackageCommitCommand`
+- Responses: `MasterKeyStatsResponse`, `PluginQueryResponse`, `PackageCommitResponse`, `ResponseAPDU`
+- Constants & Types: `StatusWord`, `MicrokernelResourceFlags`, `MasterKeyStats`, `KeyRingInfo`, `PluginInfo`
