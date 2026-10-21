@@ -20,6 +20,7 @@ export interface GpInstalledElement {
   lifeCycleState: number
   privileges?: string
   executableLoadFileAid?: string
+  executableModuleAid?: string
   versionNumber?: string
 }
 
@@ -229,6 +230,7 @@ export class GlobalPlatformCardManager {
 
         let privileges: string | undefined
         let executableLoadFileAid: string | undefined
+        let executableModuleAid: string | undefined
         let versionNumber: string | undefined
 
         // If P1 == 0x40 or 0x80 (Applets / SDs), privileges follows lifecycle
@@ -242,13 +244,28 @@ export class GlobalPlatformCardManager {
           }
         }
 
-        // If P1 == 0x10 (Executable modules), module format is: Executable Load File AID, Executable Module AID
+        // If P1 == 0x10 (Executable modules), format is:
+        // [ELF AID Len] [ELF AID] [LifeCycleState] [Num Modules] ([Module AID Len] [Module AID])*
+        // OR [ELF AID Len] [ELF AID] [LifeCycleState] [Module AID Len] [Module AID]
         if (p1 === 0x10) {
+          executableLoadFileAid = aid
           if (off < data.length) {
-            const extraAidLen = data[off]
-            if (off + 1 + extraAidLen <= data.length) {
-              executableLoadFileAid = aid
-              off += 1 + extraAidLen
+            const modAidLen = data[off]
+            if (off + 1 + modAidLen <= data.length) {
+              executableModuleAid = uint8ToHex(data.subarray(off + 1, off + 1 + modAidLen)).toUpperCase()
+              off += 1 + modAidLen
+            }
+          }
+        }
+
+        // If P1 == 0x20 (Executable Load Files), optional version/hash TLVs follow
+        if (p1 === 0x20) {
+          // Check for optional trailing version/metadata TLV if present
+          if (off < data.length && data[off] === 0xce) {
+            const tlvLen = data[off + 1]
+            if (off + 2 + tlvLen <= data.length) {
+              versionNumber = uint8ToHex(data.subarray(off + 2, off + 2 + tlvLen))
+              off += 2 + tlvLen
             }
           }
         }
@@ -258,6 +275,7 @@ export class GlobalPlatformCardManager {
           lifeCycleState,
           privileges,
           executableLoadFileAid,
+          executableModuleAid,
           versionNumber,
         })
       }

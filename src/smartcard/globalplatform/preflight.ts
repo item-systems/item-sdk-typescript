@@ -64,6 +64,26 @@ export interface TopologyPreflightInput {
   isLibrary?: boolean
   appletAid?: string
   instanceAid?: string
+  privileges?: string
+  installParams?: string
+}
+
+function normalizeHex(hex: string): string {
+  return hex
+    .replace(/^0x/i, '')
+    .replace(/[\s_:-]/g, '')
+    .toUpperCase()
+}
+
+function isValidAidHex(hex: string): boolean {
+  const norm = normalizeHex(hex)
+  return /^[0-9A-F]+$/.test(norm) && norm.length >= 10 && norm.length <= 32 && norm.length % 2 === 0
+}
+
+function isValidHexBytes(hex: string): boolean {
+  const norm = normalizeHex(hex)
+  if (norm.length === 0) return true
+  return /^[0-9A-F]+$/.test(norm) && norm.length % 2 === 0
 }
 
 /**
@@ -79,6 +99,14 @@ export interface TopologyPreflightInput {
  */
 export function validateCap(capBytes: Uint8Array, declaredPackageAid?: string): CapValidationResult {
   const errors: string[] = []
+
+  if (!capBytes || capBytes.length === 0) {
+    return {
+      valid: false,
+      errors: ['Invalid CAP file: empty or null byte buffer'],
+    }
+  }
+
   const unwrapped = unwrapLoadFileDataBlock(capBytes)
 
   let components = extractCapComponentsFromZip(capBytes)
@@ -127,10 +155,14 @@ export function validateCap(capBytes: Uint8Array, declaredPackageAid?: string): 
     return { valid: false, errors }
   }
 
+  if (pkgAidLen < 5 || pkgAidLen > 16) {
+    errors.push(`Invalid package AID length in Header.cap: ${pkgAidLen} bytes (expected 5..16 bytes per ISO 7816-4)`)
+  }
+
   const parsedPackageAid = uint8ToHex(header.subarray(13, 13 + pkgAidLen)).toUpperCase()
 
   if (declaredPackageAid) {
-    const cleanDeclared = declaredPackageAid.replace(/^0x/i, '').toUpperCase()
+    const cleanDeclared = normalizeHex(declaredPackageAid)
     if (parsedPackageAid !== cleanDeclared) {
       errors.push(
         `Package AID mismatch: Header.cap contains ${parsedPackageAid}, but topology declared ${cleanDeclared}`
@@ -221,31 +253,107 @@ export function validateCap(capBytes: Uint8Array, declaredPackageAid?: string): 
  * Perform a full offline preflight check across a multi-package deployment topology.
  *
  * Verifies:
- * 1. Every CAP in the topology is strictly valid.
- * 2. Package AIDs match declarations.
- * 3. All package dependencies (Import.cap) are satisfied either by the topology itself or by standard JavaCard/GlobalPlatform platform packages.
- * 4. Resolves the dependency DAG and determines the strict acyclic topological loading sequence.
- * 5. Detects any circular dependencies or missing requirements before any card operations are performed.
+ * 1. Every entry has valid AID formatting (5..16 bytes, valid hex).
+ * 2. Every CAP in the topology is strictly valid.
+ * 3. Package AIDs match declarations.
+ * 4. Applet and instance AIDs are strictly valid and non-library entries specify applet/instance AIDs defined in Applet.cap.
+ * 5. Privileges and installParams are valid hex strings.
+ * 6. All package dependencies (Import.cap) are satisfied either by the topology itself or by standard JavaCard/GlobalPlatform platform packages.
+ * 7. Resolves the dependency DAG and determines the strict acyclic topological loading sequence.
+ * 8. Detects any circular dependencies or missing requirements before any card operations are performed.
  */
 export function preflightTopology(topology: TopologyPreflightInput[]): TopologyPreflightPlan {
   const errors: string[] = []
   const packageMetadata = new Map<string, CapValidationMetadata>()
   const missingDependencies = new Map<string, string[]>()
   const topologyAids = new Set<string>()
+  const declaredInstanceAids = new Set<string>()
 
-  // 1. Validate each individual CAP
+  if (!topology || topology.length === 0) {
+    return {
+      valid: false,
+      errors: ['Topology is empty: no packages to preflight'],
+      plannedExecutionOrder: [],
+      packageMetadata,
+      missingDependencies,
+    }
+  }
+
+  // 1. Validate each individual entry and CAP
   for (const entry of topology) {
-    const cleanAid = entry.packageAid.replace(/^0x/i, '').toUpperCase()
+    if (!entry.packageAid || !isValidAidHex(entry.packageAid)) {
+      errors.push(
+        `Invalid package AID format in topology entry '${entry.name}': '${entry.packageAid}' (must be 5..16 hex bytes)`
+      )
+      continue
+    }
+
+    const cleanAid = normalizeHex(entry.packageAid)
     if (topologyAids.has(cleanAid)) {
       errors.push(`Duplicate package AID in topology: ${cleanAid} (${entry.name})`)
     }
     topologyAids.add(cleanAid)
 
+    // Validate CAP binary
     const capResult = validateCap(entry.capBytes, cleanAid)
     if (!capResult.valid || !capResult.metadata) {
       errors.push(`Validation failed for ${entry.name} (${cleanAid}): ${capResult.errors.join('; ')}`)
+      continue
+    }
+
+    const meta = capResult.metadata
+    packageMetadata.set(cleanAid, meta)
+
+    // Validate Applet / Instance Metadata
+    if (entry.isLibrary) {
+      if (entry.appletAid || entry.instanceAid) {
+        errors.push(`Entry '${entry.name}' is marked as library (isLibrary=true) but declares appletAid/instanceAid`)
+      }
     } else {
-      packageMetadata.set(cleanAid, capResult.metadata)
+      // If not a library, verify appletAid and instanceAid
+      if (!entry.appletAid) {
+        // If the CAP has applets defined in Applet.cap, appletAid is required
+        if (meta.appletAids.length > 0) {
+          errors.push(
+            `Entry '${entry.name}' defines applet module(s) [${meta.appletAids.join(', ')}] in Applet.cap but lacks declared appletAid`
+          )
+        }
+      } else {
+        if (!isValidAidHex(entry.appletAid)) {
+          errors.push(`Invalid applet AID format in entry '${entry.name}': '${entry.appletAid}'`)
+        } else {
+          const cleanAppletAid = normalizeHex(entry.appletAid)
+          if (!meta.appletAids.includes(cleanAppletAid)) {
+            errors.push(
+              `Declared appletAid '${cleanAppletAid}' in entry '${entry.name}' was not found in CAP Applet.cap modules [${meta.appletAids.join(', ')}]`
+            )
+          }
+        }
+      }
+
+      if (entry.appletAid && !entry.instanceAid) {
+        errors.push(`Entry '${entry.name}' specifies appletAid but is missing instanceAid`)
+      }
+
+      if (entry.instanceAid) {
+        if (!isValidAidHex(entry.instanceAid)) {
+          errors.push(`Invalid instance AID format in entry '${entry.name}': '${entry.instanceAid}'`)
+        } else {
+          const cleanInstAid = normalizeHex(entry.instanceAid)
+          if (declaredInstanceAids.has(cleanInstAid)) {
+            errors.push(`Duplicate instance AID declared in topology: '${cleanInstAid}' in entry '${entry.name}'`)
+          }
+          declaredInstanceAids.add(cleanInstAid)
+        }
+      }
+
+      if (entry.privileges && !isValidHexBytes(entry.privileges)) {
+        errors.push(`Invalid hex string for privileges in entry '${entry.name}': '${entry.privileges}'`)
+      }
+
+      if (entry.installParams && !isValidHexBytes(entry.installParams)) {
+        errors.push(`Invalid hex string for installParams in entry '${entry.name}': '${entry.installParams}'`)
+      }
     }
   }
 
@@ -299,7 +407,6 @@ export function preflightTopology(topology: TopologyPreflightInput[]): TopologyP
   for (const [pkgAid, meta] of packageMetadata.entries()) {
     for (const depAid of meta.importedPackageAids) {
       if (topologyAids.has(depAid) && depAid !== pkgAid) {
-        // depAid must be loaded before pkgAid
         adjacency.get(depAid)!.push(pkgAid)
         inDegree.set(pkgAid, (inDegree.get(pkgAid) || 0) + 1)
       }
@@ -315,8 +422,8 @@ export function preflightTopology(topology: TopologyPreflightInput[]): TopologyP
 
   // If initial queue has multiple items, preserve the original topology array ordering where independent
   queue.sort((a, b) => {
-    const idxA = topology.findIndex(t => t.packageAid.toUpperCase() === a)
-    const idxB = topology.findIndex(t => t.packageAid.toUpperCase() === b)
+    const idxA = topology.findIndex(t => normalizeHex(t.packageAid) === a)
+    const idxB = topology.findIndex(t => normalizeHex(t.packageAid) === b)
     return idxA - idxB
   })
 
@@ -332,8 +439,8 @@ export function preflightTopology(topology: TopologyPreflightInput[]): TopologyP
       if (nextDeg === 0) {
         queue.push(dep)
         queue.sort((a, b) => {
-          const idxA = topology.findIndex(t => t.packageAid.toUpperCase() === a)
-          const idxB = topology.findIndex(t => t.packageAid.toUpperCase() === b)
+          const idxA = topology.findIndex(t => normalizeHex(t.packageAid) === a)
+          const idxB = topology.findIndex(t => normalizeHex(t.packageAid) === b)
           return idxA - idxB
         })
       }

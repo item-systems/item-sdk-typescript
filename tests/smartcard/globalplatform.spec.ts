@@ -30,7 +30,7 @@ import { buildLoadFileDataBlock } from '../../src/smartcard/globalplatform/cap-p
 import { deflateRawSync } from 'zlib'
 
 // Helper to build a valid minimal CAP component set for testing
-function buildValidMockCap(pkgAidHex: string, importedAids: string[] = []): Uint8Array {
+function buildValidMockCap(pkgAidHex: string, importedAids: string[] = [], appletAids: string[] = []): Uint8Array {
   const aidBytes = hexToUint8(pkgAidHex)
   // 1. Header.cap (Tag 1): tag(1B) size(2B) magic(4B: 0xDECAFFED) cap_ver(2B) flags(1B) pkg_ver(2B) pkg_aid_len(1B) pkg_aid
   const headerPayload = new Uint8Array([
@@ -76,6 +76,28 @@ function buildValidMockCap(pkgAidHex: string, importedAids: string[] = []): Uint
     ...importPayload,
   ])
 
+  // 3. Applet.cap (Tag 3): tag(1B) size(2B) count(1B) [aid_len(1B) aid install_method_offset(2B)]*
+  let appletComp = new Uint8Array(0)
+  let appletPayloadLen = 0
+  if (appletAids.length > 0) {
+    appletPayloadLen = 1
+    for (const aAid of appletAids) {
+      appletPayloadLen += 1 + hexToUint8(aAid).length + 2
+    }
+    const appletPayload = new Uint8Array(appletPayloadLen)
+    appletPayload[0] = appletAids.length
+    let aOff = 1
+    for (const aAid of appletAids) {
+      const aBytes = hexToUint8(aAid)
+      appletPayload[aOff++] = aBytes.length
+      appletPayload.set(aBytes, aOff)
+      aOff += aBytes.length
+      appletPayload[aOff++] = 0x00 // install_method_offset MSB
+      appletPayload[aOff++] = 0x00 // install_method_offset LSB
+    }
+    appletComp = new Uint8Array([0x03, (appletPayloadLen >> 8) & 0xff, appletPayloadLen & 0xff, ...appletPayload])
+  }
+
   // Other required dummy components:
   // 5. ConstantPool, 6. Class, 7. Method, 8. StaticField, 9. RefLocation
   const cpComp = new Uint8Array([0x05, 0x00, 0x02, 0x00, 0x00])
@@ -92,6 +114,9 @@ function buildValidMockCap(pkgAidHex: string, importedAids: string[] = []): Uint
   // tag 2 (Directory): 24
   dirPayload[2] = 0x00
   dirPayload[3] = 24
+  // tag 3 (Applet): appletPayloadLen
+  dirPayload[4] = (appletPayloadLen >> 8) & 0xff
+  dirPayload[5] = appletPayloadLen & 0xff
   // tag 4 (Import): importPayload.length
   dirPayload[6] = (importPayload.length >> 8) & 0xff
   dirPayload[7] = importPayload.length & 0xff
@@ -117,6 +142,7 @@ function buildValidMockCap(pkgAidHex: string, importedAids: string[] = []): Uint
     headerComp.length +
     dirComp.length +
     importComp.length +
+    appletComp.length +
     cpComp.length +
     classComp.length +
     methodComp.length +
@@ -131,6 +157,10 @@ function buildValidMockCap(pkgAidHex: string, importedAids: string[] = []): Uint
   wOff += dirComp.length
   rawStream.set(importComp, wOff)
   wOff += importComp.length
+  if (appletComp.length > 0) {
+    rawStream.set(appletComp, wOff)
+    wOff += appletComp.length
+  }
   rawStream.set(cpComp, wOff)
   wOff += cpComp.length
   rawStream.set(classComp, wOff)
@@ -437,37 +467,37 @@ describe('Strict CAP Validation & Topology Preflight Engine', () => {
     // Pkg C depends on Pkg B
     // Pkg B depends on Pkg A
     // Pkg A has no user dependencies (only java.lang)
-    const capA = buildValidMockCap('FF0001', ['A0000000620001'])
-    const capB = buildValidMockCap('FF0002', ['FF0001'])
-    const capC = buildValidMockCap('FF0003', ['FF0002'])
+    const capA = buildValidMockCap('FF6974656D01', ['A0000000620001'])
+    const capB = buildValidMockCap('FF6974656D02', ['FF6974656D01'])
+    const capC = buildValidMockCap('FF6974656D03', ['FF6974656D02'])
 
     // Pass in reverse order (C, B, A) to ensure preflight correctly re-orders
     const preflight = preflightTopology([
-      { name: 'PkgC', packageAid: 'FF0003', capBytes: capC },
-      { name: 'PkgB', packageAid: 'FF0002', capBytes: capB },
-      { name: 'PkgA', packageAid: 'FF0001', capBytes: capA },
+      { name: 'PkgC', packageAid: 'FF6974656D03', capBytes: capC, isLibrary: true },
+      { name: 'PkgB', packageAid: 'FF6974656D02', capBytes: capB, isLibrary: true },
+      { name: 'PkgA', packageAid: 'FF6974656D01', capBytes: capA, isLibrary: true },
     ])
 
     expect(preflight.valid).to.equal(true)
-    expect(preflight.plannedExecutionOrder).to.deep.equal(['FF0001', 'FF0002', 'FF0003'])
+    expect(preflight.plannedExecutionOrder).to.deep.equal(['FF6974656D01', 'FF6974656D02', 'FF6974656D03'])
   })
 
   it('detects unfulfilled missing dependencies before execution', () => {
-    const capA = buildValidMockCap('FF0001', ['DEADBEEF0001']) // Imports non-existent package
-    const preflight = preflightTopology([{ name: 'PkgA', packageAid: 'FF0001', capBytes: capA }])
+    const capA = buildValidMockCap('FF6974656D01', ['DEADBEEF000101']) // Imports non-existent package
+    const preflight = preflightTopology([{ name: 'PkgA', packageAid: 'FF6974656D01', capBytes: capA, isLibrary: true }])
 
     expect(preflight.valid).to.equal(false)
-    expect(preflight.errors[0]).to.include('requires missing dependency AIDs: DEADBEEF0001')
+    expect(preflight.errors[0]).to.include('requires missing dependency AIDs: DEADBEEF000101')
   })
 
   it('detects circular dependencies in package imports', () => {
     // Pkg A imports Pkg B, and Pkg B imports Pkg A (cycle)
-    const capA = buildValidMockCap('FF0001', ['FF0002'])
-    const capB = buildValidMockCap('FF0002', ['FF0001'])
+    const capA = buildValidMockCap('FF6974656D01', ['FF6974656D02'])
+    const capB = buildValidMockCap('FF6974656D02', ['FF6974656D01'])
 
     const preflight = preflightTopology([
-      { name: 'PkgA', packageAid: 'FF0001', capBytes: capA },
-      { name: 'PkgB', packageAid: 'FF0002', capBytes: capB },
+      { name: 'PkgA', packageAid: 'FF6974656D01', capBytes: capA, isLibrary: true },
+      { name: 'PkgB', packageAid: 'FF6974656D02', capBytes: capB, isLibrary: true },
     ])
 
     expect(preflight.valid).to.equal(false)
@@ -569,8 +599,8 @@ describe('GlobalPlatform Card Manager, Inventory & Resilient Provisioning Workfl
     const hostChallenge = hexToUint8('1122334455667788')
     const initUpdateResp = mockInitUpdateResponse()
 
-    // Inventory already contains Pkg A ('FF0001')
-    const getStatusElf = new Uint8Array([0x03, 0xff, 0x00, 0x01, 0x01, 0x90, 0x00])
+    // Inventory already contains Pkg A ('FF6974656D01')
+    const getStatusElf = new Uint8Array([0x06, 0xff, 0x69, 0x74, 0x65, 0x6d, 0x01, 0x01, 0x90, 0x00])
     const getStatusMod = new Uint8Array([0x90, 0x00])
     const getStatusApp = new Uint8Array([0x90, 0x00])
 
@@ -589,15 +619,15 @@ describe('GlobalPlatform Card Manager, Inventory & Resilient Provisioning Workfl
     await reader.connect()
     const provisioner = new GlobalPlatformProvisioner(reader)
 
-    const capA = buildValidMockCap('FF0001')
-    const capB = buildValidMockCap('FF0002')
+    const capA = buildValidMockCap('FF6974656D01')
+    const capB = buildValidMockCap('FF6974656D02')
 
     const progressEvents: ProvisioningProgressEvent[] = []
 
     await provisioner.provisionTopology(
       [
-        { name: 'PkgA', packageAid: 'FF0001', capBytes: capA, isLibrary: true },
-        { name: 'PkgB', packageAid: 'FF0002', capBytes: capB, isLibrary: true },
+        { name: 'PkgA', packageAid: 'FF6974656D01', capBytes: capA, isLibrary: true },
+        { name: 'PkgB', packageAid: 'FF6974656D02', capBytes: capB, isLibrary: true },
       ],
       {
         keySet,
@@ -626,14 +656,14 @@ describe('GlobalPlatform Card Manager, Inventory & Resilient Provisioning Workfl
         [
           {
             name: 'CorruptedPkg',
-            packageAid: 'FF0001',
+            packageAid: 'FF6974656D01',
             capBytes: new Uint8Array([0x00, 0x01, 0x02]), // Invalid CAP
           },
         ],
         {
           keySet,
           cleanWipeExisting: true,
-          existingAidsToDelete: ['FF0001'],
+          existingAidsToDelete: ['FF6974656D01'],
         }
       )
     } catch (e: unknown) {
@@ -642,5 +672,99 @@ describe('GlobalPlatform Card Manager, Inventory & Resilient Provisioning Workfl
 
     expect(caughtError).to.be.instanceOf(Error)
     expect(caughtError?.message).to.include('Topology Preflight Validation Failed')
+  })
+
+  it('reloads a package if wiped during clean-wipe even when previously present in inventory', async () => {
+    const hostChallenge = hexToUint8('1122334455667788')
+    const initUpdateResp = mockInitUpdateResponse()
+
+    // Inventory initially contains Pkg A ('FF6974656D01') and Pkg B ('FF6974656D02')
+    const getStatusElf = new Uint8Array([
+      0x06, 0xff, 0x69, 0x74, 0x65, 0x6d, 0x01, 0x01, 0x06, 0xff, 0x69, 0x74, 0x65, 0x6d, 0x02, 0x01, 0x90, 0x00,
+    ])
+    const getStatusMod = new Uint8Array([0x90, 0x00])
+    const getStatusApp = new Uint8Array([0x90, 0x00])
+
+    const transport = new MockTransport([
+      new Uint8Array([0x90, 0x00]), // 1. SELECT
+      initUpdateResp, // 2. INIT UPDATE
+      new Uint8Array([0x90, 0x00]), // 3. EXT AUTH
+      new Uint8Array([0x90, 0x00]), // 4. DELETE Pkg A (clean wipe)
+      getStatusElf, // 5. GET STATUS 0x20
+      getStatusMod, // 6. GET STATUS 0x10
+      getStatusApp, // 7. GET STATUS 0x40
+      new Uint8Array([0x90, 0x00]), // 8. INSTALL [for load] Pkg A (must reload because it was wiped!)
+      new Uint8Array([0x90, 0x00]), // 9. LOAD Pkg A chunk 1
+    ])
+
+    const reader = new Reader(transport)
+    await reader.connect()
+    const provisioner = new GlobalPlatformProvisioner(reader)
+
+    const capA = buildValidMockCap('FF6974656D01')
+    const capB = buildValidMockCap('FF6974656D02')
+
+    const progressEvents: ProvisioningProgressEvent[] = []
+
+    await provisioner.provisionTopology(
+      [
+        { name: 'PkgA', packageAid: 'FF6974656D01', capBytes: capA, isLibrary: true },
+        { name: 'PkgB', packageAid: 'FF6974656D02', capBytes: capB, isLibrary: true },
+      ],
+      {
+        keySet,
+        hostChallenge,
+        cleanWipeExisting: true,
+        existingAidsToDelete: ['FF6974656D01'], // Explicitly wipe Pkg A
+        reconcileWithInventory: true, // Reconcile mode enabled
+        onProgress: ev => progressEvents.push(ev),
+      }
+    )
+
+    const descriptions = progressEvents.map(e => e.stepDescription)
+    expect(descriptions.some(d => d.includes('Loading PkgA'))).to.equal(true)
+    expect(descriptions.some(d => d.includes('Loading PkgB'))).to.equal(false) // Pkg B skipped as intact
+  })
+
+  it('rejects preflight on invalid AID format or invalid installation parameters', () => {
+    // Valid mock CAP defining Applet.cap with applet module FF6974656D0101
+    const validCap = buildValidMockCap('FF6974656D01', [], ['FF6974656D0101'])
+
+    // 1. Invalid package AID hex
+    const res1 = preflightTopology([{ name: 'BadPkg', packageAid: 'INVALID_HEX', capBytes: validCap, isLibrary: true }])
+    expect(res1.valid).to.equal(false)
+    expect(res1.errors[0]).to.include('Invalid package AID format')
+
+    // 2. Short package AID (< 5 bytes)
+    const res2 = preflightTopology([{ name: 'ShortPkg', packageAid: 'FFAA', capBytes: validCap, isLibrary: true }])
+    expect(res2.valid).to.equal(false)
+    expect(res2.errors[0]).to.include('must be 5..16 hex bytes')
+
+    // 3. Invalid instance AID hex
+    const res3 = preflightTopology([
+      {
+        name: 'BadInst',
+        packageAid: 'FF6974656D01',
+        capBytes: validCap,
+        appletAid: 'FF6974656D0101',
+        instanceAid: 'ZZZZ',
+      },
+    ])
+    expect(res3.valid).to.equal(false)
+    expect(res3.errors[0]).to.include('Invalid instance AID format')
+
+    // 4. Invalid privileges hex
+    const res4 = preflightTopology([
+      {
+        name: 'BadPriv',
+        packageAid: 'FF6974656D01',
+        capBytes: validCap,
+        appletAid: 'FF6974656D0101',
+        instanceAid: 'FF6974656D010101',
+        privileges: 'NOT_HEX',
+      },
+    ])
+    expect(res4.valid).to.equal(false)
+    expect(res4.errors[0]).to.include('Invalid hex string for privileges')
   })
 })
