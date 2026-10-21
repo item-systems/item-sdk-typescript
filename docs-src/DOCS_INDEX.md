@@ -12,6 +12,7 @@ Use this page as the human-oriented map of the SDK documentation.
 - `API_OVERVIEW.md` — public API grouped by domain
 - `WORKFLOW_PLAYBOOKS.md` — end-to-end integration flows
 - `ARCHITECTURE_AND_DATA_MODEL.md` — domain model, relationships, and lifecycle
+- `SMARTCARD_AND_MICROKERNEL.md` — smartcard secure channel, in-band bytecode loader, SIO plugins, and v3.5 microkernel lifecycle
 - `AUTHENTICATION.md` — auth payloads, validation, auth, claim, and purge flows
 - `TEST_VECTORS_AUTH_VERIFY_MAINNET.md` — timestamped public MainNet auth-vector evidence and reproduction boundary
 - `PROOF_NOMENCLATURE_MIGRATION.md` — canonical proof terms, compatibility aliases, and smartcard action boundary
@@ -49,6 +50,8 @@ See `examples/` for small reference snippets that match the docs.
 ### Device / smartcard-focused integrators
 
 1. `README.md`
-2. `UTILS.md`
-3. relevant smartcard API docs in generated TypeDoc
-4. your own transport-specific validation plan
+2. `SMARTCARD_AND_MICROKERNEL.md`
+3. `PROOF_NOMENCLATURE_MIGRATION.md`
+4. `UTILS.md`
+5. relevant smartcard API docs in generated TypeDoc
+6. your own transport-specific validation plan

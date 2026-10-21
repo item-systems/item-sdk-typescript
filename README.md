@@ -23,6 +23,7 @@
 
 - [Workflow playbooks](docs-src/WORKFLOW_PLAYBOOKS.md)
 - [Architecture, data model, and lifecycle](docs-src/ARCHITECTURE_AND_DATA_MODEL.md)
+- [Smartcard and microkernel architecture](docs-src/SMARTCARD_AND_MICROKERNEL.md)
 - [Authentication](docs-src/AUTHENTICATION.md)
 - [Proof nomenclature migration](docs-src/PROOF_NOMENCLATURE_MIGRATION.md)
 - [Tokenized asset contract workflows](docs-src/TOKENIZED_ASSET_CONTRACTS.md)

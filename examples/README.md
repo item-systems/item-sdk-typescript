@@ -11,6 +11,9 @@ Unless explicitly stated otherwise, treat them as illustrative reference snippet
 - `auth-validation.ts` — canonical `verifyAuth` preflight plus clearly separated on-chain authentication example
 - `auth-verify-mainnet.ts` — MainNet-by-default, read-only `verifyAuth` example using environment-provided inputs
 - `tac-workflows.ts` — tokenized asset contract lookup and claim examples
+- `smartcard-inband-bytecode-loader.ts` — in-band CAP bytecode streaming over secure channel (INS 0x30)
+- `smartcard-plugin-management.ts` — SIO plugin lifecycle, permissions, storage quotas, and NDEF provider delegation
+- `smartcard-lifecycle-refcount.ts` — v3.5 microkernel MasterKey/KeyRing stats, refcounting, and graceful deprecation policies
 
 ## Environment setup
 
