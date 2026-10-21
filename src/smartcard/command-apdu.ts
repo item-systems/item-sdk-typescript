@@ -1,4 +1,5 @@
 import { Uint8 } from './byte'
+import { AuthPolicy, AuthCredentialType } from './types'
 
 /**
  * Base representation of an ISO 7816 command APDU.
@@ -486,6 +487,189 @@ export class PackageCommitCommand extends CommandApdu {
       PackageCommitCommand.UNUSED,
       0 as Uint8,
       new Uint8Array(0)
+    )
+  }
+}
+
+/**
+ * Inner APDU for creating a new UAC Identity (INS 0x80).
+ */
+export class IdentityCreateCommand extends CommandApdu {
+  static readonly CLA_INNER = 0x80
+  static readonly INS_IDENTITY_CREATE = 0x80
+  static readonly UNUSED = 0x00
+
+  constructor(
+    identityId: number,
+    capabilities: number,
+    authPolicy: AuthPolicy = AuthPolicy.ANY_OF,
+    requiredThreshold = 1,
+    initialCredentials?: Array<{
+      type: AuthCredentialType
+      algorithmId: number
+      keyReference?: number
+      ownerIdentityId?: number
+      verificationData?: Uint8Array
+    }>
+  ) {
+    let credsLength = 0
+    if (initialCredentials && initialCredentials.length > 0) {
+      for (const cred of initialCredentials) {
+        const vLen = cred.verificationData ? cred.verificationData.length : 0
+        credsLength += 1 + 1 + 1 + 2 + 1 + vLen
+      }
+    }
+
+    const data = new Uint8Array(2 + 2 + 1 + (initialCredentials ? 1 + credsLength : 0))
+    const view = new DataView(data.buffer, data.byteOffset, data.byteLength)
+    view.setUint16(0, identityId)
+    view.setUint16(2, capabilities)
+    data[4] = requiredThreshold
+
+    if (initialCredentials && initialCredentials.length > 0) {
+      data[5] = initialCredentials.length
+      let off = 6
+      for (const cred of initialCredentials) {
+        const vLen = cred.verificationData ? cred.verificationData.length : 0
+        data[off++] = cred.type
+        data[off++] = cred.algorithmId
+        data[off++] = vLen
+        view.setUint16(off, cred.keyReference || 0)
+        off += 2
+        data[off++] = cred.ownerIdentityId ?? identityId
+        if (cred.verificationData && vLen > 0) {
+          data.set(cred.verificationData, off)
+          off += vLen
+        }
+      }
+    }
+
+    super(
+      IdentityCreateCommand.CLA_INNER,
+      IdentityCreateCommand.INS_IDENTITY_CREATE,
+      IdentityCreateCommand.UNUSED,
+      authPolicy as Uint8,
+      data.length as Uint8,
+      data
+    )
+  }
+}
+
+/**
+ * Inner APDU for querying a UAC Identity (INS 0x81).
+ */
+export class IdentityQueryCommand extends CommandApdu {
+  static readonly CLA_INNER = 0x80
+  static readonly INS_IDENTITY_QUERY = 0x81
+
+  constructor(identityId: number) {
+    super(
+      IdentityQueryCommand.CLA_INNER,
+      IdentityQueryCommand.INS_IDENTITY_QUERY,
+      ((identityId >> 8) & 0xff) as Uint8,
+      (identityId & 0xff) as Uint8,
+      0 as Uint8,
+      new Uint8Array(0)
+    )
+  }
+}
+
+/**
+ * Inner APDU for updating a UAC Identity properties (INS 0x82).
+ */
+export class IdentityUpdateCommand extends CommandApdu {
+  static readonly CLA_INNER = 0x80
+  static readonly INS_IDENTITY_UPDATE = 0x82
+
+  constructor(identityId: number, capabilities: number, authPolicy: AuthPolicy, requiredThreshold: number) {
+    const data = new Uint8Array(4)
+    const view = new DataView(data.buffer, data.byteOffset, data.byteLength)
+    view.setUint16(0, capabilities)
+    data[2] = authPolicy
+    data[3] = requiredThreshold
+
+    super(
+      IdentityUpdateCommand.CLA_INNER,
+      IdentityUpdateCommand.INS_IDENTITY_UPDATE,
+      ((identityId >> 8) & 0xff) as Uint8,
+      (identityId & 0xff) as Uint8,
+      data.length as Uint8,
+      data
+    )
+  }
+}
+
+/**
+ * Inner APDU for deleting a UAC Identity (INS 0x83).
+ */
+export class IdentityDeleteCommand extends CommandApdu {
+  static readonly CLA_INNER = 0x80
+  static readonly INS_IDENTITY_DELETE = 0x83
+
+  constructor(identityId: number) {
+    super(
+      IdentityDeleteCommand.CLA_INNER,
+      IdentityDeleteCommand.INS_IDENTITY_DELETE,
+      ((identityId >> 8) & 0xff) as Uint8,
+      (identityId & 0xff) as Uint8,
+      0 as Uint8,
+      new Uint8Array(0)
+    )
+  }
+}
+
+/**
+ * Inner APDU for adding a credential to a UAC Identity (INS 0x84).
+ */
+export class IdentityAddCredentialCommand extends CommandApdu {
+  static readonly CLA_INNER = 0x80
+  static readonly INS_IDENTITY_ADD_CREDENTIAL = 0x84
+
+  constructor(
+    identityId: number,
+    type: AuthCredentialType,
+    algorithmId: number,
+    verificationData: Uint8Array,
+    keyReference = 0,
+    ownerIdentityId = identityId
+  ) {
+    const data = new Uint8Array(1 + 1 + 1 + 2 + 1 + verificationData.length)
+    const view = new DataView(data.buffer, data.byteOffset, data.byteLength)
+    data[0] = type
+    data[1] = algorithmId
+    data[2] = verificationData.length
+    view.setUint16(3, keyReference)
+    data[5] = ownerIdentityId
+    data.set(verificationData, 6)
+
+    super(
+      IdentityAddCredentialCommand.CLA_INNER,
+      IdentityAddCredentialCommand.INS_IDENTITY_ADD_CREDENTIAL,
+      ((identityId >> 8) & 0xff) as Uint8,
+      (identityId & 0xff) as Uint8,
+      data.length as Uint8,
+      data
+    )
+  }
+}
+
+/**
+ * Inner APDU for removing a credential from a UAC Identity (INS 0x85).
+ */
+export class IdentityRemoveCredentialCommand extends CommandApdu {
+  static readonly CLA_INNER = 0x80
+  static readonly INS_IDENTITY_REMOVE_CREDENTIAL = 0x85
+
+  constructor(identityId: number, credentialIndex: number) {
+    const data = new Uint8Array([credentialIndex & 0xff])
+
+    super(
+      IdentityRemoveCredentialCommand.CLA_INNER,
+      IdentityRemoveCredentialCommand.INS_IDENTITY_REMOVE_CREDENTIAL,
+      ((identityId >> 8) & 0xff) as Uint8,
+      (identityId & 0xff) as Uint8,
+      data.length as Uint8,
+      data
     )
   }
 }

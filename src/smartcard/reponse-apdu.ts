@@ -1,6 +1,14 @@
 import { StatusWord } from './statusword'
 
-import { MasterKeyStats, MicrokernelResourceFlags, PluginInfo } from './types'
+import {
+  MasterKeyStats,
+  MicrokernelResourceFlags,
+  PluginInfo,
+  IdentityInfo,
+  CredentialDescriptor,
+  AuthPolicy,
+  AuthCredentialType,
+} from './types'
 
 /**
  * Parsed representation of an ISO 7816 response APDU.
@@ -311,5 +319,75 @@ export class PackageCommitResponse extends ResponseAPDU {
    */
   getCodeHash(): Uint8Array {
     return this.hCode
+  }
+}
+
+/**
+ * Response parser for `IdentityQueryCommand` (INS 0x81).
+ */
+export class IdentityQueryResponse extends ResponseAPDU {
+  private identityInfo: IdentityInfo | null = null
+
+  constructor(apdu: Uint8Array) {
+    super(apdu)
+
+    if (this.getSW() === 0x6a88 || this.getSW() === 0x6a82) {
+      this.identityInfo = null
+      return
+    }
+
+    if (this.getSW() !== StatusWord.OK) {
+      throw new Error(`Failed to parse IdentityQueryResponse: wrong status word 0x${this.getSW().toString(16)}`)
+    }
+
+    const data = this.getData()
+    if (data.length < 6) {
+      this.identityInfo = null
+      return
+    }
+
+    const view = new DataView(data.buffer, data.byteOffset, data.byteLength)
+    const identityId = view.getUint16(0)
+    const active = data[2] !== 0
+    const authPolicy = data[3] as AuthPolicy
+    const requiredThreshold = data[4]
+    const capabilities = view.getUint16(5)
+    const credentialCount = data.length > 7 ? data[7] : 0
+
+    let off = 8
+    const credentials: CredentialDescriptor[] = []
+
+    for (let i = 0; i < credentialCount && off + 5 <= data.length; i++) {
+      const type = data[off] as AuthCredentialType
+      const algorithmId = data[off + 1]
+      const vLen = data[off + 2]
+      const keyReference = view.getUint16(off + 3)
+      const ownerIdentityId = data[off + 5]
+      off += 6
+      const verificationData = off + vLen <= data.length ? data.slice(off, off + vLen) : new Uint8Array(0)
+      off += vLen
+
+      credentials.push({
+        type,
+        algorithmId,
+        keyReference,
+        ownerIdentityId,
+        verificationData,
+      })
+    }
+
+    this.identityInfo = {
+      identityId,
+      active,
+      authPolicy,
+      requiredThreshold,
+      capabilities,
+      credentialCount,
+      credentials,
+    }
+  }
+
+  getIdentityInfo(): IdentityInfo | null {
+    return this.identityInfo
   }
 }

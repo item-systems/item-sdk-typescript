@@ -1,4 +1,6 @@
-import { CardReader } from '../reader'
+import { CardReader, Reader } from '../reader'
+import { Transport } from '../transport/transport'
+import { MobileNfcTransport, NativeNfcTransceiver } from '../transport/mobile'
 import {
   GlobalPlatformCardManager,
   GpKeySet,
@@ -76,13 +78,48 @@ export interface TopologyReconciliation {
  */
 export class GlobalPlatformProvisioner {
   private cardManager: GlobalPlatformCardManager
+  private reader: CardReader
 
-  constructor(reader: CardReader) {
-    this.cardManager = new GlobalPlatformCardManager(reader)
+  constructor(readerOrTransport: CardReader | Transport) {
+    if (
+      'transmit' in readerOrTransport &&
+      'connect' in readerOrTransport &&
+      'disconnect' in readerOrTransport &&
+      'sendCommand' in readerOrTransport
+    ) {
+      this.reader = readerOrTransport as CardReader
+      this.cardManager = new GlobalPlatformCardManager(this.reader)
+    } else {
+      this.reader = new Reader(readerOrTransport as Transport)
+      this.cardManager = new GlobalPlatformCardManager(this.reader)
+    }
+  }
+
+  /**
+   * Factory helper for mobile React Native / iOS CoreNFC / Android IsoDep environments.
+   * Directly consumes native transceiver callbacks without requiring desktop PC/SC setup.
+   */
+  public static forMobile(transceiver: NativeNfcTransceiver): GlobalPlatformProvisioner {
+    const transport = new MobileNfcTransport(transceiver)
+    const reader = new Reader(transport)
+    return new GlobalPlatformProvisioner(reader)
   }
 
   public getCardManager(): GlobalPlatformCardManager {
     return this.cardManager
+  }
+
+  public getReader(): CardReader {
+    return this.reader
+  }
+
+  /**
+   * Release and dispose active reader and session.
+   */
+  public async dispose(): Promise<void> {
+    if (this.cardManager) {
+      await this.cardManager.dispose()
+    }
   }
 
   /**

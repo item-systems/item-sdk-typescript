@@ -69,6 +69,18 @@ export class GlobalPlatformCardManager {
   }
 
   /**
+   * Close and dispose active secure session and underlying reader.
+   */
+  public async dispose(): Promise<void> {
+    this.session = null
+    if (this.reader.dispose) {
+      await this.reader.dispose()
+    } else {
+      await this.reader.disconnect()
+    }
+  }
+
+  /**
    * Select Issuer Security Domain (Card Manager).
    */
   public async selectCardManager(isdAid: string = DEFAULT_ISD_AID, signal?: AbortSignal): Promise<Uint8Array> {

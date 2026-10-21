@@ -11,15 +11,8 @@ import { StatusWord } from '../statusword'
 import { uint8ToHex } from '../utils'
 
 /**
- * Secure-channel implementation for ITEM firmware generations dk1/v1.0.0,
- * v2.0.0, and v2.1.0.
- *
- * The channel performs an ECDHE handshake over P-256, derives session
- * encryption/MAC keys from the shared secret plus pairing material, and then
- * wraps subsequent APDUs in AES-CBC encryption with a protocol-specific CBC-MAC.
- *
- * This class implements the same `CardReader` interface as the plain reader so
- * callers can swap it in transparently once the handshake is complete.
+ * This SecureChannel implementation is valid for products with the firmware
+ * dk1, v1.0.0, v2.0.0 and v2.1.0
  */
 export class SecureChannelV1 implements CardReader {
   private static BLOCK_SIZE = 16
@@ -34,16 +27,16 @@ export class SecureChannelV1 implements CardReader {
   private _keyRandomData = new Uint8Array()
   private _sessionEncryptionKey = new Uint8Array()
   private _sessionMacKey = new Uint8Array()
+  // Indicates if the secure channel session is established
   private _isOpen = false
 
   /**
-   * Create a secure-channel wrapper around an established reader.
+   * A SecureChannel using ECDHE with SECP256R1.
    *
-   * @param reader Underlying reader used for the initial handshake and wrapped
-   * APDU transport.
-   * @param publicKey Card public key obtained from the select response.
-   * @param pairingKey Shared pairing secret provisioned out of band.
-   * @param __privateKey Optional deterministic private key for tests only.
+   * @param reader an established communication channel to the card.
+   * @param publicKey the public key shared by the card. Returned when selecting the Applet.
+   * @param pairingKey
+   * @param __privateKey for testing only
    */
   constructor(reader: Reader, publicKey: Uint8Array, pairingKey: Uint8Array, __privateKey?: Uint8Array) {
     this._reader = reader
@@ -54,7 +47,7 @@ export class SecureChannelV1 implements CardReader {
       this._privateKey = p256.utils.randomSecretKey()
     }
     this._publicKey = p256.getPublicKey(this._privateKey, false)
-    this._sharedSecret = p256.getSharedSecret(this._privateKey, publicKey).slice(1)
+    this._sharedSecret = p256.getSharedSecret(this._privateKey, publicKey).slice(1) // drop the format byte
   }
 
   async connect(): Promise<boolean> {
@@ -68,6 +61,14 @@ export class SecureChannelV1 implements CardReader {
     if (this.connected()) {
       await this._reader.disconnect()
     }
+    this._isOpen = false
+  }
+
+  /**
+   * Dispose and release active secure-channel session and underlying reader.
+   */
+  async dispose(): Promise<void> {
+    await this.disconnect()
   }
 
   connected(): boolean {
@@ -82,9 +83,6 @@ export class SecureChannelV1 implements CardReader {
     return new ResponseAPDU(await this.transmit(apdu.toArray()))
   }
 
-  /**
-   * Transmit an APDU, wrapping/unwrapping it when the secure session is open.
-   */
   async transmit(commandAPDU: Uint8Array): Promise<Uint8Array> {
     if (this._isOpen) {
       const wrapped = this.wrap(commandAPDU)
@@ -93,9 +91,6 @@ export class SecureChannelV1 implements CardReader {
     return this._reader.transmit(commandAPDU)
   }
 
-  /**
-   * Perform the secure-channel handshake and enable wrapped APDU transport.
-   */
   async open() {
     this._isOpen = false
 
@@ -124,9 +119,6 @@ export class SecureChannelV1 implements CardReader {
     }
   }
 
-  /**
-   * Derive session encryption and MAC keys from the handshake material.
-   */
   private initialiseSession() {
     const keyData = sha512
       .create()
@@ -139,9 +131,6 @@ export class SecureChannelV1 implements CardReader {
     this._isOpen = true
   }
 
-  /**
-   * Encrypt and MAC a plaintext APDU for secure-channel transport.
-   */
   private wrap(apdu: Uint8Array): Uint8Array {
     const c = CommandApdu.fromArray(apdu)
     const header = c.getHeader()
@@ -165,9 +154,6 @@ export class SecureChannelV1 implements CardReader {
     return u.concatUint8(header, Uint8Array.of(newData.length), newData)
   }
 
-  /**
-   * Verify MAC and decrypt a secure-channel response APDU.
-   */
   private unwrap(response: Uint8Array): Uint8Array {
     const apdu = new ResponseAPDU(response)
     const data = apdu.getData()
@@ -188,9 +174,6 @@ export class SecureChannelV1 implements CardReader {
     return decryptedData
   }
 
-  /**
-   * Advance the rolling IV/MAC state used by the protocol.
-   */
   private updateIV(meta: Uint8Array, data: Uint8Array) {
     const mac = new CBCBlockCipherMac(this._sessionMacKey)
     mac.update(meta)
@@ -199,9 +182,6 @@ export class SecureChannelV1 implements CardReader {
   }
 }
 
-/**
- * Apply ISO/IEC 7816-4 style padding (`0x80` followed by zeroes).
- */
 export function ISO7816Padding(data: Uint8Array, blockSize = 16): Uint8Array {
   const padLen = blockSize - (data.length % blockSize)
   const padding = new Uint8Array(padLen)
@@ -213,9 +193,6 @@ export function ISO7816Padding(data: Uint8Array, blockSize = 16): Uint8Array {
   return padded
 }
 
-/**
- * Remove ISO/IEC 7816-4 style padding from decrypted plaintext.
- */
 function removeISO7816Padding(data: Uint8Array): Uint8Array {
   let i = data.length - 1
   while (i >= 0 && data[i] === 0x00) {
