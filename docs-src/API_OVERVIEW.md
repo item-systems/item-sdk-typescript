@@ -162,3 +162,12 @@ Exported via `smartcard` namespace:
 - Commands: `TunnelCommand`, `MasterKeyStatsCommand`, `MasterKeySetPolicyCommand`, `MasterKeyDeleteCommand`, `KeyRingSetPolicyCommand`, `KeyRingDeleteCommand`, `KeyRingDeriveCommand`, `PluginRegisterCommand`, `PluginQueryCommand`, `PluginUpdateCommand`, `PluginDeleteCommand`, `PluginSetActiveNdefProviderCommand`, `PackageBeginCommand`, `PackageStreamCommand`, `PackageCommitCommand`
 - Responses: `MasterKeyStatsResponse`, `PluginQueryResponse`, `PackageCommitResponse`, `ResponseAPDU`
 - Constants & Types: `StatusWord`, `MicrokernelResourceFlags`, `MasterKeyStats`, `KeyRingInfo`, `PluginInfo`
+
+
+### GlobalPlatform Subsystem (Silicon Flashing)
+Exported via `smartcard.globalplatform`:
+- `GlobalPlatformCardManager` — low-level Card Manager APDU client (SELECT, INITIALIZE UPDATE, EXTERNAL AUTHENTICATE, DELETE, LOAD, INSTALL)
+- `GlobalPlatformProvisioner` — high-level CAP topology orchestrator for automated silicon flashing
+- `Scp02Session` — Triple-DES / Retail MAC secure channel protocol session
+- `Scp03Session` — AES-CMAC / AES-CBC secure channel protocol session
+- Types & Enums: `GpSecurityLevel`, `GpKeySet`, `CapTopologyEntry`, `ProvisioningOptions`, `DEFAULT_ISD_AID`

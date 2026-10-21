@@ -1,0 +1,188 @@
+import { des3EcbEncrypt, des3EcbDecrypt, des3CbcEncrypt, calculateRetailMac, padIso9797M2 } from './crypto'
+import { uint8ToHex } from '../utils'
+
+/**
+ * Security level for SCP02/SCP03 sessions.
+ */
+export enum GpSecurityLevel {
+  NO_SECURITY_LEVEL = 0x00,
+  C_MAC = 0x01,
+  C_DECRYPTION_AND_C_MAC = 0x03,
+  R_MAC = 0x10,
+  C_MAC_AND_R_MAC = 0x11,
+  C_DECRYPTION_AND_C_MAC_AND_R_MAC = 0x13,
+}
+
+/**
+ * GlobalPlatform SCP02 Secure Channel Session.
+ *
+ * Implements standard GP 2.2 SCP02 ('02' 15 / '02' 55) mutual authentication,
+ * session key derivation (S-ENC, S-MAC, DEK), command APDU C-MAC calculation
+ * with ICV chaining, and command data encryption (C-DECRYPTION).
+ */
+export class Scp02Session {
+  private sEnc: Uint8Array
+  private sMac: Uint8Array
+  private sDek: Uint8Array
+  private macIcv: Uint8Array
+  private securityLevel: GpSecurityLevel
+
+  constructor(sEnc: Uint8Array, sMac: Uint8Array, sDek: Uint8Array, securityLevel = GpSecurityLevel.C_MAC) {
+    this.sEnc = sEnc
+    this.sMac = sMac
+    this.sDek = sDek
+    this.securityLevel = securityLevel
+    this.macIcv = new Uint8Array(8) // Zero initial ICV
+  }
+
+  public getSecurityLevel(): GpSecurityLevel {
+    return this.securityLevel
+  }
+
+  public setSecurityLevel(level: GpSecurityLevel): void {
+    this.securityLevel = level
+  }
+
+  /**
+   * Derive SCP02 session keys from static base keys (or single master key) and sequence counter / randoms.
+   *
+   * @param encKey Static 3DES Encryption key (16 or 24 bytes)
+   * @param macKey Static 3DES MAC key (16 or 24 bytes)
+   * @param dekKey Static 3DES Data Encryption Key (16 or 24 bytes)
+   * @param seqCounter 2-byte sequence counter from INITIALIZE UPDATE response
+   */
+  public static deriveSessionKeys(
+    encKey: Uint8Array,
+    macKey: Uint8Array,
+    dekKey: Uint8Array,
+    seqCounter: Uint8Array
+  ): { sEnc: Uint8Array; sMac: Uint8Array; sDek: Uint8Array } {
+    // Derivation data format (16 bytes):
+    // Constant (2B) || Sequence Counter (2B) || 0x000000000000000000000000 (12B)
+    const derivationData = (constant: number[]): Uint8Array => {
+      const buf = new Uint8Array(16)
+      buf[0] = constant[0]
+      buf[1] = constant[1]
+      buf[2] = seqCounter[0]
+      buf[3] = seqCounter[1]
+      return buf
+    }
+
+    // S-ENC derivation constant: 0x0182
+    const sEnc = des3EcbEncrypt(encKey, derivationData([0x01, 0x82]))
+
+    // S-MAC derivation constant: 0x0101
+    const sMac = des3EcbEncrypt(macKey, derivationData([0x01, 0x01]))
+
+    // S-DEK derivation constant: 0x0181
+    const sDek = des3EcbEncrypt(dekKey, derivationData([0x01, 0x81]))
+
+    return { sEnc, sMac, sDek }
+  }
+
+  /**
+   * Calculate 8-byte Card Cryptogram (to verify card authenticity).
+   */
+  public static calculateCardCryptogram(
+    sEnc: Uint8Array,
+    hostChallenge: Uint8Array,
+    cardChallenge: Uint8Array
+  ): Uint8Array {
+    const data = new Uint8Array(16)
+    data.set(hostChallenge, 0)
+    data.set(cardChallenge, 8)
+    const padded = padIso9797M2(data, 8)
+    const enc = des3CbcEncrypt(sEnc, new Uint8Array(8), padded)
+    return enc.slice(padded.length - 8, padded.length)
+  }
+
+  /**
+   * Calculate 8-byte Host Cryptogram (for EXTERNAL AUTHENTICATE).
+   */
+  public static calculateHostCryptogram(
+    sEnc: Uint8Array,
+    seqCounter: Uint8Array,
+    cardChallenge: Uint8Array,
+    hostChallenge: Uint8Array
+  ): Uint8Array {
+    // Host Cryptogram Data: SequenceCounter (2B) || CardChallenge (6B / or remaining of 8B card random) || HostChallenge (8B)
+    const data = new Uint8Array(16)
+    data[0] = seqCounter[0]
+    data[1] = seqCounter[1]
+    data.set(cardChallenge.subarray(0, 6), 2)
+    data.set(hostChallenge, 8)
+    const padded = padIso9797M2(data, 8)
+    const enc = des3CbcEncrypt(sEnc, new Uint8Array(8), padded)
+    return enc.slice(padded.length - 8, padded.length)
+  }
+
+  /**
+   * Wrap a command APDU with SCP02 secure messaging (C-MAC and/or C-DECRYPTION).
+   */
+  public wrap(apdu: Uint8Array): Uint8Array {
+    if (this.securityLevel === GpSecurityLevel.NO_SECURITY_LEVEL) {
+      return apdu
+    }
+
+    let cla = apdu[0]
+    const ins = apdu[1]
+    const p1 = apdu[2]
+    const p2 = apdu[3]
+    let data = apdu.length > 5 ? apdu.subarray(5, 5 + apdu[4]) : new Uint8Array(0)
+
+    // Secure messaging modifies CLA to 0x84 (or sets bit 3)
+    cla = (cla | 0x04) & 0xff
+
+    // 1. Data Encryption (C-DECRYPTION)
+    const isEncrypted =
+      (this.securityLevel & GpSecurityLevel.C_DECRYPTION_AND_C_MAC) === GpSecurityLevel.C_DECRYPTION_AND_C_MAC
+    if (isEncrypted && data.length > 0) {
+      const paddedData = padIso9797M2(data, 8)
+      data = des3CbcEncrypt(this.sEnc, new Uint8Array(8), paddedData)
+    }
+
+    // 2. C-MAC Calculation
+    const isMaced = (this.securityLevel & GpSecurityLevel.C_MAC) === GpSecurityLevel.C_MAC
+    if (isMaced) {
+      const lcWithMac = data.length + 8
+      const headerWithLc = new Uint8Array([cla, ins, p1, p2, lcWithMac])
+      const macInput = new Uint8Array(headerWithLc.length + data.length)
+      macInput.set(headerWithLc, 0)
+      macInput.set(data, headerWithLc.length)
+
+      // Encrypt ICV with S-MAC before MAC calculation if not first command (SCP02 rule)
+      let icvToUse = this.macIcv
+      if (uint8ToHex(this.macIcv) !== '0000000000000000') {
+        icvToUse = des3EcbEncrypt(this.sMac, this.macIcv).subarray(0, 8)
+      }
+
+      const mac = calculateRetailMac(this.sMac, icvToUse, macInput)
+      this.macIcv = mac // Update session ICV
+
+      const wrapped = new Uint8Array(headerWithLc.length + data.length + 8)
+      wrapped.set(headerWithLc, 0)
+      wrapped.set(data, headerWithLc.length)
+      wrapped.set(mac, headerWithLc.length + data.length)
+      return wrapped
+    }
+
+    const result = new Uint8Array(5 + data.length)
+    result.set([cla, ins, p1, p2, data.length], 0)
+    result.set(data, 5)
+    return result
+  }
+
+  /**
+   * Decrypt sensitive data (e.g. key import) using DEK key.
+   */
+  public decryptDek(data: Uint8Array): Uint8Array {
+    return des3EcbDecrypt(this.sDek, data)
+  }
+
+  /**
+   * Encrypt sensitive data (e.g. key import) using DEK key.
+   */
+  public encryptDek(data: Uint8Array): Uint8Array {
+    return des3EcbEncrypt(this.sDek, data)
+  }
+}
