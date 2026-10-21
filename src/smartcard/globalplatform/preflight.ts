@@ -171,6 +171,7 @@ export function validateCap(capBytes: Uint8Array, declaredPackageAid?: string): 
   }
 
   // 3. Validate Directory.cap component size table
+  // Tags 1..11 are standard components. Tag 12 is Debug.cap, which is optional for deployment on card.
   const directory = components.get(2)
   const componentSizes: Record<number, number> = {}
 
@@ -183,9 +184,12 @@ export function validateCap(capBytes: Uint8Array, declaredPackageAid?: string): 
         const actualComp = components.get(tag)
         if (declaredSize > 0) {
           if (!actualComp) {
-            errors.push(
-              `Directory.cap declares component Tag ${tag} with size ${declaredSize}, but component is missing`
-            )
+            // Tag 12 (Debug.cap) is non-loadable debug info stripped from runtime CAPs by converter
+            if (tag !== 12) {
+              errors.push(
+                `Directory.cap declares component Tag ${tag} with size ${declaredSize}, but component is missing`
+              )
+            }
           } else {
             // Actual component bytes = 3-byte component header + declared size
             const expectedTotalLen = 3 + declaredSize

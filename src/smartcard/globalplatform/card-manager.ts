@@ -229,11 +229,10 @@ export class GlobalPlatformCardManager {
         off += 1 + aidLen + 1
 
         let privileges: string | undefined
-        let executableLoadFileAid: string | undefined
-        let executableModuleAid: string | undefined
         let versionNumber: string | undefined
 
-        // If P1 == 0x40 or 0x80 (Applets / SDs), privileges follows lifecycle
+        // If P1 == 0x40 or 0x80 (Applets / SDs), format is:
+        // [AID Len] [AID] [LifeCycleState] [Privileges Len] [Privileges]
         if (p1 === 0x40 || p1 === 0x80) {
           if (off < data.length) {
             const privLen = data[off]
@@ -242,40 +241,77 @@ export class GlobalPlatformCardManager {
               off += 1 + privLen
             }
           }
+          results.push({
+            aid,
+            lifeCycleState,
+            privileges,
+          })
+          continue
         }
 
-        // If P1 == 0x10 (Executable modules), format is:
+        // If P1 == 0x10 (Executable modules), format per GlobalPlatform 2.2 §11.4.3.1:
         // [ELF AID Len] [ELF AID] [LifeCycleState] [Num Modules] ([Module AID Len] [Module AID])*
         // OR [ELF AID Len] [ELF AID] [LifeCycleState] [Module AID Len] [Module AID]
         if (p1 === 0x10) {
-          executableLoadFileAid = aid
+          const elfAid = aid
           if (off < data.length) {
-            const modAidLen = data[off]
-            if (off + 1 + modAidLen <= data.length) {
-              executableModuleAid = uint8ToHex(data.subarray(off + 1, off + 1 + modAidLen)).toUpperCase()
-              off += 1 + modAidLen
+            const numModulesOrModLen = data[off]
+            if (numModulesOrModLen >= 5 && numModulesOrModLen <= 16 && off + 1 + numModulesOrModLen <= data.length) {
+              // Single module without explicit count byte
+              const moduleAid = uint8ToHex(data.subarray(off + 1, off + 1 + numModulesOrModLen)).toUpperCase()
+              off += 1 + numModulesOrModLen
+              results.push({
+                aid: moduleAid,
+                lifeCycleState,
+                executableLoadFileAid: elfAid,
+                executableModuleAid: moduleAid,
+              })
+            } else {
+              // Explicit numModules count byte
+              const numModules = numModulesOrModLen
+              off += 1
+              for (let m = 0; m < numModules && off < data.length; m++) {
+                const mLen = data[off]
+                if (off + 1 + mLen <= data.length) {
+                  const moduleAid = uint8ToHex(data.subarray(off + 1, off + 1 + mLen)).toUpperCase()
+                  off += 1 + mLen
+                  results.push({
+                    aid: moduleAid,
+                    lifeCycleState,
+                    executableLoadFileAid: elfAid,
+                    executableModuleAid: moduleAid,
+                  })
+                }
+              }
             }
           }
+          continue
         }
 
         // If P1 == 0x20 (Executable Load Files), optional version/hash TLVs follow
         if (p1 === 0x20) {
-          // Check for optional trailing version/metadata TLV if present
-          if (off < data.length && data[off] === 0xce) {
-            const tlvLen = data[off + 1]
-            if (off + 2 + tlvLen <= data.length) {
-              versionNumber = uint8ToHex(data.subarray(off + 2, off + 2 + tlvLen))
-              off += 2 + tlvLen
+          // Check for optional trailing version/metadata TLV if present (e.g. Tag 0xCE or Tag 0xCC)
+          while (off < data.length) {
+            const tag = data[off]
+            if (tag === 0xce || tag === 0xcc || tag === 0xc4) {
+              if (off + 1 < data.length) {
+                const tlvLen = data[off + 1]
+                if (off + 2 + tlvLen <= data.length) {
+                  if (tag === 0xce) {
+                    versionNumber = uint8ToHex(data.subarray(off + 2, off + 2 + tlvLen))
+                  }
+                  off += 2 + tlvLen
+                  continue
+                }
+              }
             }
+            break
           }
         }
 
         results.push({
           aid,
           lifeCycleState,
-          privileges,
-          executableLoadFileAid,
-          executableModuleAid,
           versionNumber,
         })
       }
