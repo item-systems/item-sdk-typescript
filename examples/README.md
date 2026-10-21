@@ -14,6 +14,7 @@ Unless explicitly stated otherwise, treat them as illustrative reference snippet
 - `smartcard-inband-bytecode-loader.ts` — in-band CAP bytecode streaming over secure channel (INS 0x30)
 - `smartcard-plugin-management.ts` — SIO plugin lifecycle, permissions, storage quotas, and NDEF provider delegation
 - `smartcard-lifecycle-refcount.ts` — v3.5 microkernel MasterKey/KeyRing stats, refcounting, and graceful deprecation policies
+- `smartcard-flash-silicon.ts` — GlobalPlatform Phase 1 silicon provisioning and multi-CAP topology flashing
 
 ## Environment setup
 
