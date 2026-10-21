@@ -95,7 +95,8 @@ function isValidHexBytes(hex: string): boolean {
  * 3. Required components are present (Header tag 1, Directory tag 2, Import tag 4, Class tag 6, Method tag 7, StaticField tag 8, ConstantPool tag 5, RefLocation tag 9).
  * 4. Extracted Header package AID matches declared package AID.
  * 5. Component sizes match Directory.cap component size table.
- * 6. Parsing of Import.cap and Applet.cap.
+ * 6. Internal component headers (Tag and 2-byte size) match byte lengths.
+ * 7. Parsing of Import.cap and Applet.cap.
  */
 export function validateCap(capBytes: Uint8Array, declaredPackageAid?: string): CapValidationResult {
   const errors: string[] = []
@@ -109,9 +110,17 @@ export function validateCap(capBytes: Uint8Array, declaredPackageAid?: string): 
 
   const unwrapped = unwrapLoadFileDataBlock(capBytes)
 
-  let components = extractCapComponentsFromZip(capBytes)
-  if (components.size === 0) {
-    components = parseRawComponentStream(unwrapped)
+  let components: Map<number, Uint8Array>
+  try {
+    components = extractCapComponentsFromZip(capBytes)
+    if (components.size === 0) {
+      components = parseRawComponentStream(unwrapped)
+    }
+  } catch (err: unknown) {
+    return {
+      valid: false,
+      errors: [`Failed to parse CAP components: ${err instanceof Error ? err.message : String(err)}`],
+    }
   }
 
   if (components.size === 0) {
@@ -128,6 +137,26 @@ export function validateCap(capBytes: Uint8Array, declaredPackageAid?: string): 
   for (const tag of REQUIRED_TAGS) {
     if (!components.has(tag)) {
       errors.push(`Missing mandatory JavaCard component Tag ${tag} (e.g. Header=1, Directory=2, Import=4, etc.)`)
+    }
+  }
+
+  // Verify internal component header (Tag + 2-byte size) for every component in the CAP
+  for (const [tag, compBytes] of components.entries()) {
+    if (!compBytes || compBytes.length < 3) {
+      errors.push(`Component Tag ${tag} is truncated (length < 3 bytes)`)
+      continue
+    }
+    if (compBytes[0] !== tag) {
+      errors.push(
+        `Component Tag mismatch: component indexed as Tag ${tag} begins with tag byte 0x${compBytes[0].toString(16).toUpperCase()}`
+      )
+    }
+    const internalPayloadLen = (compBytes[1] << 8) | compBytes[2]
+    const expectedCompLen = 3 + internalPayloadLen
+    if (compBytes.length !== expectedCompLen) {
+      errors.push(
+        `Component Tag ${tag} internal size corruption: header declares ${internalPayloadLen} payload bytes (total ${expectedCompLen}B), actual byte length is ${compBytes.length}B`
+      )
     }
   }
 

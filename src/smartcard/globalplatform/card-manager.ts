@@ -224,108 +224,213 @@ export class GlobalPlatformCardManager {
       if (sw !== 0x9000 && sw !== 0x6310) {
         // 0x6310 means more data available
         throw new Error(
-          `GET STATUS (P1=0x${p1.toString(16)}) failed with Status Word: 0x${sw.toString(16).toUpperCase()}`
+          `GET STATUS (P1=0x${p1.toString(16)}) failed with Status Word: 0x${sw.toString(16).toUpperCase().padStart(4, '0')}`
         )
       }
 
       const data = resp.subarray(0, resp.length - 2)
       let off = 0
 
-      while (off < data.length) {
-        if (off + 2 > data.length) break
-        const aidLen = data[off]
-        if (off + 1 + aidLen + 1 > data.length) break
+      // Check if response is Tag 0xE3 TLV formatted (GlobalPlatform 2.2 §11.4.3.2)
+      const isTlvFormatted = data.length > 2 && data[0] === 0xe3
 
-        const aid = uint8ToHex(data.subarray(off + 1, off + 1 + aidLen)).toUpperCase()
-        const lifeCycleState = data[off + 1 + aidLen]
-        off += 1 + aidLen + 1
+      if (isTlvFormatted) {
+        // Tag 0xE3 TLV parsing
+        while (off < data.length) {
+          if (data[off] !== 0xe3) {
+            // Skip unrecognized outer tag or break
+            off++
+            continue
+          }
+          off++ // skip 0xE3
+          if (off >= data.length) break
+          let e3Len = data[off++]
+          if (e3Len === 0x81 && off < data.length) {
+            e3Len = data[off++]
+          } else if (e3Len === 0x82 && off + 1 < data.length) {
+            e3Len = (data[off] << 8) | data[off + 1]
+            off += 2
+          }
 
-        let privileges: string | undefined
-        let versionNumber: string | undefined
+          const e3End = Math.min(data.length, off + e3Len)
+          let itemAid = ''
+          let itemState = 0
+          let itemPrivileges: string | undefined
+          let itemElfAid: string | undefined
+          let itemVersion: string | undefined
+          const moduleAids: string[] = []
 
-        // If P1 == 0x40 or 0x80 (Applets / SDs), format is:
-        // [AID Len] [AID] [LifeCycleState] [Privileges Len] [Privileges]
-        if (p1 === 0x40 || p1 === 0x80) {
-          if (off < data.length) {
-            const privLen = data[off]
-            if (off + 1 + privLen <= data.length) {
-              privileges = uint8ToHex(data.subarray(off + 1, off + 1 + privLen))
-              off += 1 + privLen
+          while (off < e3End) {
+            if (off + 2 > e3End) break
+            let tag = data[off++]
+
+            // Check for 2-byte tag (e.g. 0x9F 0x70)
+            if (tag === 0x9f && off < e3End && (data[off] === 0x70 || data[off] === 0x6e)) {
+              tag = (tag << 8) | data[off++]
+            }
+
+            let tagLen = data[off++]
+            if (tagLen === 0x81 && off < e3End) {
+              tagLen = data[off++]
+            } else if (tagLen === 0x82 && off + 1 < e3End) {
+              tagLen = (data[off] << 8) | data[off + 1]
+              off += 2
+            }
+
+            if (off + tagLen > e3End) break
+            const tagVal = data.subarray(off, off + tagLen)
+            off += tagLen
+
+            if (tag === 0x4f) {
+              // AID (Application / Executable Load File / Module AID)
+              itemAid = uint8ToHex(tagVal).toUpperCase()
+            } else if (tag === 0x9f70 || tag === 0xc5) {
+              // Life Cycle State (0x9F70 or 0xC5)
+              if (tagVal.length > 0) {
+                itemState = tagVal[0]
+              }
+            } else if (tag === 0xc4) {
+              // Privileges
+              itemPrivileges = uint8ToHex(tagVal)
+            } else if (tag === 0xce) {
+              // Version Number / Executable Load File properties
+              itemVersion = uint8ToHex(tagVal)
+            } else if (tag === 0x84) {
+              // Executable Module AID in 0xE3 (Tag 0x84 per GP 2.2 §11.4.3.2)
+              const modAid = uint8ToHex(tagVal).toUpperCase()
+              moduleAids.push(modAid)
             }
           }
+
+          if (itemAid) {
+            if (p1 === 0x10) {
+              if (moduleAids.length > 0) {
+                for (const modAid of moduleAids) {
+                  results.push({
+                    aid: modAid,
+                    lifeCycleState: itemState,
+                    executableLoadFileAid: itemAid,
+                    executableModuleAid: modAid,
+                  })
+                }
+              } else {
+                results.push({
+                  aid: itemAid,
+                  lifeCycleState: itemState,
+                  executableLoadFileAid: itemAid,
+                  executableModuleAid: itemAid,
+                })
+              }
+            } else {
+              results.push({
+                aid: itemAid,
+                lifeCycleState: itemState,
+                privileges: itemPrivileges,
+                executableLoadFileAid: itemElfAid,
+                versionNumber: itemVersion,
+              })
+            }
+          }
+        }
+      } else {
+        // Standard unformatted tabular structure (GP 2.2 §11.4.3.1)
+        while (off < data.length) {
+          if (off + 2 > data.length) break
+          const aidLen = data[off]
+          if (aidLen < 5 || aidLen > 16 || off + 1 + aidLen + 1 > data.length) {
+            break
+          }
+
+          const aid = uint8ToHex(data.subarray(off + 1, off + 1 + aidLen)).toUpperCase()
+          const lifeCycleState = data[off + 1 + aidLen]
+          off += 1 + aidLen + 1
+
+          let privileges: string | undefined
+          let versionNumber: string | undefined
+
+          // If P1 == 0x40 or 0x80 (Applets / SDs), format is:
+          // [AID Len] [AID] [LifeCycleState] [Privileges Len] [Privileges]
+          if (p1 === 0x40 || p1 === 0x80) {
+            if (off < data.length) {
+              const privLen = data[off]
+              if (off + 1 + privLen <= data.length) {
+                privileges = uint8ToHex(data.subarray(off + 1, off + 1 + privLen))
+                off += 1 + privLen
+              }
+            }
+            results.push({
+              aid,
+              lifeCycleState,
+              privileges,
+            })
+            continue
+          }
+
+          // If P1 == 0x10 (Executable modules), format per GlobalPlatform 2.2 §11.4.3.1:
+          // [ELF AID Len] [ELF AID] [LifeCycleState] [Num Modules] ([Module AID Len] [Module AID])*
+          // OR [ELF AID Len] [ELF AID] [LifeCycleState] [Module AID Len] [Module AID]
+          if (p1 === 0x10) {
+            const elfAid = aid
+            if (off < data.length) {
+              const numModulesOrModLen = data[off]
+              if (numModulesOrModLen >= 5 && numModulesOrModLen <= 16 && off + 1 + numModulesOrModLen <= data.length) {
+                // Single module without explicit count byte
+                const moduleAid = uint8ToHex(data.subarray(off + 1, off + 1 + numModulesOrModLen)).toUpperCase()
+                off += 1 + numModulesOrModLen
+                results.push({
+                  aid: moduleAid,
+                  lifeCycleState,
+                  executableLoadFileAid: elfAid,
+                  executableModuleAid: moduleAid,
+                })
+              } else {
+                // Explicit numModules count byte
+                const numModules = numModulesOrModLen
+                off += 1
+                for (let m = 0; m < numModules && off < data.length; m++) {
+                  const mLen = data[off]
+                  if (mLen >= 5 && mLen <= 16 && off + 1 + mLen <= data.length) {
+                    const moduleAid = uint8ToHex(data.subarray(off + 1, off + 1 + mLen)).toUpperCase()
+                    off += 1 + mLen
+                    results.push({
+                      aid: moduleAid,
+                      lifeCycleState,
+                      executableLoadFileAid: elfAid,
+                      executableModuleAid: moduleAid,
+                    })
+                  }
+                }
+              }
+            }
+            continue
+          }
+
+          // If P1 == 0x20 (Executable Load Files), optional version/hash TLVs follow
+          if (p1 === 0x20) {
+            while (off < data.length) {
+              const tag = data[off]
+              if (tag === 0xce || tag === 0xcc || tag === 0xc4) {
+                if (off + 1 < data.length) {
+                  const tlvLen = data[off + 1]
+                  if (off + 2 + tlvLen <= data.length) {
+                    if (tag === 0xce) {
+                      versionNumber = uint8ToHex(data.subarray(off + 2, off + 2 + tlvLen))
+                    }
+                    off += 2 + tlvLen
+                    continue
+                  }
+                }
+              }
+              break
+            }
+          }
+
           results.push({
             aid,
             lifeCycleState,
-            privileges,
+            versionNumber,
           })
-          continue
         }
-
-        // If P1 == 0x10 (Executable modules), format per GlobalPlatform 2.2 §11.4.3.1:
-        // [ELF AID Len] [ELF AID] [LifeCycleState] [Num Modules] ([Module AID Len] [Module AID])*
-        // OR [ELF AID Len] [ELF AID] [LifeCycleState] [Module AID Len] [Module AID]
-        if (p1 === 0x10) {
-          const elfAid = aid
-          if (off < data.length) {
-            const numModulesOrModLen = data[off]
-            if (numModulesOrModLen >= 5 && numModulesOrModLen <= 16 && off + 1 + numModulesOrModLen <= data.length) {
-              // Single module without explicit count byte
-              const moduleAid = uint8ToHex(data.subarray(off + 1, off + 1 + numModulesOrModLen)).toUpperCase()
-              off += 1 + numModulesOrModLen
-              results.push({
-                aid: moduleAid,
-                lifeCycleState,
-                executableLoadFileAid: elfAid,
-                executableModuleAid: moduleAid,
-              })
-            } else {
-              // Explicit numModules count byte
-              const numModules = numModulesOrModLen
-              off += 1
-              for (let m = 0; m < numModules && off < data.length; m++) {
-                const mLen = data[off]
-                if (off + 1 + mLen <= data.length) {
-                  const moduleAid = uint8ToHex(data.subarray(off + 1, off + 1 + mLen)).toUpperCase()
-                  off += 1 + mLen
-                  results.push({
-                    aid: moduleAid,
-                    lifeCycleState,
-                    executableLoadFileAid: elfAid,
-                    executableModuleAid: moduleAid,
-                  })
-                }
-              }
-            }
-          }
-          continue
-        }
-
-        // If P1 == 0x20 (Executable Load Files), optional version/hash TLVs follow
-        if (p1 === 0x20) {
-          // Check for optional trailing version/metadata TLV if present (e.g. Tag 0xCE or Tag 0xCC)
-          while (off < data.length) {
-            const tag = data[off]
-            if (tag === 0xce || tag === 0xcc || tag === 0xc4) {
-              if (off + 1 < data.length) {
-                const tlvLen = data[off + 1]
-                if (off + 2 + tlvLen <= data.length) {
-                  if (tag === 0xce) {
-                    versionNumber = uint8ToHex(data.subarray(off + 2, off + 2 + tlvLen))
-                  }
-                  off += 2 + tlvLen
-                  continue
-                }
-              }
-            }
-            break
-          }
-        }
-
-        results.push({
-          aid,
-          lifeCycleState,
-          versionNumber,
-        })
       }
 
       if (sw === 0x9000) {

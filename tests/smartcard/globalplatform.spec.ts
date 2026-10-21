@@ -789,20 +789,31 @@ describe('GlobalPlatform Card Manager, Inventory & Resilient Provisioning Workfl
     const hostChallenge = hexToUint8('1122334455667788')
     const initUpdateResp = mockInitUpdateResponse()
 
-    // Inventory already contains Pkg A ('FF6974656D01')
+    // Mock GET STATUS responses:
+    // Initial inventory query:
     const getStatusElf = new Uint8Array([0x06, 0xff, 0x69, 0x74, 0x65, 0x6d, 0x01, 0x01, 0x90, 0x00])
     const getStatusMod = new Uint8Array([0x90, 0x00])
     const getStatusApp = new Uint8Array([0x90, 0x00])
+
+    // Post-flashing verification inventory query (all packages installed):
+    const getStatusElfPost = new Uint8Array([
+      0x06, 0xff, 0x69, 0x74, 0x65, 0x6d, 0x01, 0x01, 0x06, 0xff, 0x69, 0x74, 0x65, 0x6d, 0x02, 0x01, 0x90, 0x00,
+    ])
+    const getStatusModPost = new Uint8Array([0x90, 0x00])
+    const getStatusAppPost = new Uint8Array([0x90, 0x00])
 
     const transport = new MockTransport([
       new Uint8Array([0x90, 0x00]), // 1. SELECT
       initUpdateResp, // 2. INIT UPDATE
       new Uint8Array([0x90, 0x00]), // 3. EXT AUTH
-      getStatusElf, // 4. GET STATUS 0x20
+      getStatusElf, // 4. GET STATUS 0x20 (initial reconcile)
       getStatusMod, // 5. GET STATUS 0x10
       getStatusApp, // 6. GET STATUS 0x40
       new Uint8Array([0x90, 0x00]), // 7. INSTALL [for load] Pkg B only! (Pkg A skipped)
       new Uint8Array([0x90, 0x00]), // 8. LOAD Pkg B chunk 1
+      getStatusElfPost, // 9. GET STATUS 0x20 (post-flashing verification)
+      getStatusModPost, // 10. GET STATUS 0x10
+      getStatusAppPost, // 11. GET STATUS 0x40
     ])
 
     const reader = new Reader(transport)
@@ -875,6 +886,13 @@ describe('GlobalPlatform Card Manager, Inventory & Resilient Provisioning Workfl
     const getStatusMod = new Uint8Array([0x90, 0x00])
     const getStatusApp = new Uint8Array([0x90, 0x00])
 
+    // Post-flashing verification inventory query (all packages installed):
+    const getStatusElfPost = new Uint8Array([
+      0x06, 0xff, 0x69, 0x74, 0x65, 0x6d, 0x01, 0x01, 0x06, 0xff, 0x69, 0x74, 0x65, 0x6d, 0x02, 0x01, 0x90, 0x00,
+    ])
+    const getStatusModPost = new Uint8Array([0x90, 0x00])
+    const getStatusAppPost = new Uint8Array([0x90, 0x00])
+
     const transport = new MockTransport([
       new Uint8Array([0x90, 0x00]), // 1. SELECT
       initUpdateResp, // 2. INIT UPDATE
@@ -885,6 +903,9 @@ describe('GlobalPlatform Card Manager, Inventory & Resilient Provisioning Workfl
       getStatusApp, // 7. GET STATUS 0x40
       new Uint8Array([0x90, 0x00]), // 8. INSTALL [for load] Pkg A (must reload because it was wiped!)
       new Uint8Array([0x90, 0x00]), // 9. LOAD Pkg A chunk 1
+      getStatusElfPost, // 10. GET STATUS 0x20 (post-flashing verification)
+      getStatusModPost, // 11. GET STATUS 0x10
+      getStatusAppPost, // 12. GET STATUS 0x40
     ])
 
     const reader = new Reader(transport)
@@ -956,5 +977,281 @@ describe('GlobalPlatform Card Manager, Inventory & Resilient Provisioning Workfl
     ])
     expect(res4.valid).to.equal(false)
     expect(res4.errors[0]).to.include('Invalid hex string for privileges')
+  })
+
+  describe('Malformed CAP Handling & Security Rejection', () => {
+    it('rejects CAP with corrupted internal component size header', () => {
+      const validCap = buildValidMockCap('FF6974656D01', ['A0000000620101'])
+      const components = parseRawComponentStream(validCap)
+      const dirComp = components.get(2)!
+      // Corrupt Directory component (Tag 2) internal payload length byte to mismatch actual length
+      const corruptedDir = new Uint8Array(dirComp)
+      corruptedDir[2] = 10 // Claim 10 bytes instead of 24
+
+      // Assemble raw stream with corrupted component
+      const rawStream = new Uint8Array(validCap.length)
+      let off = 0
+      for (const [tag, bytes] of components.entries()) {
+        const toWrite = tag === 2 ? corruptedDir : bytes
+        rawStream.set(toWrite, off)
+        off += toWrite.length
+      }
+
+      const res = validateCap(rawStream, 'FF6974656D01')
+      expect(res.valid).to.equal(false)
+      expect(res.errors.some(e => e.includes('internal size corruption') || e.includes('length mismatch'))).to.equal(
+        true
+      )
+    })
+
+    it('rejects CAP with mismatched component tag byte', () => {
+      const validCap = buildValidMockCap('FF6974656D01', ['A0000000620101'])
+      const corruptedCap = new Uint8Array(validCap)
+      // Corrupt Tag 5 (ConstantPool) to Tag 99
+      for (let i = 0; i < corruptedCap.length - 3; i++) {
+        if (corruptedCap[i] === 0x05 && corruptedCap[i + 1] === 0x00 && corruptedCap[i + 2] === 0x02) {
+          corruptedCap[i] = 0x99
+          break
+        }
+      }
+
+      const res = validateCap(corruptedCap, 'FF6974656D01')
+      expect(res.valid).to.equal(false)
+      expect(
+        res.errors.some(e => e.includes('Missing mandatory JavaCard component') || e.includes('Tag mismatch'))
+      ).to.equal(true)
+    })
+
+    it('rejects CAP with missing mandatory components (e.g. missing RefLocation)', () => {
+      // Build stream omitting RefLocation (Tag 9)
+      const aidBytes = hexToUint8('FF6974656D01')
+      const headerPayload = new Uint8Array([
+        0xde,
+        0xca,
+        0xff,
+        0xed,
+        0x01,
+        0x02,
+        0x04,
+        0x01,
+        0x00,
+        aidBytes.length,
+        ...aidBytes,
+      ])
+      const headerComp = new Uint8Array([0x01, 0x00, headerPayload.length, ...headerPayload])
+      const dirPayload = new Uint8Array(24)
+      const dirComp = new Uint8Array([0x02, 0x00, 24, ...dirPayload])
+      const importComp = new Uint8Array([0x04, 0x00, 0x01, 0x00])
+      const cpComp = new Uint8Array([0x05, 0x00, 0x02, 0x00, 0x00])
+      const classComp = new Uint8Array([0x06, 0x00, 0x02, 0x00, 0x00])
+      const methodComp = new Uint8Array([0x07, 0x00, 0x02, 0x00, 0x00])
+      const sfComp = new Uint8Array([0x08, 0x00, 0x02, 0x00, 0x00])
+      // Omit Tag 9 (RefLocation)
+
+      const incomplete = new Uint8Array(
+        headerComp.length +
+          dirComp.length +
+          importComp.length +
+          cpComp.length +
+          classComp.length +
+          methodComp.length +
+          sfComp.length
+      )
+      let off = 0
+      incomplete.set(headerComp, off)
+      off += headerComp.length
+      incomplete.set(dirComp, off)
+      off += dirComp.length
+      incomplete.set(importComp, off)
+      off += importComp.length
+      incomplete.set(cpComp, off)
+      off += cpComp.length
+      incomplete.set(classComp, off)
+      off += classComp.length
+      incomplete.set(methodComp, off)
+      off += methodComp.length
+      incomplete.set(sfComp, off)
+
+      const res = validateCap(incomplete, 'FF6974656D01')
+      expect(res.valid).to.equal(false)
+      expect(res.errors.some(e => e.includes('Missing mandatory JavaCard component Tag 9'))).to.equal(true)
+    })
+  })
+
+  describe('Post-Flashing Final Installed State Verification Engine', () => {
+    it('verifies installed packages and selectable applet instances with live ISO SELECT probe', async () => {
+      const hostChallenge = hexToUint8('1122334455667788')
+      const initUpdateResp = mockInitUpdateResponse()
+
+      // Post-flashing inventory queries:
+      // 1. Exec Load Files: [len 6] [FF6974656D01] [state 01]
+      const getStatusElf = new Uint8Array([0x06, 0xff, 0x69, 0x74, 0x65, 0x6d, 0x01, 0x01, 0x90, 0x00])
+      // 2. Exec Modules: [len 6] [FF6974656D01] [state 01] [num 1] [len 7] [FF6974656D0101]
+      const getStatusMod = new Uint8Array([
+        0x06, 0xff, 0x69, 0x74, 0x65, 0x6d, 0x01, 0x01, 0x01, 0x07, 0xff, 0x69, 0x74, 0x65, 0x6d, 0x01, 0x01, 0x90,
+        0x00,
+      ])
+      // 3. Applets: [len 7] [FF6974656D0101] [state 07 SELECTABLE] [priv 1] [00]
+      const getStatusApp = new Uint8Array([
+        0x07, 0xff, 0x69, 0x74, 0x65, 0x6d, 0x01, 0x01, 0x07, 0x01, 0x00, 0x90, 0x00,
+      ])
+
+      const transport = new MockTransport([
+        new Uint8Array([0x90, 0x00]), // 1. SELECT ISD
+        initUpdateResp, // 2. INIT UPDATE
+        new Uint8Array([0x90, 0x00]), // 3. EXT AUTH
+        new Uint8Array([0x90, 0x00]), // 4. INSTALL [for load]
+        new Uint8Array([0x90, 0x00]), // 5. LOAD chunk 1
+        new Uint8Array([0x90, 0x00]), // 6. INSTALL [for install]
+        getStatusElf, // 7. GET STATUS 0x20 (post-flashing verify ELFs)
+        getStatusMod, // 8. GET STATUS 0x10 (post-flashing verify modules)
+        getStatusApp, // 9. GET STATUS 0x40 (post-flashing verify Applets)
+        new Uint8Array([0x6f, 0x10, 0x84, 0x07, 0xff, 0x69, 0x74, 0x65, 0x6d, 0x01, 0x01, 0x90, 0x00]), // 10. ISO SELECT Applet -> 9000 with FCI
+        new Uint8Array([0x90, 0x00]), // 11. Re-select ISD
+      ])
+
+      const reader = new Reader(transport)
+      await reader.connect()
+      const provisioner = new GlobalPlatformProvisioner(reader)
+
+      const cap = buildValidMockCap('FF6974656D01', [], ['FF6974656D0101'])
+      const progressEvents: ProvisioningProgressEvent[] = []
+
+      await provisioner.provisionTopology(
+        [
+          {
+            name: 'TestApplet',
+            packageAid: 'FF6974656D01',
+            capBytes: cap,
+            appletAid: 'FF6974656D0101',
+            instanceAid: 'FF6974656D0101',
+          },
+        ],
+        {
+          keySet,
+          hostChallenge,
+          verifyInstalledState: true,
+          verifySelectable: true,
+          onProgress: ev => progressEvents.push(ev),
+        }
+      )
+
+      const phases = progressEvents.map(e => e.phase)
+      expect(phases).to.include('verifying')
+      expect(phases).to.include('complete')
+      expect(progressEvents.some(e => e.stepDescription.includes('Testing ISO SELECT on TestApplet'))).to.equal(true)
+    })
+
+    it('fails provisioning if post-flashing ISO SELECT probe fails on an instantiated applet', async () => {
+      const hostChallenge = hexToUint8('1122334455667788')
+      const initUpdateResp = mockInitUpdateResponse()
+
+      const getStatusElf = new Uint8Array([0x06, 0xff, 0x69, 0x74, 0x65, 0x6d, 0x01, 0x01, 0x90, 0x00])
+      const getStatusMod = new Uint8Array([0x90, 0x00])
+      const getStatusApp = new Uint8Array([
+        0x07, 0xff, 0x69, 0x74, 0x65, 0x6d, 0x01, 0x01, 0x07, 0x01, 0x00, 0x90, 0x00,
+      ])
+
+      const transport = new MockTransport([
+        new Uint8Array([0x90, 0x00]), // 1. SELECT ISD
+        initUpdateResp, // 2. INIT UPDATE
+        new Uint8Array([0x90, 0x00]), // 3. EXT AUTH
+        new Uint8Array([0x90, 0x00]), // 4. INSTALL [for load]
+        new Uint8Array([0x90, 0x00]), // 5. LOAD chunk 1
+        new Uint8Array([0x90, 0x00]), // 6. INSTALL [for install]
+        getStatusElf, // 7. GET STATUS 0x20
+        getStatusMod, // 8. GET STATUS 0x10
+        getStatusApp, // 9. GET STATUS 0x40
+        new Uint8Array([0x6a, 0x82]), // 10. ISO SELECT Applet fails with 6A82 (File/Applet not found)
+      ])
+
+      const reader = new Reader(transport)
+      await reader.connect()
+      const provisioner = new GlobalPlatformProvisioner(reader)
+      const cap = buildValidMockCap('FF6974656D01', [], ['FF6974656D0101'])
+
+      let caughtError: Error | null = null
+      try {
+        await provisioner.provisionTopology(
+          [
+            {
+              name: 'BrokenApplet',
+              packageAid: 'FF6974656D01',
+              capBytes: cap,
+              appletAid: 'FF6974656D0101',
+              instanceAid: 'FF6974656D0101',
+            },
+          ],
+          {
+            keySet,
+            hostChallenge,
+            verifyInstalledState: true,
+            verifySelectable: true,
+          }
+        )
+      } catch (err: unknown) {
+        caughtError = err as Error
+      }
+
+      expect(caughtError).to.be.instanceOf(Error)
+      expect(caughtError?.message).to.include('Post-flashing verification failed')
+      expect(caughtError?.message).to.include('failed SELECT with Status Word 0x6A82')
+    })
+
+    it('parses Tag 0xE3 TLV formatted GET STATUS responses seamlessly', async () => {
+      const hostChallenge = hexToUint8('1122334455667788')
+      const initUpdateResp = mockInitUpdateResponse()
+
+      // Tag 0xE3 TLV response for P1=0x20:
+      // [E3] [len] [4F 06 FF6974656D01] [9F70 01 01] [CE 02 0100]
+      const e3Elf = new Uint8Array([
+        0xe3, 0x10, 0x4f, 0x06, 0xff, 0x69, 0x74, 0x65, 0x6d, 0x01, 0x9f, 0x70, 0x01, 0x01, 0xce, 0x02, 0x01, 0x00,
+        0x90, 0x00,
+      ])
+      // Tag 0xE3 TLV response for P1=0x10:
+      // In GP 2.2 §11.4.3.2, for P1=0x10, the ELF Tag 0xE3 contains Tag 0x4F (ELF AID) and Tag 0x84 (Module AID)
+      // [E3] [len] [4F 06 FF6974656D01] [9F70 01 01] [84 07 FF6974656D0101]
+      // Note: 0x12 payload bytes: 4F(8) + 9F70(4) + 84(9) = 21 -> 0x15
+      const e3Mod = new Uint8Array([
+        0xe3, 0x15, 0x4f, 0x06, 0xff, 0x69, 0x74, 0x65, 0x6d, 0x01, 0x9f, 0x70, 0x01, 0x01, 0x84, 0x07, 0xff, 0x69,
+        0x74, 0x65, 0x6d, 0x01, 0x01, 0x90, 0x00,
+      ])
+      // Tag 0xE3 TLV response for P1=0x40:
+      // [E3] [len] [4F 07 FF6974656D0101] [9F70 01 07] [C4 01 00]
+      const e3App = new Uint8Array([
+        0xe3, 0x11, 0x4f, 0x07, 0xff, 0x69, 0x74, 0x65, 0x6d, 0x01, 0x01, 0x9f, 0x70, 0x01, 0x07, 0xc4, 0x01, 0x00,
+        0x90, 0x00,
+      ])
+
+      const transport = new MockTransport([
+        new Uint8Array([0x90, 0x00]), // 1. SELECT
+        initUpdateResp, // 2. INIT UPDATE
+        new Uint8Array([0x90, 0x00]), // 3. EXT AUTH
+        e3Elf, // 4. GET STATUS (0x20)
+        e3Mod, // 5. GET STATUS (0x10)
+        e3App, // 6. GET STATUS (0x40)
+      ])
+
+      const reader = new Reader(transport)
+      await reader.connect()
+      const cardManager = new GlobalPlatformCardManager(reader)
+      await cardManager.selectCardManager(DEFAULT_ISD_AID)
+      await cardManager.openSecureChannelScp02(keySet, GpSecurityLevel.C_DECRYPTION_AND_C_MAC, hostChallenge)
+
+      const inventory = await cardManager.getCardInventory()
+      expect(inventory.executableLoadFiles.length).to.equal(1)
+      expect(inventory.executableLoadFiles[0].aid).to.equal('FF6974656D01')
+      expect(inventory.executableLoadFiles[0].lifeCycleState).to.equal(0x01)
+      expect(inventory.executableLoadFiles[0].versionNumber).to.equal('0100')
+
+      expect(inventory.executableModules.length).to.equal(1)
+      expect(inventory.executableModules[0].executableLoadFileAid).to.equal('FF6974656D01')
+      expect(inventory.executableModules[0].executableModuleAid).to.equal('FF6974656D0101')
+
+      expect(inventory.appletsAndSecurityDomains.length).to.equal(1)
+      expect(inventory.appletsAndSecurityDomains[0].aid).to.equal('FF6974656D0101')
+      expect(inventory.appletsAndSecurityDomains[0].lifeCycleState).to.equal(0x07)
+      expect(inventory.appletsAndSecurityDomains[0].privileges).to.equal('00')
+    })
   })
 })
