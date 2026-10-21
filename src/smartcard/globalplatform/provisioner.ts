@@ -95,14 +95,29 @@ export class GlobalPlatformProvisioner {
   /**
    * Reconcile target topology against live card inventory to determine minimal operations
    * for resilient flashing recovery after an interrupted session.
+   *
+   * @param topology Target desired topology entries
+   * @param inventory Current card inventory reported by Card Manager
+   * @param wipedAids Optional set of package/instance AIDs wiped during current session
    */
-  public reconcileTopology(topology: CapTopologyEntry[], inventory: GpStatusResult): TopologyReconciliation {
+  public reconcileTopology(
+    topology: CapTopologyEntry[],
+    inventory: GpStatusResult,
+    wipedAids?: Set<string>
+  ): TopologyReconciliation {
     const installedAids = new Set<string>()
     for (const elf of inventory.executableLoadFiles) {
       installedAids.add(elf.aid.toUpperCase())
     }
     for (const app of inventory.appletsAndSecurityDomains) {
       installedAids.add(app.aid.toUpperCase())
+    }
+
+    // Remove any AIDs that were explicitly deleted during this session
+    if (wipedAids) {
+      for (const wiped of wipedAids) {
+        installedAids.delete(wiped.toUpperCase())
+      }
     }
 
     const packagesToLoad: CapTopologyEntry[] = []
@@ -197,52 +212,25 @@ export class GlobalPlatformProvisioner {
     )
 
     // ==========================================
-    // Phase 3: Card Inventory & Reconciliation
+    // Phase 3: Clean Wipe (if requested)
     // ==========================================
-    let targetPackages = orderedTopology
-    let targetInstances = orderedTopology.filter(e => !e.isLibrary && e.appletAid && e.instanceAid)
-
-    if (options.reconcileWithInventory) {
-      this.checkAborted(signal)
-      this.emitProgress(options, {
-        phase: 'inventory',
-        stepDescription: 'Inspecting existing card inventory for resilient flashing',
-        currentStep: 3,
-        totalSteps: 10,
-        progressPercent: 25,
-      })
-
-      const inventory = await this.cardManager.getCardInventory(signal)
-      const reconciliation = this.reconcileTopology(orderedTopology, inventory)
-      targetPackages = reconciliation.packagesToLoad
-      targetInstances = reconciliation.instancesToCreate
-
-      this.emitProgress(options, {
-        phase: 'reconciling',
-        stepDescription: `Reconciled: ${reconciliation.alreadyInstalledPackages.length} packages intact, ${targetPackages.length} to load`,
-        currentStep: 4,
-        totalSteps: 10,
-        progressPercent: 30,
-      })
-    }
-
-    // ==========================================
-    // Phase 4: Clean Wipe (if requested)
-    // ==========================================
+    const wipedAids = new Set<string>()
     if (options.cleanWipeExisting && options.existingAidsToDelete && options.existingAidsToDelete.length > 0) {
       this.checkAborted(signal)
       this.emitProgress(options, {
         phase: 'wiping',
         stepDescription: `Wiping ${options.existingAidsToDelete.length} existing package(s)`,
-        currentStep: 5,
+        currentStep: 3,
         totalSteps: 10,
-        progressPercent: 35,
+        progressPercent: 25,
       })
 
       for (const aid of options.existingAidsToDelete) {
         this.checkAborted(signal)
+        const cleanAid = aid.replace(/^0x/i, '').toUpperCase()
         try {
-          await this.cardManager.delete(aid, true, signal)
+          await this.cardManager.delete(cleanAid, true, signal)
+          wipedAids.add(cleanAid)
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err)
           // Only ignore benign 0x6A88 (Referenced data not found)
@@ -252,6 +240,36 @@ export class GlobalPlatformProvisioner {
           }
         }
       }
+    }
+
+    // ==========================================
+    // Phase 4: Card Inventory & Reconciliation
+    // ==========================================
+    let targetPackages = orderedTopology
+    let targetInstances = orderedTopology.filter(e => !e.isLibrary && e.appletAid && e.instanceAid)
+
+    if (options.reconcileWithInventory) {
+      this.checkAborted(signal)
+      this.emitProgress(options, {
+        phase: 'inventory',
+        stepDescription: 'Inspecting existing card inventory for resilient flashing',
+        currentStep: 4,
+        totalSteps: 10,
+        progressPercent: 30,
+      })
+
+      const inventory = await this.cardManager.getCardInventory(signal)
+      const reconciliation = this.reconcileTopology(orderedTopology, inventory, wipedAids)
+      targetPackages = reconciliation.packagesToLoad
+      targetInstances = reconciliation.instancesToCreate
+
+      this.emitProgress(options, {
+        phase: 'reconciling',
+        stepDescription: `Reconciled: ${reconciliation.alreadyInstalledPackages.length} packages intact, ${targetPackages.length} to load`,
+        currentStep: 4,
+        totalSteps: 10,
+        progressPercent: 35,
+      })
     }
 
     // ==========================================
