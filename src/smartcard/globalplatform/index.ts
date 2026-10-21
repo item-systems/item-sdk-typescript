@@ -1,5 +1,6 @@
 export * from './crypto'
 export * from './scp02'
 export * from './scp03'
+export * from './cap-parser'
 export * from './card-manager'
 export * from './provisioner'

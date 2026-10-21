@@ -1,5 +1,5 @@
 import { CardReader } from '../reader'
-import { GlobalPlatformCardManager, GpKeySet, DEFAULT_ISD_AID } from './card-manager'
+import { GlobalPlatformCardManager, GpKeySet, DEFAULT_ISD_AID, DEFAULT_MAX_LOAD_CHUNK_SIZE } from './card-manager'
 import { GpSecurityLevel } from './scp02'
 
 export interface CapTopologyEntry {
@@ -64,8 +64,14 @@ export class GlobalPlatformProvisioner {
       for (const aid of options.existingAidsToDelete) {
         try {
           await this.cardManager.delete(aid, true)
-        } catch {
-          // Ignore deletion error if package not installed
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err)
+          // Only ignore benign "not found" / "referenced data not found" status words (0x6A88 or 0x6A80)
+          const isNotFound = msg.includes('0x6A88') || msg.includes('0x6A80')
+          if (!isNotFound) {
+            // Re-throw genuine errors (auth mismatch 0x6982, condition of use 0x6985, transport errors)
+            throw new Error(`Failed to delete package ${aid} during clean wipe: ${msg}`)
+          }
         }
       }
     }
@@ -74,8 +80,13 @@ export class GlobalPlatformProvisioner {
     for (const entry of topology) {
       options.onProgress?.(`Loading ${entry.name}`, ++stepCount, totalSteps)
 
-      // 1. Load CAP
-      await this.cardManager.loadCap(entry.capBytes, entry.packageAid, isdAid, options.maxChunkSize || 240)
+      // 1. Load CAP (with automatic C4 data block construction and safe default chunk size)
+      await this.cardManager.loadCap(
+        entry.capBytes,
+        entry.packageAid,
+        isdAid,
+        options.maxChunkSize || DEFAULT_MAX_LOAD_CHUNK_SIZE
+      )
 
       // 2. Instantiate if not an export library
       if (!entry.isLibrary && entry.appletAid && entry.instanceAid) {

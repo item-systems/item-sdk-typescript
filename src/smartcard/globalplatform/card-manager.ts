@@ -2,6 +2,7 @@ import { CardReader } from '../reader'
 import { uint8ToHex, hexToUint8 } from '../utils'
 import { GpSecurityLevel, Scp02Session } from './scp02'
 import { Scp03Session } from './scp03'
+import { buildLoadFileDataBlock } from './cap-parser'
 import { randomBytes } from 'crypto'
 
 /**
@@ -34,6 +35,13 @@ export interface GpStatusResult {
 export const DEFAULT_ISD_AID = 'A000000151000000'
 
 /**
+ * Default max chunk size for LOAD APDUs (224 bytes).
+ * Ensures that when encrypted (ISO 9797 Method 2 padding adds up to 16 bytes)
+ * and MACed (8 bytes), the total APDU Lc does not exceed 255 bytes (single-byte Lc).
+ */
+export const DEFAULT_MAX_LOAD_CHUNK_SIZE = 224
+
+/**
  * High-level GlobalPlatform Card Manager Client.
  *
  * Implements standard GlobalPlatform 2.2/2.3 Card Management commands:
@@ -42,7 +50,7 @@ export const DEFAULT_ISD_AID = 'A000000151000000'
  * - GET DATA (CPLC, Key Information)
  * - GET STATUS (List Executable Load Files, Packages, Applets)
  * - DELETE (Uninstall Packages / Instances)
- * - INSTALL [for load] & LOAD (Chunked CAP deployment)
+ * - INSTALL [for load] & LOAD (Chunked CAP deployment with Tag 0xC4 construction)
  * - INSTALL [for install & make selectable] (Applet instantiation)
  */
 export class GlobalPlatformCardManager {
@@ -86,15 +94,10 @@ export class GlobalPlatformCardManager {
     const cardChallenge = initResp.subarray(14, 20)
     const cardCryptogram = initResp.subarray(20, 28)
 
-    // 2. Derive Session Keys (S-ENC, S-MAC, S-DEK)
+    // 2. Derive Session Keys (S-ENC, S-MAC, S-DEK) via 3DES-CBC
     const { sEnc, sMac, sDek } = Scp02Session.deriveSessionKeys(keySet.encKey, keySet.macKey, keySet.dekKey, seqCounter)
 
     // 3. Verify Card Cryptogram
-    const fullCardChallenge = new Uint8Array(8)
-    fullCardChallenge.set(cardChallenge, 0)
-    fullCardChallenge[6] = 0x00
-    fullCardChallenge[7] = 0x00
-    // In SCP02, Card Cryptogram is calculated over HostChallenge || CardChallenge(8B) or SeqCounter||CardChal
     const expectedCardCrypto = Scp02Session.calculateCardCryptogram(sEnc, hostChal, initResp.subarray(12, 20))
     if (uint8ToHex(cardCryptogram) !== uint8ToHex(expectedCardCrypto)) {
       throw new Error(
@@ -105,18 +108,21 @@ export class GlobalPlatformCardManager {
     // 4. Calculate Host Cryptogram
     const hostCryptogram = Scp02Session.calculateHostCryptogram(sEnc, seqCounter, cardChallenge, hostChal)
 
-    // 5. EXTERNAL AUTHENTICATE (CLA=0x84, INS=0x82, P1=SecurityLevel, P2=0x00, Lc=0x10, Data=HostCrypto(8B) || C-MAC(8B))
-    const session = new Scp02Session(sEnc, sMac, sDek, securityLevel)
-
-    // Prepare raw EXTERNAL AUTHENTICATE APDU: CLA=0x80, INS=0x82, P1=secLevel, P2=0x00, Lc=0x08, Data=HostCryptogram
+    // 5. EXTERNAL AUTHENTICATE
+    // Per GP 2.2 §10.4 / Appendix E.4.4:
+    // EXTERNAL AUTHENTICATE is wrapped with C-MAC ONLY (Lc=0x10, Data = HostCrypto(8B) || C-MAC(8B)).
+    // Data encryption (C-DECRYPTION) only takes effect on SUBSEQUENT commands.
+    const authSession = new Scp02Session(sEnc, sMac, sDek, GpSecurityLevel.C_MAC)
     const extAuthRaw = new Uint8Array([0x80, 0x82, securityLevel & 0xff, 0x00, 0x08, ...hostCryptogram])
-    const extAuthWrapped = session.wrap(extAuthRaw)
+    const extAuthWrapped = authSession.wrap(extAuthRaw)
 
     const extResp = await this.reader.transmit(extAuthWrapped)
     this.assertSuccess(extResp, 'EXTERNAL AUTHENTICATE (SCP02)')
 
-    this.session = session
-    return session
+    // After successful EXTERNAL AUTHENTICATE, set requested target security level (e.g. C_DECRYPTION_AND_C_MAC)
+    authSession.setSecurityLevel(securityLevel)
+    this.session = authSession
+    return authSession
   }
 
   /**
@@ -135,10 +141,17 @@ export class GlobalPlatformCardManager {
     const initResp = await this.reader.transmit(initUpdateApdu)
     this.assertSuccess(initResp, 'INITIALIZE UPDATE (SCP03)')
 
-    // Response structure (29+2 bytes or 32+2 bytes):
-    // Key Div (10B) || Key Ver (1B) || SCP ID (1B, 0x03) || Card Challenge (8B) || Card Cryptogram (8B) || [Seq (3B)] || SW (2B)
-    const cardChallenge = initResp.subarray(12, 20)
-    const cardCryptogram = initResp.subarray(20, 28)
+    // Response structure per GP 2.3 Amendment D Section 5.1 / 6.1 (29+2 or 32+2 bytes):
+    // Key Diversification Data (10B, 0..9)
+    // Key Version Number (1B, 10)
+    // SCP Identifier (1B, 11: 0x03)
+    // SCP03 Implementation Option (1B, 12)
+    // Card Challenge (8B, 13..20)
+    // Card Cryptogram (8B, 21..28)
+    // [Sequence Counter (3B, 29..31) - optional]
+    // Status Word (2B)
+    const cardChallenge = initResp.subarray(13, 21)
+    const cardCryptogram = initResp.subarray(21, 29)
 
     // 2. Derive Session Keys (S-ENC, S-MAC, S-RMAC, S-DEK)
     const { sEnc, sMac, sRMac, sDek } = Scp03Session.deriveSessionKeys(staticKey, hostChal, cardChallenge)
@@ -154,16 +167,18 @@ export class GlobalPlatformCardManager {
     // 4. Calculate Host Cryptogram
     const hostCryptogram = Scp03Session.calculateHostCryptogram(sMac, hostChal, cardChallenge)
 
-    // 5. EXTERNAL AUTHENTICATE
-    const session = new Scp03Session(sEnc, sMac, sRMac, sDek, securityLevel)
+    // 5. EXTERNAL AUTHENTICATE (C-MAC only for authentication handshake)
+    const authSession = new Scp03Session(sEnc, sMac, sRMac, sDek, GpSecurityLevel.C_MAC)
     const extAuthRaw = new Uint8Array([0x80, 0x82, securityLevel & 0xff, 0x00, 0x08, ...hostCryptogram])
-    const extAuthWrapped = session.wrap(extAuthRaw)
+    const extAuthWrapped = authSession.wrap(extAuthRaw)
 
     const extResp = await this.reader.transmit(extAuthWrapped)
     this.assertSuccess(extResp, 'EXTERNAL AUTHENTICATE (SCP03)')
 
-    this.session = session
-    return session
+    // Set requested target security level on session after authentication
+    authSession.setSecurityLevel(securityLevel)
+    this.session = authSession
+    return authSession
   }
 
   /**
@@ -189,19 +204,25 @@ export class GlobalPlatformCardManager {
   /**
    * Load and flash a compiled CAP file onto the card.
    *
-   * @param capBytes Raw CAP binary content
+   * Automatically unpacks ZIP-formatted CAP archives and constructs the canonical
+   * GlobalPlatform Load File Data Block (Tag 0xC4) containing the ordered component TLVs.
+   *
+   * @param capBytes Raw CAP binary content (ZIP archive or Load File Data Block)
    * @param packageAid Executable Load File AID
    * @param securityDomainAid Target Security Domain AID (default ISD)
-   * @param maxChunkSize Chunk size for LOAD APDUs (default 240 bytes)
+   * @param maxChunkSize Chunk size for LOAD APDUs (default 224 bytes, preventing short APDU overflow)
    */
   public async loadCap(
     capBytes: Uint8Array,
     packageAid: string,
     securityDomainAid: string = DEFAULT_ISD_AID,
-    maxChunkSize = 240
+    maxChunkSize: number = DEFAULT_MAX_LOAD_CHUNK_SIZE
   ): Promise<void> {
     const pkgAidBytes = hexToUint8(packageAid)
     const isdAidBytes = hexToUint8(securityDomainAid)
+
+    // Build canonical GlobalPlatform Load File Data Block (Tag 0xC4)
+    const loadFileDataBlock = buildLoadFileDataBlock(capBytes)
 
     // 1. INSTALL [for load] (CLA=0x80, INS=0xE6, P1=0x02, P2=0x00)
     // Data TLV:
@@ -240,18 +261,21 @@ export class GlobalPlatformCardManager {
     let blockNumber = 0
     let capOffset = 0
 
-    while (capOffset < capBytes.length) {
-      const remaining = capBytes.length - capOffset
+    while (capOffset < loadFileDataBlock.length) {
+      const remaining = loadFileDataBlock.length - capOffset
       const chunkSize = Math.min(remaining, maxChunkSize)
-      const isLastChunk = capOffset + chunkSize === capBytes.length
+      const isLastChunk = capOffset + chunkSize === loadFileDataBlock.length
       const p1 = isLastChunk ? 0x80 : 0x00
 
-      const chunk = capBytes.subarray(capOffset, capOffset + chunkSize)
+      const chunk = loadFileDataBlock.subarray(capOffset, capOffset + chunkSize)
       const loadApdu = new Uint8Array([0x80, 0xe8, p1, blockNumber & 0xff, chunk.length, ...chunk])
       const wrappedLoad = this.wrapApdu(loadApdu)
 
       const loadResp = await this.reader.transmit(wrappedLoad)
-      this.assertSuccess(loadResp, `LOAD Block ${blockNumber} (${capOffset + chunkSize}/${capBytes.length} bytes)`)
+      this.assertSuccess(
+        loadResp,
+        `LOAD Block ${blockNumber} (${capOffset + chunkSize}/${loadFileDataBlock.length} bytes)`
+      )
 
       capOffset += chunkSize
       blockNumber = (blockNumber + 1) & 0xff
@@ -285,7 +309,7 @@ export class GlobalPlatformCardManager {
     // [Mod AID len (1B)] [Mod AID]
     // [Inst AID len (1B)] [Inst AID]
     // [Privileges len (1B)] [Privileges]
-    // [Params len (1B)] [Params] (usually C9 <len> <data> or raw)
+    // [Params len (1B)] [Params]
     // [Install Token len (1B, 0x00)]
     const totalLen =
       1 +
