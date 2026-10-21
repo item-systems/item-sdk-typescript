@@ -70,31 +70,35 @@ export enum AuthPolicy {
 
 /**
  * User Access Control (UAC) Credential Types.
+ * Matches Python SDK v3.5.0 UacConstants and JavaCard UAC Engine.
  */
 export enum AuthCredentialType {
-  ASYMMETRIC = 0x01,
+  EMPTY = 0x00,
+  PIN = 0x01,
   SYMMETRIC = 0x02,
-  PIN = 0x03,
+  ASYMMETRIC = 0x03,
   INDIRECT = 0x04,
 }
 
 /**
  * User Access Control (UAC) Granular Capability Bitmasks.
+ * Matches Python SDK v3.5.0 UacConstants and JavaCard UacConstants.
  */
 export enum UacCapability {
   NONE = 0x0000,
   CREATE_MASTER_KEY = 0x0001,
-  SELECT_TUNNEL_MASTERKEY = 0x0002,
+  DERIVE_KEY = 0x0002,
   PROVISION_ENCLAVE = 0x0004,
   CONFIGURE_STORAGE = 0x0008,
   CRYPTO_CREATE_ENGINE = 0x0010,
-  CRYPTO_LOAD_BYTECODE = 0x0020,
-  MANAGE_IDENTITIES = 0x0040,
+  CRYPTO_DEPRECATE_ENGINE = 0x0020,
+  CRYPTO_DELETE_ENGINE = 0x0040,
   KEYRING_PURGE_NONCES = 0x0080,
   CONFIGURE_SYSTEM = 0x0100,
-  CRYPTO_EXECUTE = 0x0200,
-  CREATE_KEYRING = 0x0400,
+  MANAGE_IDENTITIES = 0x0200,
+  SELECT_TUNNEL_MASTERKEY = 0x0400,
   MANAGE_PLUGINS = 0x0800,
+  CRYPTO_LOAD_BYTECODE = 0x1000,
   ALL_PRIVILEGES = 0xffff,
 }
 

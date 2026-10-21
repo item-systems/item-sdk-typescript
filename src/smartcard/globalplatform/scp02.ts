@@ -26,6 +26,7 @@ export class Scp02Session {
   private sDek: Uint8Array
   private macIcv: Uint8Array
   private securityLevel: GpSecurityLevel
+  private isDisposed = false
 
   constructor(sEnc: Uint8Array, sMac: Uint8Array, sDek: Uint8Array, securityLevel = GpSecurityLevel.C_MAC) {
     this.sEnc = sEnc
@@ -40,7 +41,32 @@ export class Scp02Session {
   }
 
   public setSecurityLevel(level: GpSecurityLevel): void {
+    this.assertNotDisposed()
     this.securityLevel = level
+  }
+
+  /**
+   * Securely zeroize all cryptographic session keys, MAC chaining buffers, and invalidate session.
+   */
+  public dispose(): void {
+    if (this.isDisposed) {
+      return
+    }
+    this.sEnc.fill(0)
+    this.sMac.fill(0)
+    this.sDek.fill(0)
+    this.macIcv.fill(0)
+    this.isDisposed = true
+  }
+
+  public disposed(): boolean {
+    return this.isDisposed
+  }
+
+  private assertNotDisposed(): void {
+    if (this.isDisposed) {
+      throw new Error('Scp02Session is disposed and can no longer be used')
+    }
   }
 
   /**
@@ -126,6 +152,7 @@ export class Scp02Session {
    * Wrap a command APDU with SCP02 secure messaging (C-MAC and/or C-DECRYPTION).
    */
   public wrap(apdu: Uint8Array): Uint8Array {
+    this.assertNotDisposed()
     if (this.securityLevel === GpSecurityLevel.NO_SECURITY_LEVEL) {
       return apdu
     }
@@ -182,6 +209,7 @@ export class Scp02Session {
    * Decrypt sensitive data (e.g. key import) using DEK key.
    */
   public decryptDek(data: Uint8Array): Uint8Array {
+    this.assertNotDisposed()
     return des3EcbDecrypt(this.sDek, data)
   }
 
@@ -189,6 +217,7 @@ export class Scp02Session {
    * Encrypt sensitive data (e.g. key import) using DEK key.
    */
   public encryptDek(data: Uint8Array): Uint8Array {
+    this.assertNotDisposed()
     return des3EcbEncrypt(this.sDek, data)
   }
 }

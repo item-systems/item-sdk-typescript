@@ -72,7 +72,10 @@ export class GlobalPlatformCardManager {
    * Close and dispose active secure session and underlying reader.
    */
   public async dispose(): Promise<void> {
-    this.session = null
+    if (this.session) {
+      this.session.dispose()
+      this.session = null
+    }
     if (this.reader.dispose) {
       await this.reader.dispose()
     } else {

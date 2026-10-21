@@ -17,10 +17,14 @@ try {
   fs.writeFileSync(
     path.join(tmp, 'esm.mjs'),
     `
-import { Item, Utils, constants, types } from '@item-systems/item'
+import { Item, Utils, constants, types, smartcard } from '@item-systems/item'
 import { ItemSecureTunnel, MicrokernelClient } from '@item-systems/item/mobile'
+import * as gp from '@item-systems/item/globalplatform'
+import * as sc from '@item-systems/item/smartcard'
+if (!Item || !Utils || !constants || !types || !smartcard) throw new Error('missing ESM public exports')
 if (!ItemSecureTunnel || !MicrokernelClient) throw new Error('missing mobile ESM exports')
-if (!Item || !Utils || !constants || !types) throw new Error('missing ESM public exports')
+if (!gp.GlobalPlatformCardManager || !gp.GlobalPlatformProvisioner || !gp.Scp02Session || !gp.Scp03Session) throw new Error('missing ./globalplatform subpath exports')
+if (!sc.IdentityManager || !sc.PluginManager || !sc.InBandBytecodeLoader) throw new Error('missing ./smartcard subpath exports')
 console.log('esm ok')
 `
   )
@@ -29,10 +33,14 @@ console.log('esm ok')
   fs.writeFileSync(
     path.join(tmp, 'cjs.cjs'),
     `
-const { Item, Utils, constants, types } = require('@item-systems/item')
+const { Item, Utils, constants, types, smartcard } = require('@item-systems/item')
 const { ItemSecureTunnel, MicrokernelClient } = require('@item-systems/item/mobile')
+const gp = require('@item-systems/item/globalplatform')
+const sc = require('@item-systems/item/smartcard')
+if (!Item || !Utils || !constants || !types || !smartcard) throw new Error('missing CJS public exports')
 if (!ItemSecureTunnel || !MicrokernelClient) throw new Error('missing mobile CJS exports')
-if (!Item || !Utils || !constants || !types) throw new Error('missing CJS public exports')
+if (!gp.GlobalPlatformCardManager || !gp.GlobalPlatformProvisioner || !gp.Scp02Session || !gp.Scp03Session) throw new Error('missing ./globalplatform subpath exports')
+if (!sc.IdentityManager || !sc.PluginManager || !sc.InBandBytecodeLoader) throw new Error('missing ./smartcard subpath exports')
 console.log('cjs ok')
 `
   )
@@ -41,16 +49,23 @@ console.log('cjs ok')
   fs.writeFileSync(
     path.join(tmp, 'tscheck.ts'),
     `
-import { Item, Utils, constants, types } from '@item-systems/item'
+import { Item, Utils, constants, types, smartcard } from '@item-systems/item'
 import { ItemSecureTunnel, MicrokernelClient, type CardTransport } from '@item-systems/item/mobile'
-void ItemSecureTunnel
-void MicrokernelClient
-const transport: CardTransport | undefined = undefined
-void transport
+import { GlobalPlatformCardManager, GlobalPlatformProvisioner } from '@item-systems/item/globalplatform'
+import { IdentityManager, PluginManager } from '@item-systems/item/smartcard'
 void Item
 void Utils
 void constants
 void types
+void smartcard
+void ItemSecureTunnel
+void MicrokernelClient
+const transport: CardTransport | undefined = undefined
+void transport
+void GlobalPlatformCardManager
+void GlobalPlatformProvisioner
+void IdentityManager
+void PluginManager
 `
   )
   run('npm', ['install', '--silent', '--save-dev', 'typescript@^5.0.0'])

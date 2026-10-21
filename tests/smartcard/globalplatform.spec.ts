@@ -377,6 +377,15 @@ describe('GlobalPlatform Cryptography and Secure Channel Protocols (Pure TypeScr
       expect(wrapped[0]).to.equal(0x84)
       expect(wrapped[1]).to.equal(0xe4)
       expect(wrapped.length).to.be.greaterThan(rawApdu.length)
+
+      // Test session key zeroization on disposal (SDK-GP12)
+      expect(session.disposed()).to.equal(false)
+      session.dispose()
+      expect(session.disposed()).to.equal(true)
+      expect(() => session.wrap(rawApdu)).to.throw(/disposed/)
+      expect(() => session.decryptDek(new Uint8Array(8))).to.throw(/disposed/)
+      expect(() => session.encryptDek(new Uint8Array(8))).to.throw(/disposed/)
+      expect(() => session.setSecurityLevel(GpSecurityLevel.C_MAC)).to.throw(/disposed/)
     })
   })
 
@@ -396,6 +405,13 @@ describe('GlobalPlatform Cryptography and Secure Channel Protocols (Pure TypeScr
 
       const hostCryptogram = Scp03Session.calculateHostCryptogram(sMac, hostChallenge, cardChallenge)
       expect(hostCryptogram.length).to.equal(8)
+
+      const session = new Scp03Session(sEnc, sMac, sRMac, sDek, GpSecurityLevel.C_MAC)
+      expect(session.disposed()).to.equal(false)
+      session.dispose()
+      expect(session.disposed()).to.equal(true)
+      expect(() => session.wrap(hexToUint8('80E40000024F00'))).to.throw(/disposed/)
+      expect(() => session.setSecurityLevel(GpSecurityLevel.C_MAC)).to.throw(/disposed/)
     })
   })
 

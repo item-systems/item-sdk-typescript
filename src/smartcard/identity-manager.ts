@@ -35,16 +35,9 @@ export class IdentityManager {
     identityId: number,
     capabilities: number,
     authPolicy: AuthPolicy = AuthPolicy.ANY_OF,
-    requiredThreshold = 1,
-    initialCredentials?: Array<{
-      type: AuthCredentialType
-      algorithmId: number
-      keyReference?: number
-      ownerIdentityId?: number
-      verificationData?: Uint8Array
-    }>
+    requiredThreshold = 1
   ): Promise<void> {
-    const cmd = new IdentityCreateCommand(identityId, capabilities, authPolicy, requiredThreshold, initialCredentials)
+    const cmd = new IdentityCreateCommand(identityId, capabilities, authPolicy, requiredThreshold)
     const resp = await this.executeTunneled(cmd.toArray())
     if (resp.getSW() !== StatusWord.OK) {
       throw new Error(`Failed to create identity: Status Word 0x${resp.getSW().toString(16).toUpperCase()}`)
@@ -103,22 +96,8 @@ export class IdentityManager {
   /**
    * Add a credential descriptor to an identity.
    */
-  public async addCredential(
-    identityId: number,
-    type: AuthCredentialType,
-    algorithmId: number,
-    verificationData: Uint8Array,
-    keyReference = 0,
-    ownerIdentityId?: number
-  ): Promise<void> {
-    const cmd = new IdentityAddCredentialCommand(
-      identityId,
-      type,
-      algorithmId,
-      verificationData,
-      keyReference,
-      ownerIdentityId ?? identityId
-    )
+  public async addCredential(identityId: number, type: AuthCredentialType, credData: Uint8Array): Promise<void> {
+    const cmd = new IdentityAddCredentialCommand(identityId, type, credData)
     const resp = await this.executeTunneled(cmd.toArray())
     if (resp.getSW() !== StatusWord.OK) {
       throw new Error(
