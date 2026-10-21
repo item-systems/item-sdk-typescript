@@ -1,0 +1,733 @@
+{
+  "reference": "cd4c319cabbd2040699bb1ebb28c68bd379f64b3",
+  "note": "Offline Python reference output, not hardware verification",
+  "cases": [
+    {
+      "manager": "MasterKeyManager",
+      "method": "generate",
+      "args": [],
+      "response": "02",
+      "commands": [
+        {
+          "ins": 23,
+          "p1": 0,
+          "p2": 0,
+          "data": ""
+        }
+      ]
+    },
+    {
+      "manager": "MasterKeyManager",
+      "method": "importSeed",
+      "args": [
+        {
+          "hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f"
+        }
+      ],
+      "response": "02",
+      "commands": [
+        {
+          "ins": 35,
+          "p1": 0,
+          "p2": 0,
+          "data": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f"
+        }
+      ]
+    },
+    {
+      "manager": "MasterKeyManager",
+      "method": "getStats",
+      "args": [],
+      "response": "010001010000000101c0000280000100",
+      "commands": [
+        {
+          "ins": 21,
+          "p1": 0,
+          "p2": 0,
+          "data": ""
+        }
+      ]
+    },
+    {
+      "manager": "MasterKeyManager",
+      "method": "setTunnelAnchor",
+      "args": [2, 3],
+      "response": "",
+      "commands": [
+        {
+          "ins": 34,
+          "p1": 2,
+          "p2": 3,
+          "data": ""
+        }
+      ]
+    },
+    {
+      "manager": "MasterKeyManager",
+      "method": "deprecate",
+      "args": [2],
+      "response": "",
+      "commands": [
+        {
+          "ins": 36,
+          "p1": 2,
+          "p2": 0,
+          "data": "8000"
+        }
+      ]
+    },
+    {
+      "manager": "MasterKeyManager",
+      "method": "delete",
+      "args": [2],
+      "response": "",
+      "commands": [
+        {
+          "ins": 25,
+          "p1": 2,
+          "p2": 0,
+          "data": ""
+        }
+      ]
+    },
+    {
+      "manager": "KeyRingManager",
+      "method": "derive",
+      "args": [
+        2,
+        {
+          "hex": "8000002c80000378"
+        },
+        1
+      ],
+      "response": "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "commands": [
+        {
+          "ins": 19,
+          "p1": 1,
+          "p2": 2,
+          "data": "8000002c80000378"
+        }
+      ]
+    },
+    {
+      "manager": "KeyRingManager",
+      "method": "sign",
+      "args": [
+        3,
+        {
+          "hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+        }
+      ],
+      "response": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "commands": [
+        {
+          "ins": 18,
+          "p1": 3,
+          "p2": 0,
+          "data": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+        }
+      ]
+    },
+    {
+      "manager": "KeyRingManager",
+      "method": "exportPublicKey",
+      "args": [3],
+      "response": "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "commands": [
+        {
+          "ins": 20,
+          "p1": 3,
+          "p2": 0,
+          "data": ""
+        }
+      ]
+    },
+    {
+      "manager": "KeyRingManager",
+      "method": "generate",
+      "args": [2],
+      "response": "03",
+      "commands": [
+        {
+          "ins": 104,
+          "p1": 2,
+          "p2": 0,
+          "data": ""
+        }
+      ]
+    },
+    {
+      "manager": "KeyRingManager",
+      "method": "importSecret",
+      "args": [
+        {
+          "hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+        },
+        2
+      ],
+      "response": "03",
+      "commands": [
+        {
+          "ins": 105,
+          "p1": 2,
+          "p2": 0,
+          "data": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+        }
+      ]
+    },
+    {
+      "manager": "KeyRingManager",
+      "method": "deprecate",
+      "args": [3],
+      "response": "",
+      "commands": [
+        {
+          "ins": 107,
+          "p1": 3,
+          "p2": 0,
+          "data": "8000"
+        }
+      ]
+    },
+    {
+      "manager": "KeyRingManager",
+      "method": "delete",
+      "args": [3],
+      "response": "",
+      "commands": [
+        {
+          "ins": 106,
+          "p1": 3,
+          "p2": 0,
+          "data": ""
+        }
+      ]
+    },
+    {
+      "manager": "PosixManager",
+      "method": "stat",
+      "args": [2, 3],
+      "response": "0001000201c0",
+      "commands": [
+        {
+          "ins": 101,
+          "p1": 2,
+          "p2": 3,
+          "data": ""
+        }
+      ]
+    },
+    {
+      "manager": "PosixManager",
+      "method": "chmod",
+      "args": [2, 3, 493],
+      "response": "",
+      "commands": [
+        {
+          "ins": 102,
+          "p1": 2,
+          "p2": 3,
+          "data": "01ed"
+        }
+      ]
+    },
+    {
+      "manager": "PosixManager",
+      "method": "chown",
+      "args": [2, 3, 7, 1],
+      "response": "",
+      "commands": [
+        {
+          "ins": 103,
+          "p1": 2,
+          "p2": 3,
+          "data": "00070001"
+        }
+      ]
+    },
+    {
+      "manager": "PluginManager",
+      "method": "register",
+      "args": [
+        {
+          "hex": "d2760000850101"
+        },
+        15,
+        1,
+        493,
+        10
+      ],
+      "response": "02",
+      "commands": [
+        {
+          "ins": 64,
+          "p1": 0,
+          "p2": 0,
+          "data": "07d2760000850101000f000101ed000a"
+        }
+      ]
+    },
+    {
+      "manager": "PluginManager",
+      "method": "query",
+      "args": [2],
+      "response": "0107d2760000850101000f000101ed000a0000000000000000000000000000000000000000000000000000000000000000",
+      "commands": [
+        {
+          "ins": 65,
+          "p1": 2,
+          "p2": 0,
+          "data": ""
+        }
+      ]
+    },
+    {
+      "manager": "PluginManager",
+      "method": "update",
+      "args": [2, 448, 12],
+      "response": "",
+      "commands": [
+        {
+          "ins": 66,
+          "p1": 2,
+          "p2": 0,
+          "data": "01c0000c"
+        }
+      ]
+    },
+    {
+      "manager": "PluginManager",
+      "method": "delete",
+      "args": [2],
+      "response": "",
+      "commands": [
+        {
+          "ins": 67,
+          "p1": 2,
+          "p2": 0,
+          "data": ""
+        }
+      ]
+    },
+    {
+      "manager": "PluginManager",
+      "method": "setActiveNdefProvider",
+      "args": [2],
+      "response": "",
+      "commands": [
+        {
+          "ins": 68,
+          "p1": 2,
+          "p2": 0,
+          "data": ""
+        }
+      ]
+    },
+    {
+      "manager": "KeyRingCacheClient",
+      "method": "setBaseUrl",
+      "args": ["itm.st/ob/1cf8?d="],
+      "response": "",
+      "commands": [
+        {
+          "ins": 22,
+          "p1": 0,
+          "p2": 0,
+          "data": "69746d2e73742f6f622f316366383f643d"
+        }
+      ]
+    },
+    {
+      "manager": "KeyRingCacheClient",
+      "method": "refillCache",
+      "args": [3, 50],
+      "response": "0032",
+      "commands": [
+        {
+          "ins": 26,
+          "p1": 3,
+          "p2": 50,
+          "data": ""
+        }
+      ]
+    },
+    {
+      "manager": "KeyRingCacheClient",
+      "method": "getCacheStatus",
+      "args": [3],
+      "response": "019000320102030405",
+      "commands": [
+        {
+          "ins": 27,
+          "p1": 3,
+          "p2": 0,
+          "data": ""
+        }
+      ]
+    },
+    {
+      "manager": "KeyRingCacheClient",
+      "method": "setWatermarkNonce",
+      "args": [3, 4328719365],
+      "response": "",
+      "commands": [
+        {
+          "ins": 31,
+          "p1": 3,
+          "p2": 0,
+          "data": "0102030405"
+        }
+      ]
+    },
+    {
+      "manager": "CryptoRegistryClient",
+      "method": "createSlot",
+      "args": [2, 2],
+      "response": "04",
+      "commands": [
+        {
+          "ins": 80,
+          "p1": 0,
+          "p2": 2,
+          "data": "0002"
+        }
+      ]
+    },
+    {
+      "manager": "CryptoRegistryClient",
+      "method": "querySlot",
+      "args": [4],
+      "response": "01020100070001000000020001000101ed0002",
+      "commands": [
+        {
+          "ins": 81,
+          "p1": 4,
+          "p2": 0,
+          "data": ""
+        }
+      ]
+    },
+    {
+      "manager": "CryptoRegistryClient",
+      "method": "updatePolicy",
+      "args": [4, 1],
+      "response": "",
+      "commands": [
+        {
+          "ins": 82,
+          "p1": 4,
+          "p2": 0,
+          "data": "0001"
+        }
+      ]
+    },
+    {
+      "manager": "CryptoRegistryClient",
+      "method": "deleteSlot",
+      "args": [4],
+      "response": "",
+      "commands": [
+        {
+          "ins": 83,
+          "p1": 4,
+          "p2": 0,
+          "data": ""
+        }
+      ]
+    },
+    {
+      "manager": "EnclaveClient",
+      "method": "create",
+      "args": [2],
+      "response": "01",
+      "commands": [
+        {
+          "ins": 96,
+          "p1": 2,
+          "p2": 0,
+          "data": ""
+        }
+      ]
+    },
+    {
+      "manager": "EnclaveClient",
+      "method": "write",
+      "args": [
+        1,
+        64,
+        {
+          "hex": "4954454d"
+        }
+      ],
+      "response": "",
+      "commands": [
+        {
+          "ins": 97,
+          "p1": 1,
+          "p2": 0,
+          "data": "00404954454d"
+        }
+      ]
+    },
+    {
+      "manager": "EnclaveClient",
+      "method": "read",
+      "args": [1, 64, 4],
+      "response": "4954454d",
+      "commands": [
+        {
+          "ins": 98,
+          "p1": 1,
+          "p2": 0,
+          "data": "00400004"
+        }
+      ]
+    },
+    {
+      "manager": "EnclaveClient",
+      "method": "deprovision",
+      "args": [1],
+      "response": "",
+      "commands": [
+        {
+          "ins": 100,
+          "p1": 1,
+          "p2": 0,
+          "data": ""
+        }
+      ]
+    },
+    {
+      "manager": "UacManager",
+      "method": "create",
+      "args": [258, 6, 2, 2],
+      "response": "",
+      "commands": [
+        {
+          "ins": 128,
+          "p1": 0,
+          "p2": 2,
+          "data": "0102000602"
+        }
+      ]
+    },
+    {
+      "manager": "UacManager",
+      "method": "query",
+      "args": [258],
+      "response": "01020006020201",
+      "commands": [
+        {
+          "ins": 129,
+          "p1": 1,
+          "p2": 2,
+          "data": ""
+        }
+      ]
+    },
+    {
+      "manager": "UacManager",
+      "method": "update",
+      "args": [258, 256, 1, 1],
+      "response": "",
+      "commands": [
+        {
+          "ins": 130,
+          "p1": 1,
+          "p2": 2,
+          "data": "01000101"
+        }
+      ]
+    },
+    {
+      "manager": "UacManager",
+      "method": "delete",
+      "args": [258],
+      "response": "",
+      "commands": [
+        {
+          "ins": 131,
+          "p1": 1,
+          "p2": 2,
+          "data": ""
+        }
+      ]
+    },
+    {
+      "manager": "UacManager",
+      "method": "addCredential",
+      "args": [
+        258,
+        1,
+        {
+          "hex": "313233343536"
+        }
+      ],
+      "response": "02",
+      "commands": [
+        {
+          "ins": 132,
+          "p1": 1,
+          "p2": 2,
+          "data": "01313233343536"
+        }
+      ]
+    },
+    {
+      "manager": "UacManager",
+      "method": "removeCredential",
+      "args": [258, 2],
+      "response": "",
+      "commands": [
+        {
+          "ins": 133,
+          "p1": 1,
+          "p2": 2,
+          "data": "02"
+        }
+      ]
+    },
+    {
+      "manager": "VfsManager",
+      "method": "open",
+      "args": [3, 2, 6],
+      "response": "012307f0",
+      "commands": [
+        {
+          "ins": 130,
+          "p1": 3,
+          "p2": 0,
+          "data": "020006"
+        }
+      ]
+    },
+    {
+      "manager": "VfsManager",
+      "method": "close",
+      "args": [291],
+      "response": "",
+      "commands": [
+        {
+          "ins": 131,
+          "p1": 1,
+          "p2": 35,
+          "data": ""
+        }
+      ]
+    },
+    {
+      "manager": "VfsManager",
+      "method": "write",
+      "args": [
+        291,
+        64,
+        {
+          "hex": "4954454d"
+        }
+      ],
+      "response": "0004",
+      "commands": [
+        {
+          "ins": 129,
+          "p1": 1,
+          "p2": 35,
+          "data": "004000044954454d"
+        }
+      ]
+    },
+    {
+      "manager": "VfsManager",
+      "method": "read",
+      "args": [291, 64, 4],
+      "response": "4954454d",
+      "commands": [
+        {
+          "ins": 129,
+          "p1": 1,
+          "p2": 35,
+          "data": "00400004"
+        }
+      ]
+    },
+    {
+      "manager": "VfsManager",
+      "method": "stat",
+      "args": [3, 2],
+      "response": "010001000101c0",
+      "commands": [
+        {
+          "ins": 128,
+          "p1": 3,
+          "p2": 1,
+          "data": "02"
+        }
+      ]
+    },
+    {
+      "manager": "VfsManager",
+      "method": "zeroize",
+      "args": [3, 2],
+      "response": "",
+      "commands": [
+        {
+          "ins": 128,
+          "p1": 3,
+          "p2": 6,
+          "data": "02"
+        }
+      ]
+    },
+    {
+      "manager": "AuditClient",
+      "method": "latest",
+      "args": [],
+      "response": "0005000102030405060708090a0b0c0d0e0f",
+      "commands": [
+        {
+          "ins": 120,
+          "p1": 0,
+          "p2": 0,
+          "data": ""
+        }
+      ]
+    },
+    {
+      "manager": "MicrokernelClient",
+      "method": "getDiagnostics",
+      "args": [],
+      "response": "0040000b02000301030202030500",
+      "commands": [
+        {
+          "ins": 22,
+          "p1": 0,
+          "p2": 0,
+          "data": ""
+        }
+      ]
+    }
+  ],
+  "wire": {
+    "hostPrivate": "0000000000000000000000000000000000000000000000000000000000000002",
+    "challenge": "505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f",
+    "pairing": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "transcript": [
+      {
+        "request": "00a404000cff6974656d73797303000000",
+        "response": "a165010101a310000102030405060708090a0b0c0d0e0fa50108a441045ecbe4d1a6330a44c8f7ef951d4bf165e6c6b721efada985fb41661bc6e7fd6c8734640c4998ff7e374b06ce1a64a2ecd82ab036384fb83d9a79b127a27d5032a603030500a701029000"
+      },
+      {
+        "request": "a020000041047cf27b188d034f7e8a52380304b51ac3c08969e277f21b35a60b48fc4766997807775510db8ed040293d9ac69f7430dbba7dade63ce982299e04b79d227873d1",
+        "response": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f9000"
+      },
+      {
+        "request": "a021000040e4d1118a59644a6ecdd2e28612d0d9061ae796df920d3d62b38951b1a30780567df8c9ca92f59579448166eea06a1a78e57b5a413c649039e841e125a6add89c",
+        "response": "83acae430012a0c5313be1410c6b7924e5a9fbecef8da2afcd8ab78a7362283e60f06fee215fa574b41ded55bea7931399ee0eddb171d10b6f4827b2858868e59000"
+      },
+      {
+        "request": "a03000002044eeceea18fc6502d97ddeceae681d3c6c391e32343988ea15eda6c528c6d051",
+        "response": "95e4d472d0f1f83202d37326438210a2566a4b4e24a67b8c0a060adaace34b9abac58681575a8e4abde012b21afec4139000"
+      }
+    ]
+  }
+}

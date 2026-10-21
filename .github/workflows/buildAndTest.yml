@@ -24,6 +24,8 @@ jobs:
         run: NODE_ENV=production CI=false npm run tsc
       - name: Run Test Suite
         run: npm run test
+      - name: Test Mobile Python Parity
+        run: npm run test:mobile
       - name: Verify Packed Package
         run: npm run smoke:packed
       - name: Build Docs
