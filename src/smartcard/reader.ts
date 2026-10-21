@@ -22,6 +22,11 @@ export interface CardReader {
   disconnect(): Promise<void>
 
   /**
+   * Alias for disconnect / resource cleanup.
+   */
+  dispose?(): Promise<void>
+
+  /**
    * Returns whether the connection is currently active.
    */
   connected(): boolean
@@ -63,6 +68,14 @@ export class Reader implements CardReader {
 
   async disconnect(): Promise<void> {
     await this._transport.disconnect()
+    this._connected = false
+  }
+
+  /**
+   * Dispose and release active reader connection.
+   */
+  async dispose(): Promise<void> {
+    await this.disconnect()
   }
 
   public connected(): boolean {
