@@ -494,11 +494,11 @@ export class PackageCommitCommand extends CommandApdu {
 /**
  * Inner APDU for creating a new UAC Identity (INS 0x80).
  * Wire format matches Python SDK v3.5.0:
- * CLA = 0x80, INS = 0x80, P1 = 0x00, P2 = authPolicy
+ * CLA = 0xA0, INS = 0x80, P1 = 0x00, P2 = authPolicy
  * Data = [identityId (2B) | capabilities (2B) | threshold (1B)]
  */
 export class IdentityCreateCommand extends CommandApdu {
-  static readonly CLA_INNER = 0x80
+  static readonly CLA_INNER = 0xa0
   static readonly INS_IDENTITY_CREATE = 0x80
   static readonly UNUSED = 0x00
 
@@ -528,11 +528,11 @@ export class IdentityCreateCommand extends CommandApdu {
 /**
  * Inner APDU for querying a UAC Identity (INS 0x81).
  * Wire format matches Python SDK v3.5.0:
- * CLA = 0x80, INS = 0x81, P1 = identityId >> 8, P2 = identityId & 0xFF
+ * CLA = 0xA0, INS = 0x81, P1 = identityId >> 8, P2 = identityId & 0xFF
  * Data = empty
  */
 export class IdentityQueryCommand extends CommandApdu {
-  static readonly CLA_INNER = 0x80
+  static readonly CLA_INNER = 0xa0
   static readonly INS_IDENTITY_QUERY = 0x81
 
   constructor(identityId: number) {
@@ -550,11 +550,11 @@ export class IdentityQueryCommand extends CommandApdu {
 /**
  * Inner APDU for updating a UAC Identity properties (INS 0x82).
  * Wire format matches Python SDK v3.5.0:
- * CLA = 0x80, INS = 0x82, P1 = identityId >> 8, P2 = identityId & 0xFF
+ * CLA = 0xA0, INS = 0x82, P1 = identityId >> 8, P2 = identityId & 0xFF
  * Data = [newCapabilities (2B) | newPolicy (1B) | newThreshold (1B)]
  */
 export class IdentityUpdateCommand extends CommandApdu {
-  static readonly CLA_INNER = 0x80
+  static readonly CLA_INNER = 0xa0
   static readonly INS_IDENTITY_UPDATE = 0x82
 
   constructor(identityId: number, capabilities: number, authPolicy: AuthPolicy, requiredThreshold: number) {
@@ -578,11 +578,11 @@ export class IdentityUpdateCommand extends CommandApdu {
 /**
  * Inner APDU for deleting a UAC Identity (INS 0x83).
  * Wire format matches Python SDK v3.5.0:
- * CLA = 0x80, INS = 0x83, P1 = identityId >> 8, P2 = identityId & 0xFF
+ * CLA = 0xA0, INS = 0x83, P1 = identityId >> 8, P2 = identityId & 0xFF
  * Data = empty
  */
 export class IdentityDeleteCommand extends CommandApdu {
-  static readonly CLA_INNER = 0x80
+  static readonly CLA_INNER = 0xa0
   static readonly INS_IDENTITY_DELETE = 0x83
 
   constructor(identityId: number) {
@@ -600,11 +600,11 @@ export class IdentityDeleteCommand extends CommandApdu {
 /**
  * Inner APDU for adding a credential to a UAC Identity (INS 0x84).
  * Wire format matches Python SDK v3.5.0:
- * CLA = 0x80, INS = 0x84, P1 = identityId >> 8, P2 = identityId & 0xFF
+ * CLA = 0xA0, INS = 0x84, P1 = identityId >> 8, P2 = identityId & 0xFF
  * Data = [credType (1B) | credData (N bytes)]
  */
 export class IdentityAddCredentialCommand extends CommandApdu {
-  static readonly CLA_INNER = 0x80
+  static readonly CLA_INNER = 0xa0
   static readonly INS_IDENTITY_ADD_CREDENTIAL = 0x84
 
   constructor(identityId: number, type: AuthCredentialType, credData: Uint8Array) {
@@ -626,11 +626,11 @@ export class IdentityAddCredentialCommand extends CommandApdu {
 /**
  * Inner APDU for removing a credential from a UAC Identity (INS 0x85).
  * Wire format matches Python SDK v3.5.0:
- * CLA = 0x80, INS = 0x85, P1 = identityId >> 8, P2 = identityId & 0xFF
+ * CLA = 0xA0, INS = 0x85, P1 = identityId >> 8, P2 = identityId & 0xFF
  * Data = [credIndex (1B)]
  */
 export class IdentityRemoveCredentialCommand extends CommandApdu {
-  static readonly CLA_INNER = 0x80
+  static readonly CLA_INNER = 0xa0
   static readonly INS_IDENTITY_REMOVE_CREDENTIAL = 0x85
 
   constructor(identityId: number, credentialIndex: number) {

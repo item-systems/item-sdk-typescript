@@ -94,9 +94,9 @@ function isValidHexBytes(hex: string): boolean {
  * 2. Header.cap contains magic number 0xDECAFFED.
  * 3. Required components are present (Header tag 1, Directory tag 2, Import tag 4, Class tag 6, Method tag 7, StaticField tag 8, ConstantPool tag 5, RefLocation tag 9).
  * 4. Extracted Header package AID matches declared package AID.
- * 5. Component sizes match Directory.cap component size table.
+ * 5. Component sizes match Directory.cap component size table (version-aware for CAP 2.1 vs CAP 2.2+).
  * 6. Internal component headers (Tag and 2-byte size) match byte lengths.
- * 7. Parsing of Import.cap and Applet.cap.
+ * 7. Parsing of Import.cap and Applet.cap with strict declared count validation.
  */
 export function validateCap(capBytes: Uint8Array, declaredPackageAid?: string): CapValidationResult {
   const errors: string[] = []
@@ -142,6 +142,10 @@ export function validateCap(capBytes: Uint8Array, declaredPackageAid?: string): 
 
   // Verify internal component header (Tag + 2-byte size) for every component in the CAP
   for (const [tag, compBytes] of components.entries()) {
+    if (tag === 0) {
+      errors.push(`Invalid unparsed trailing data in CAP component stream (${compBytes.length} bytes)`)
+      continue
+    }
     if (!compBytes || compBytes.length < 3) {
       errors.push(`Component Tag ${tag} is truncated (length < 3 bytes)`)
       continue
@@ -200,12 +204,16 @@ export function validateCap(capBytes: Uint8Array, declaredPackageAid?: string): 
   }
 
   // 3. Validate Directory.cap component size table
-  // Tags 1..11 are standard components. Tag 12 is Debug.cap, which is optional for deployment on card.
+  // JavaCard 2.1 CAP specification defines 11 components in Directory.cap (Tags 1..11).
+  // JavaCard 2.2+ CAP specification defines 12 components in Directory.cap (Tags 1..12, with Tag 12 = Debug.cap).
+  const isCap21 = capMajor === 2 && capMinor === 1
+  const maxDirectoryTags = isCap21 ? 11 : 12
+
   const directory = components.get(2)
   const componentSizes: Record<number, number> = {}
 
   if (directory && directory.length >= 3) {
-    for (let tag = 1; tag <= 12; tag++) {
+    for (let tag = 1; tag <= maxDirectoryTags; tag++) {
       const off = 3 + (tag - 1) * 2
       if (off + 2 <= directory.length) {
         const declaredSize = (directory[off] << 8) | directory[off + 1]
@@ -236,15 +244,34 @@ export function validateCap(capBytes: Uint8Array, declaredPackageAid?: string): 
   // 4. Parse Import.cap dependencies
   const importedPackageAids: string[] = []
   const importComp = components.get(4)
-  if (importComp && importComp.length >= 4) {
-    const count = importComp[3]
-    let off = 4
-    for (let i = 0; i < count && off + 3 <= importComp.length; i++) {
-      const aidLen = importComp[off + 2]
-      if (off + 3 + aidLen <= importComp.length) {
+  if (importComp) {
+    if (importComp.length < 4) {
+      errors.push('Import.cap component is truncated (missing count byte)')
+    } else {
+      const count = importComp[3]
+      let off = 4
+      let parsedCount = 0
+      for (let i = 0; i < count; i++) {
+        if (off + 3 > importComp.length) {
+          errors.push(`Import.cap declares ${count} package dependencies, but data is truncated at package index ${i}`)
+          break
+        }
+        const aidLen = importComp[off + 2]
+        if (off + 3 + aidLen > importComp.length) {
+          errors.push(
+            `Import.cap declares package index ${i} with AID length ${aidLen}, but buffer has only ${importComp.length - (off + 3)} bytes remaining`
+          )
+          break
+        }
         const aid = uint8ToHex(importComp.subarray(off + 3, off + 3 + aidLen)).toUpperCase()
         importedPackageAids.push(aid)
         off += 3 + aidLen
+        parsedCount++
+      }
+      if (parsedCount === count && off < importComp.length) {
+        errors.push(
+          `Import.cap has ${importComp.length - off} unparsed trailing bytes after consuming all ${count} declared packages`
+        )
       }
     }
   }
@@ -252,15 +279,34 @@ export function validateCap(capBytes: Uint8Array, declaredPackageAid?: string): 
   // 5. Parse Applet.cap instances
   const appletAids: string[] = []
   const appletComp = components.get(3)
-  if (appletComp && appletComp.length >= 4) {
-    const count = appletComp[3]
-    let off = 4
-    for (let i = 0; i < count && off + 1 <= appletComp.length; i++) {
-      const aidLen = appletComp[off]
-      if (off + 1 + aidLen <= appletComp.length) {
+  if (appletComp) {
+    if (appletComp.length < 4) {
+      errors.push('Applet.cap component is truncated (missing count byte)')
+    } else {
+      const count = appletComp[3]
+      let off = 4
+      let parsedCount = 0
+      for (let i = 0; i < count; i++) {
+        if (off + 1 > appletComp.length) {
+          errors.push(`Applet.cap declares ${count} applet modules, but data is truncated at applet index ${i}`)
+          break
+        }
+        const aidLen = appletComp[off]
+        if (off + 1 + aidLen + 2 > appletComp.length) {
+          errors.push(
+            `Applet.cap declares applet index ${i} with AID length ${aidLen}, but buffer has only ${appletComp.length - (off + 1)} bytes remaining`
+          )
+          break
+        }
         const aid = uint8ToHex(appletComp.subarray(off + 1, off + 1 + aidLen)).toUpperCase()
         appletAids.push(aid)
         off += 1 + aidLen + 2 // Skip install_method_offset (2B)
+        parsedCount++
+      }
+      if (parsedCount === count && off < appletComp.length) {
+        errors.push(
+          `Applet.cap has ${appletComp.length - off} unparsed trailing bytes after consuming all ${count} declared applets`
+        )
       }
     }
   }

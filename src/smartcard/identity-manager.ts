@@ -95,8 +95,9 @@ export class IdentityManager {
 
   /**
    * Add a credential descriptor to an identity.
+   * Returns the allocated credential index.
    */
-  public async addCredential(identityId: number, type: AuthCredentialType, credData: Uint8Array): Promise<void> {
+  public async addCredential(identityId: number, type: AuthCredentialType, credData: Uint8Array): Promise<number> {
     const cmd = new IdentityAddCredentialCommand(identityId, type, credData)
     const resp = await this.executeTunneled(cmd.toArray())
     if (resp.getSW() !== StatusWord.OK) {
@@ -104,6 +105,8 @@ export class IdentityManager {
         `Failed to add credential to identity ${identityId}: Status Word 0x${resp.getSW().toString(16).toUpperCase()}`
       )
     }
+    const data = resp.getData()
+    return data.length > 0 ? data[0] : 0
   }
 
   /**

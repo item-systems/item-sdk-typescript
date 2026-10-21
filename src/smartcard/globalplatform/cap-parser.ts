@@ -140,6 +140,7 @@ export function extractCapComponentsFromZip(zipBytes: Uint8Array): Map<number, U
 
 /**
  * Parse a raw concatenated JavaCard component stream.
+ * Fails closed if trailing unparsed bytes remain.
  */
 export function parseRawComponentStream(streamBytes: Uint8Array): Map<number, Uint8Array> {
   const components = new Map<number, Uint8Array>()
@@ -147,20 +148,25 @@ export function parseRawComponentStream(streamBytes: Uint8Array): Map<number, Ui
 
   while (offset + 3 <= streamBytes.length) {
     const tag = streamBytes[offset]
-    if (!VALID_COMPONENT_TAG_SET.has(tag)) {
-      break
-    }
-
     const payloadSize = (streamBytes[offset + 1] << 8) | streamBytes[offset + 2]
     const totalComponentLen = 3 + payloadSize
 
     if (offset + totalComponentLen > streamBytes.length) {
+      // Truncated trailing component - record remaining bytes under tag so validator can inspect length mismatch
+      const partialData = streamBytes.subarray(offset)
+      components.set(tag, partialData)
+      offset = streamBytes.length
       break
     }
 
     const compData = streamBytes.subarray(offset, offset + totalComponentLen)
     components.set(tag, compData)
     offset += totalComponentLen
+  }
+
+  // If there are unconsumed trailing bytes that could not form a component header, record under a special marker tag 0
+  if (offset < streamBytes.length) {
+    components.set(0, streamBytes.subarray(offset))
   }
 
   return components

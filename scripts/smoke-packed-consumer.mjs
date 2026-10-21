@@ -12,7 +12,7 @@ const tarball = path.join(repo, tarballName)
 
 try {
   fs.writeFileSync(path.join(tmp, 'package.json'), JSON.stringify({ type: 'module', private: true }, null, 2))
-  run('npm', ['install', '--silent', tarball])
+  run('npm', ['install', '--silent', '--install-strategy=nested', '--ignore-scripts', '--omit=optional', tarball])
 
   fs.writeFileSync(
     path.join(tmp, 'esm.mjs'),
