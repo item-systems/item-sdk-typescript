@@ -118,9 +118,19 @@ export function extractCapComponentsFromZip(zipBytes: Uint8Array): Map<number, U
     }
 
     if (decompressed.length > 0) {
-      const tag = decompressed[0]
-      if (VALID_COMPONENT_TAG_SET.has(tag)) {
-        components.set(tag, decompressed)
+      // Validate that component starts with a recognized JavaCard tag and length
+      if (decompressed.length >= 3) {
+        const compTag = decompressed[0]
+        const declaredPayloadLen = (decompressed[1] << 8) | decompressed[2]
+        if (VALID_COMPONENT_TAG_SET.has(compTag)) {
+          // If length matches the declared size, register valid component
+          if (decompressed.length === 3 + declaredPayloadLen) {
+            components.set(compTag, decompressed)
+          } else {
+            // Include anyway so validator can flag explicit component length corruption
+            components.set(compTag, decompressed)
+          }
+        }
       }
     }
   }

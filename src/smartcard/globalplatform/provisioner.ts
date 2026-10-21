@@ -30,6 +30,7 @@ export type ProvisioningPhase =
   | 'wiping'
   | 'loading'
   | 'instantiating'
+  | 'verifying'
   | 'complete'
 
 export interface ProvisioningProgressEvent {
@@ -55,6 +56,8 @@ export interface ProvisioningOptions {
   strictValidation?: boolean // Default true: runs full CAP verification and DAG dependency check before any card action
   skipPreflight?: boolean // Set to true to bypass offline preflight
   reconcileWithInventory?: boolean // Set to true to skip already-installed identical packages (resilient flashing)
+  verifyInstalledState?: boolean // Default true: runs post-flashing inventory inspection and applet selection verification
+  verifySelectable?: boolean // Default true: selects each instantiated applet via ISO SELECT to guarantee runtime readiness
   signal?: AbortSignal // Cancellation token
   onProgress?: (event: ProvisioningProgressEvent) => void
 }
@@ -358,7 +361,7 @@ export class GlobalPlatformProvisioner {
     for (const entry of targetInstances) {
       this.checkAborted(signal)
       opIndex++
-      const instProgress = Math.round(40 + (opIndex / Math.max(1, totalOps)) * 50)
+      const instProgress = Math.round(40 + (opIndex / Math.max(1, totalOps)) * 45)
 
       this.emitProgress(options, {
         phase: 'instantiating',
@@ -381,11 +384,95 @@ export class GlobalPlatformProvisioner {
     }
 
     // ==========================================
-    // Phase 7: Complete
+    // Phase 7: Post-Flashing Final Installed State Verification
+    // ==========================================
+    if (options.verifyInstalledState !== false) {
+      this.checkAborted(signal)
+      this.emitProgress(options, {
+        phase: 'verifying',
+        stepDescription: 'Verifying final installed packages and applet state on card',
+        currentStep: 9,
+        totalSteps: 10,
+        progressPercent: 90,
+      })
+
+      // 1. Inspect final card inventory
+      const finalInventory = await this.cardManager.getCardInventory(signal)
+      const installedElfAids = new Set(finalInventory.executableLoadFiles.map(e => e.aid.toUpperCase()))
+      const installedAppletAids = new Set(finalInventory.appletsAndSecurityDomains.map(a => a.aid.toUpperCase()))
+
+      // Verify all topology packages are in card inventory
+      for (const entry of orderedTopology) {
+        const cleanPkgAid = entry.packageAid.replace(/^0x/i, '').toUpperCase()
+        if (!installedElfAids.has(cleanPkgAid)) {
+          throw new Error(
+            `Post-flashing verification failed: Package ${entry.name} (${cleanPkgAid}) is missing from card inventory!`
+          )
+        }
+      }
+
+      // Verify all instances are in card inventory
+      for (const entry of orderedTopology) {
+        if (!entry.isLibrary && entry.instanceAid) {
+          const cleanInstAid = entry.instanceAid.replace(/^0x/i, '').toUpperCase()
+          if (!installedAppletAids.has(cleanInstAid)) {
+            throw new Error(
+              `Post-flashing verification failed: Applet instance ${entry.name} (${cleanInstAid}) is missing from card inventory!`
+            )
+          }
+        }
+      }
+
+      // 2. Live ISO 7816-4 SELECT probe on all instantiated applets
+      if (options.verifySelectable !== false) {
+        const appletEntries = orderedTopology.filter(e => !e.isLibrary && e.instanceAid)
+        for (const entry of appletEntries) {
+          this.checkAborted(signal)
+          const cleanInstAid = entry.instanceAid!.replace(/^0x/i, '').toUpperCase()
+
+          this.emitProgress(options, {
+            phase: 'verifying',
+            stepDescription: `Testing ISO SELECT on ${entry.name} (${cleanInstAid})`,
+            currentStep: 9,
+            totalSteps: 10,
+            packageName: entry.name,
+            packageAid: entry.packageAid,
+            progressPercent: 95,
+          })
+
+          const instAidBytes = (cleanInstAid.match(/.{1,2}/g) || []).map(b => parseInt(b, 16))
+          const selectApdu = new Uint8Array([0x00, 0xa4, 0x04, 0x00, instAidBytes.length, ...instAidBytes, 0x00])
+
+          const selectResp = await this.reader.transmit(selectApdu)
+          if (selectResp.length < 2) {
+            throw new Error(
+              `Post-flashing verification failed: SELECT ${entry.name} (${cleanInstAid}) returned truncated response (${selectResp.length} bytes)`
+            )
+          }
+
+          const sw = (selectResp[selectResp.length - 2] << 8) | selectResp[selectResp.length - 1]
+          if (sw !== 0x9000 && (sw & 0xff00) !== 0x6100) {
+            throw new Error(
+              `Post-flashing verification failed: Applet instance ${entry.name} (${cleanInstAid}) failed SELECT with Status Word 0x${sw.toString(16).toUpperCase().padStart(4, '0')}`
+            )
+          }
+        }
+
+        // Re-select Card Manager to restore clean ISD state after testing applets
+        try {
+          await this.cardManager.selectCardManager(isdAid, signal)
+        } catch {
+          // Non-fatal if session is closed or card state remains at selected applet
+        }
+      }
+    }
+
+    // ==========================================
+    // Phase 8: Complete
     // ==========================================
     this.emitProgress(options, {
       phase: 'complete',
-      stepDescription: 'Provisioning completed successfully',
+      stepDescription: 'Provisioning and verification completed successfully',
       currentStep: 10,
       totalSteps: 10,
       progressPercent: 100,
