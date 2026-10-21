@@ -1,5 +1,7 @@
 import { StatusWord } from './statusword'
 
+import { MasterKeyStats, MicrokernelResourceFlags } from './types'
+
 /**
  * Parsed representation of an ISO 7816 response APDU.
  *
@@ -156,5 +158,78 @@ export class SignResponse extends ResponseAPDU {
    */
   getSignature(): Uint8Array {
     return this.getProof()
+  }
+}
+
+/**
+ * Response parser for `MasterKeyStatsCommand`.
+ */
+export class MasterKeyStatsResponse extends ResponseAPDU {
+  private stats: MasterKeyStats[] = []
+
+  constructor(apdu: Uint8Array) {
+    super(apdu)
+
+    if (this.getSW() === StatusWord.NO_MASTER_KEY_PRESENT) {
+      this.stats = []
+      return
+    }
+
+    if (this.getSW() !== StatusWord.OK) {
+      throw new Error(`Failed to parse MasterKeyStatsResponse: wrong status word 0x${this.getSW().toString(16)}`)
+    }
+
+    const data = this.getData()
+    if (data.length === 0) {
+      this.stats = []
+      return
+    }
+
+    const count = data[0]
+    let offset = 1
+    const view = new DataView(data.buffer, data.byteOffset, data.byteLength)
+
+    for (let i = 0; i < count; i++) {
+      if (offset + 13 > data.length) {
+        break
+      }
+      const slotId = data[offset]
+      const isTunnelAnchor = data[offset + 1] !== 0
+      const tunnelCryptoSlot = data[offset + 2]
+      const ownerUid = view.getUint16(offset + 3)
+      const ownerGid = view.getUint16(offset + 5)
+      const posixMode = view.getUint16(offset + 7)
+      const refCount = view.getUint16(offset + 9)
+      const flags = view.getUint16(offset + 11)
+      const isDeprecated = (flags & MicrokernelResourceFlags.DEPRECATED) !== 0
+      const ringCount = offset + 13 < data.length ? data[offset + 13] : 0
+      offset += 14
+
+      const ringIds: number[] = []
+      for (let r = 0; r < ringCount && offset < data.length; r++) {
+        ringIds.push(data[offset++])
+      }
+
+      this.stats.push({
+        slotId,
+        isTunnelAnchor,
+        tunnelCryptoSlot,
+        ownerUid,
+        ownerGid,
+        posixMode,
+        refCount,
+        flags,
+        isDeprecated,
+        ringCount,
+        ringIds,
+      })
+    }
+  }
+
+  /**
+   * Return parsed statistics records for all active MasterKeys.
+   */
+  getStats(): MasterKeyStats[] {
+    return this.stats
   }
 }

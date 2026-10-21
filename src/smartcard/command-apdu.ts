@@ -165,3 +165,144 @@ export class SignCommand extends CommandApdu {
     )
   }
 }
+
+/**
+ * APDU for tunneling inner management/cryptographic commands through the E2E encrypted secure channel.
+ */
+export class TunnelCommand extends CommandApdu {
+  static readonly CLA_PROPS_KEY = 0xa0
+  static readonly INS_TUNNEL = 0x30
+  static readonly UNUSED = 0x00
+
+  constructor(innerApdu: Uint8Array) {
+    super(
+      TunnelCommand.CLA_PROPS_KEY,
+      TunnelCommand.INS_TUNNEL,
+      TunnelCommand.UNUSED,
+      TunnelCommand.UNUSED,
+      innerApdu.length as Uint8,
+      innerApdu
+    )
+  }
+}
+
+/**
+ * Inner APDU requesting MasterKey metadata statistics.
+ */
+export class MasterKeyStatsCommand extends CommandApdu {
+  static readonly CLA_INNER = 0x80
+  static readonly INS_MASTERKEY_STATS = 0x15
+  static readonly UNUSED = 0x00
+
+  constructor() {
+    super(
+      MasterKeyStatsCommand.CLA_INNER,
+      MasterKeyStatsCommand.INS_MASTERKEY_STATS,
+      MasterKeyStatsCommand.UNUSED,
+      MasterKeyStatsCommand.UNUSED,
+      0 as Uint8,
+      new Uint8Array(0)
+    )
+  }
+}
+
+/**
+ * Inner APDU for setting attribute flags (such as deprecation) on a MasterKey slot.
+ */
+export class MasterKeySetPolicyCommand extends CommandApdu {
+  static readonly CLA_INNER = 0x80
+  static readonly INS_MASTERKEY_SET_POLICY = 0x24
+  static readonly UNUSED = 0x00
+
+  constructor(slotId: number, flags: number) {
+    const data = new Uint8Array([(flags >> 8) & 0xff, flags & 0xff])
+    super(
+      MasterKeySetPolicyCommand.CLA_INNER,
+      MasterKeySetPolicyCommand.INS_MASTERKEY_SET_POLICY,
+      slotId as Uint8,
+      MasterKeySetPolicyCommand.UNUSED,
+      data.length as Uint8,
+      data
+    )
+  }
+}
+
+/**
+ * Inner APDU for deleting a MasterKey slot.
+ */
+export class MasterKeyDeleteCommand extends CommandApdu {
+  static readonly CLA_INNER = 0x80
+  static readonly INS_MASTERKEY_DELETE = 0x19
+  static readonly UNUSED = 0x00
+
+  constructor(slotId: number) {
+    super(
+      MasterKeyDeleteCommand.CLA_INNER,
+      MasterKeyDeleteCommand.INS_MASTERKEY_DELETE,
+      slotId as Uint8,
+      MasterKeyDeleteCommand.UNUSED,
+      0 as Uint8,
+      new Uint8Array(0)
+    )
+  }
+}
+
+/**
+ * Inner APDU for setting attribute flags (such as deprecation) on a KeyRing slot.
+ */
+export class KeyRingSetPolicyCommand extends CommandApdu {
+  static readonly CLA_INNER = 0x80
+  static readonly INS_KEYRING_SET_POLICY = 0x6b
+  static readonly UNUSED = 0x00
+
+  constructor(ringId: number, flags: number) {
+    const data = new Uint8Array([(flags >> 8) & 0xff, flags & 0xff])
+    super(
+      KeyRingSetPolicyCommand.CLA_INNER,
+      KeyRingSetPolicyCommand.INS_KEYRING_SET_POLICY,
+      ringId as Uint8,
+      KeyRingSetPolicyCommand.UNUSED,
+      data.length as Uint8,
+      data
+    )
+  }
+}
+
+/**
+ * Inner APDU for deleting a KeyRing slot.
+ */
+export class KeyRingDeleteCommand extends CommandApdu {
+  static readonly CLA_INNER = 0x80
+  static readonly INS_KEYRING_DELETE = 0x6a
+  static readonly UNUSED = 0x00
+
+  constructor(ringId: number) {
+    super(
+      KeyRingDeleteCommand.CLA_INNER,
+      KeyRingDeleteCommand.INS_KEYRING_DELETE,
+      ringId as Uint8,
+      KeyRingDeleteCommand.UNUSED,
+      0 as Uint8,
+      new Uint8Array(0)
+    )
+  }
+}
+
+/**
+ * Inner APDU for deriving a KeyRing from a MasterKey slot.
+ */
+export class KeyRingDeriveCommand extends CommandApdu {
+  static readonly CLA_INNER = 0x80
+  static readonly INS_KEYRING_DERIVE = 0x13
+
+  constructor(cryptoEngine: number, masterKeySlot: number, path: Uint8Array) {
+    super(
+      KeyRingDeriveCommand.CLA_INNER,
+      KeyRingDeriveCommand.INS_KEYRING_DERIVE,
+      cryptoEngine as Uint8,
+      masterKeySlot as Uint8,
+      path.length as Uint8,
+      path
+    )
+  }
+}
