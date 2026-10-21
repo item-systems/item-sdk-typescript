@@ -68,7 +68,7 @@ void IdentityManager
 void PluginManager
 `
   )
-  run('npm', ['install', '--silent', '--save-dev', 'typescript@^5.0.0'])
+  run('npm', ['install', '--silent', '--save-dev', 'typescript@^5.0.0', '@types/node@^22.0.0'])
   run('npx', [
     'tsc',
     'tscheck.ts',
