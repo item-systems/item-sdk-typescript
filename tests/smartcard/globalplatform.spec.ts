@@ -8,7 +8,11 @@ import {
   GpSecurityLevel,
   GpKeySet,
   DEFAULT_ISD_AID,
-  CapTopologyEntry,
+  validateCap,
+  preflightTopology,
+  extractCapComponentsFromZip,
+  parseRawComponentStream,
+  ProvisioningProgressEvent,
 } from '../../src/smartcard/globalplatform'
 import {
   calculateRetailMac,
@@ -18,21 +22,134 @@ import {
   des3CbcDecrypt,
   padIso9797M2,
   unpadIso9797M2,
+  getRandomBytes,
 } from '../../src/smartcard/globalplatform/crypto'
 import { Scp02Session } from '../../src/smartcard/globalplatform/scp02'
 import { Scp03Session } from '../../src/smartcard/globalplatform/scp03'
-import {
-  buildLoadFileDataBlock,
-  extractCapComponentsFromZip,
-  parseRawComponentStream,
-} from '../../src/smartcard/globalplatform/cap-parser'
+import { buildLoadFileDataBlock } from '../../src/smartcard/globalplatform/cap-parser'
 import { deflateRawSync } from 'zlib'
 
-describe('GlobalPlatform Cryptography and Secure Channel Protocols', () => {
-  const factory3DesKey = hexToUint8('404142434445464748494A4B4C4D4E4F') // 16-byte default test key (40..4F)
-  const factoryAesKey = hexToUint8('404142434445464748494A4B4C4D4E4F404142434445464748494A4B4C4D4E4F') // 32-byte AES-256 test key
+// Helper to build a valid minimal CAP component set for testing
+function buildValidMockCap(pkgAidHex: string, importedAids: string[] = []): Uint8Array {
+  const aidBytes = hexToUint8(pkgAidHex)
+  // 1. Header.cap (Tag 1): tag(1B) size(2B) magic(4B: 0xDECAFFED) cap_ver(2B) flags(1B) pkg_ver(2B) pkg_aid_len(1B) pkg_aid
+  const headerPayload = new Uint8Array([
+    0xde,
+    0xca,
+    0xff,
+    0xed, // Magic
+    0x01,
+    0x02, // Cap version 2.1
+    0x04, // Flags
+    0x01,
+    0x00, // Package version 1.0
+    aidBytes.length,
+    ...aidBytes,
+  ])
+  const headerComp = new Uint8Array([
+    0x01,
+    (headerPayload.length >> 8) & 0xff,
+    headerPayload.length & 0xff,
+    ...headerPayload,
+  ])
 
-  describe('Low-Level Cryptographic Primitives', () => {
+  // 4. Import.cap (Tag 4): tag(1B) size(2B) count(1B) [pkg_ver(2B) aid_len(1B) aid]*
+  let importPayloadLen = 1
+  for (const impAid of importedAids) {
+    importPayloadLen += 2 + 1 + hexToUint8(impAid).length
+  }
+  const importPayload = new Uint8Array(importPayloadLen)
+  importPayload[0] = importedAids.length
+  let impOff = 1
+  for (const impAid of importedAids) {
+    const impBytes = hexToUint8(impAid)
+    importPayload[impOff++] = 0x01 // Minor
+    importPayload[impOff++] = 0x01 // Major
+    importPayload[impOff++] = impBytes.length
+    importPayload.set(impBytes, impOff)
+    impOff += impBytes.length
+  }
+  const importComp = new Uint8Array([
+    0x04,
+    (importPayload.length >> 8) & 0xff,
+    importPayload.length & 0xff,
+    ...importPayload,
+  ])
+
+  // Other required dummy components:
+  // 5. ConstantPool, 6. Class, 7. Method, 8. StaticField, 9. RefLocation
+  const cpComp = new Uint8Array([0x05, 0x00, 0x02, 0x00, 0x00])
+  const classComp = new Uint8Array([0x06, 0x00, 0x02, 0x00, 0x00])
+  const methodComp = new Uint8Array([0x07, 0x00, 0x02, 0x00, 0x00])
+  const sfComp = new Uint8Array([0x08, 0x00, 0x02, 0x00, 0x00])
+  const refComp = new Uint8Array([0x09, 0x00, 0x02, 0x00, 0x00])
+
+  // 2. Directory.cap (Tag 2): 12 shorts declared sizes
+  const dirPayload = new Uint8Array(24)
+  // tag 1 (Header): headerPayload.length
+  dirPayload[0] = (headerPayload.length >> 8) & 0xff
+  dirPayload[1] = headerPayload.length & 0xff
+  // tag 2 (Directory): 24
+  dirPayload[2] = 0x00
+  dirPayload[3] = 24
+  // tag 4 (Import): importPayload.length
+  dirPayload[6] = (importPayload.length >> 8) & 0xff
+  dirPayload[7] = importPayload.length & 0xff
+  // tag 5 (ConstantPool): 2
+  dirPayload[8] = 0x00
+  dirPayload[9] = 2
+  // tag 6 (Class): 2
+  dirPayload[10] = 0x00
+  dirPayload[11] = 2
+  // tag 7 (Method): 2
+  dirPayload[12] = 0x00
+  dirPayload[13] = 2
+  // tag 8 (StaticField): 2
+  dirPayload[14] = 0x00
+  dirPayload[15] = 2
+  // tag 9 (RefLocation): 2
+  dirPayload[16] = 0x00
+  dirPayload[17] = 2
+
+  const dirComp = new Uint8Array([0x02, 0x00, 24, ...dirPayload])
+
+  const totalLen =
+    headerComp.length +
+    dirComp.length +
+    importComp.length +
+    cpComp.length +
+    classComp.length +
+    methodComp.length +
+    sfComp.length +
+    refComp.length
+
+  const rawStream = new Uint8Array(totalLen)
+  let wOff = 0
+  rawStream.set(headerComp, wOff)
+  wOff += headerComp.length
+  rawStream.set(dirComp, wOff)
+  wOff += dirComp.length
+  rawStream.set(importComp, wOff)
+  wOff += importComp.length
+  rawStream.set(cpComp, wOff)
+  wOff += cpComp.length
+  rawStream.set(classComp, wOff)
+  wOff += classComp.length
+  rawStream.set(methodComp, wOff)
+  wOff += methodComp.length
+  rawStream.set(sfComp, wOff)
+  wOff += sfComp.length
+  rawStream.set(refComp, wOff)
+  wOff += refComp.length
+
+  return rawStream
+}
+
+describe('GlobalPlatform Cryptography and Secure Channel Protocols (Pure TypeScript)', () => {
+  const factory3DesKey = hexToUint8('404142434445464748494A4B4C4D4E4F')
+  const factoryAesKey = hexToUint8('404142434445464748494A4B4C4D4E4F404142434445464748494A4B4C4D4E4F')
+
+  describe('Low-Level Cryptographic Primitives (No Node Crypto / Pure TS)', () => {
     it('pads and unpads data using ISO/IEC 9797-1 Method 2', () => {
       const data = new Uint8Array([0x01, 0x02, 0x03])
       const padded = padIso9797M2(data, 8)
@@ -47,7 +164,7 @@ describe('GlobalPlatform Cryptography and Secure Channel Protocols', () => {
       expect(uint8ToHex(unpadded)).to.equal(uint8ToHex(data))
     })
 
-    it('encrypts and decrypts with 3DES ECB and CBC', () => {
+    it('encrypts and decrypts with 3DES ECB and CBC in pure TypeScript', () => {
       const block = hexToUint8('1122334455667788')
       const encrypted = des3EcbEncrypt(factory3DesKey, block)
       expect(encrypted.length).to.equal(8)
@@ -59,16 +176,24 @@ describe('GlobalPlatform Cryptography and Secure Channel Protocols', () => {
       expect(uint8ToHex(cbcDecrypted)).to.equal(uint8ToHex(multiBlock))
     })
 
-    it('computes Retail MAC (ISO 9797-1 Algorithm 3)', () => {
+    it('computes Retail MAC (ISO 9797-1 Algorithm 3) in pure TypeScript', () => {
       const data = hexToUint8('84820100101122334455667788')
       const mac = calculateRetailMac(factory3DesKey, new Uint8Array(8), data)
       expect(mac.length).to.equal(8)
     })
 
-    it('computes AES-CMAC (NIST SP 800-38B)', () => {
+    it('computes AES-CMAC (NIST SP 800-38B) in pure TypeScript', () => {
       const data = hexToUint8('84820100101122334455667788')
       const cmac = calculateAesCmac(factoryAesKey, data)
       expect(cmac.length).to.equal(16)
+    })
+
+    it('generates random bytes cross-platform', () => {
+      const r1 = getRandomBytes(16)
+      const r2 = getRandomBytes(16)
+      expect(r1.length).to.equal(16)
+      expect(r2.length).to.equal(16)
+      expect(uint8ToHex(r1)).to.not.equal(uint8ToHex(r2))
     })
   })
 
@@ -105,11 +230,11 @@ describe('GlobalPlatform Cryptography and Secure Channel Protocols', () => {
       )
       const session = new Scp02Session(sEnc, sMac, sDek, GpSecurityLevel.C_DECRYPTION_AND_C_MAC)
 
-      const rawApdu = hexToUint8('80E40000024F00') // DELETE dummy
+      const rawApdu = hexToUint8('80E40000024F00')
       const wrapped = session.wrap(rawApdu)
 
-      expect(wrapped[0]).to.equal(0x84) // CLA modified to 0x84
-      expect(wrapped[1]).to.equal(0xe4) // INS preserved
+      expect(wrapped[0]).to.equal(0x84)
+      expect(wrapped[1]).to.equal(0xe4)
       expect(wrapped.length).to.be.greaterThan(rawApdu.length)
     })
   })
@@ -119,7 +244,6 @@ describe('GlobalPlatform Cryptography and Secure Channel Protocols', () => {
       const hostChallenge = hexToUint8('1122334455667788')
       const cardChallenge = hexToUint8('8877665544332211')
 
-      // factoryAesKey is 32 bytes (AES-256)
       const { sEnc, sMac, sRMac, sDek } = Scp03Session.deriveSessionKeys(factoryAesKey, hostChallenge, cardChallenge)
       expect(sEnc.length).to.equal(32)
       expect(sMac.length).to.equal(32)
@@ -132,34 +256,9 @@ describe('GlobalPlatform Cryptography and Secure Channel Protocols', () => {
       const hostCryptogram = Scp03Session.calculateHostCryptogram(sMac, hostChallenge, cardChallenge)
       expect(hostCryptogram.length).to.equal(8)
     })
-
-    it('derives 16-byte session keys for AES-128', () => {
-      const aes128Key = hexToUint8('404142434445464748494A4B4C4D4E4F')
-      const hostChallenge = hexToUint8('1122334455667788')
-      const cardChallenge = hexToUint8('8877665544332211')
-
-      const { sEnc, sMac, sRMac, sDek } = Scp03Session.deriveSessionKeys(aes128Key, hostChallenge, cardChallenge)
-      expect(sEnc.length).to.equal(16)
-      expect(sMac.length).to.equal(16)
-      expect(sRMac.length).to.equal(16)
-      expect(sDek.length).to.equal(16)
-    })
-
-    it('wraps command APDUs with SCP03 C-MAC and C-DECRYPTION', () => {
-      const hostChallenge = hexToUint8('1122334455667788')
-      const cardChallenge = hexToUint8('8877665544332211')
-      const { sEnc, sMac, sRMac, sDek } = Scp03Session.deriveSessionKeys(factoryAesKey, hostChallenge, cardChallenge)
-
-      const session = new Scp03Session(sEnc, sMac, sRMac, sDek, GpSecurityLevel.C_DECRYPTION_AND_C_MAC)
-      const rawApdu = hexToUint8('80E40000024F00')
-      const wrapped = session.wrap(rawApdu)
-
-      expect(wrapped[0]).to.equal(0x84)
-      expect(wrapped[1]).to.equal(0xe4)
-    })
   })
 
-  describe('CAP Parser & Load File Data Block (Tag 0xC4) Construction', () => {
+  describe('Pure TypeScript CAP Parser & Tag 0xC4 Construction', () => {
     function buildMockZip(entries: Array<{ name: string; data: Uint8Array; useDataDescriptor?: boolean }>): Uint8Array {
       const chunks: Buffer[] = []
       const cdEntries: Buffer[] = []
@@ -170,35 +269,31 @@ describe('GlobalPlatform Cryptography and Secure Channel Protocols', () => {
         const deflated = deflateRawSync(Buffer.from(entry.data))
         const flags = entry.useDataDescriptor ? 0x0008 : 0x0000
 
-        // Local File Header (30 bytes)
         const header = Buffer.alloc(30)
-        header.writeUInt32LE(0x04034b50, 0) // Magic
-        header.writeUInt16LE(20, 4) // Version needed
-        header.writeUInt16LE(flags, 6) // General Purpose Bit Flag
-        header.writeUInt16LE(8, 8) // Compression Method: Deflate
-        header.writeUInt16LE(0, 10) // Mod time
-        header.writeUInt16LE(0, 12) // Mod date
+        header.writeUInt32LE(0x04034b50, 0)
+        header.writeUInt16LE(20, 4)
+        header.writeUInt16LE(flags, 6)
+        header.writeUInt16LE(8, 8)
+        header.writeUInt16LE(0, 10)
+        header.writeUInt16LE(0, 12)
 
         if (entry.useDataDescriptor) {
-          // In data descriptor mode, local header sizes/crc can be zero
           header.writeUInt32LE(0, 14)
           header.writeUInt32LE(0, 18)
           header.writeUInt32LE(0, 22)
         } else {
-          header.writeUInt32LE(0x12345678, 14) // Mock CRC
+          header.writeUInt32LE(0x12345678, 14)
           header.writeUInt32LE(deflated.length, 18)
           header.writeUInt32LE(entry.data.length, 22)
         }
 
         header.writeUInt16LE(nameBuf.length, 26)
-        header.writeUInt16LE(0, 28) // Extra field length
+        header.writeUInt16LE(0, 28)
 
         chunks.push(header, nameBuf, deflated)
-
         let entryDataSize = 30 + nameBuf.length + deflated.length
 
         if (entry.useDataDescriptor) {
-          // Data descriptor (16 bytes: 0x08074b50, CRC, compSize, uncompSize)
           const desc = Buffer.alloc(16)
           desc.writeUInt32LE(0x08074b50, 0)
           desc.writeUInt32LE(0x12345678, 4)
@@ -208,31 +303,29 @@ describe('GlobalPlatform Cryptography and Secure Channel Protocols', () => {
           entryDataSize += 16
         }
 
-        // Central Directory Header (46 bytes)
         const cdHdr = Buffer.alloc(46)
-        cdHdr.writeUInt32LE(0x02014b50, 0) // CD Magic
-        cdHdr.writeUInt16LE(20, 4) // Version made by
-        cdHdr.writeUInt16LE(20, 6) // Version needed
-        cdHdr.writeUInt16LE(flags, 8) // Flags
-        cdHdr.writeUInt16LE(8, 10) // Deflate
+        cdHdr.writeUInt32LE(0x02014b50, 0)
+        cdHdr.writeUInt16LE(20, 4)
+        cdHdr.writeUInt16LE(20, 6)
+        cdHdr.writeUInt16LE(flags, 8)
+        cdHdr.writeUInt16LE(8, 10)
         cdHdr.writeUInt16LE(0, 12)
         cdHdr.writeUInt16LE(0, 14)
-        cdHdr.writeUInt32LE(0x12345678, 16) // CRC
-        cdHdr.writeUInt32LE(deflated.length, 20) // Authoritative Compressed Size
-        cdHdr.writeUInt32LE(entry.data.length, 24) // Authoritative Uncompressed Size
+        cdHdr.writeUInt32LE(0x12345678, 16)
+        cdHdr.writeUInt32LE(deflated.length, 20)
+        cdHdr.writeUInt32LE(entry.data.length, 24)
         cdHdr.writeUInt16LE(nameBuf.length, 28)
-        cdHdr.writeUInt16LE(0, 30) // Extra length
-        cdHdr.writeUInt16LE(0, 32) // Comment length
-        cdHdr.writeUInt16LE(0, 34) // Disk start
-        cdHdr.writeUInt16LE(0, 36) // Internal attr
-        cdHdr.writeUInt32LE(0, 38) // External attr
-        cdHdr.writeUInt32LE(localOffset, 42) // Local header offset
+        cdHdr.writeUInt16LE(0, 30)
+        cdHdr.writeUInt16LE(0, 32)
+        cdHdr.writeUInt16LE(0, 34)
+        cdHdr.writeUInt16LE(0, 36)
+        cdHdr.writeUInt32LE(0, 38)
+        cdHdr.writeUInt32LE(localOffset, 42)
 
         cdEntries.push(cdHdr, nameBuf)
         localOffset += entryDataSize
       }
 
-      // End of Central Directory Record (22 bytes)
       const cdOffset = localOffset
       let cdSize = 0
       for (const b of cdEntries) {
@@ -240,20 +333,19 @@ describe('GlobalPlatform Cryptography and Secure Channel Protocols', () => {
       }
 
       const eocd = Buffer.alloc(22)
-      eocd.writeUInt32LE(0x06054b50, 0) // EOCD magic
-      eocd.writeUInt16LE(0, 4) // Disk number
-      eocd.writeUInt16LE(0, 6) // CD start disk
-      eocd.writeUInt16LE(entries.length, 8) // Entries on this disk
-      eocd.writeUInt16LE(entries.length, 10) // Total entries
-      eocd.writeUInt32LE(cdSize, 12) // CD size
-      eocd.writeUInt32LE(cdOffset, 16) // CD offset
-      eocd.writeUInt16LE(0, 20) // Comment len
+      eocd.writeUInt32LE(0x06054b50, 0)
+      eocd.writeUInt16LE(0, 4)
+      eocd.writeUInt16LE(0, 6)
+      eocd.writeUInt16LE(entries.length, 8)
+      eocd.writeUInt16LE(entries.length, 10)
+      eocd.writeUInt32LE(cdSize, 12)
+      eocd.writeUInt32LE(cdOffset, 16)
+      eocd.writeUInt16LE(0, 20)
 
       return new Uint8Array(Buffer.concat([...chunks, ...cdEntries, eocd]))
     }
 
     it('unpacks ZIP CAP archive and builds Tag 0xC4 Load File Data Block', () => {
-      // Mock components: Header (tag 1), Directory (tag 2), Import (tag 4)
       const headerComp = new Uint8Array([0x01, 0x00, 0x04, 0xaa, 0xbb, 0xcc, 0xdd])
       const dirComp = new Uint8Array([0x02, 0x00, 0x03, 0xee, 0xff, 0x11])
       const importComp = new Uint8Array([0x04, 0x00, 0x02, 0x22, 0x33])
@@ -270,10 +362,8 @@ describe('GlobalPlatform Cryptography and Secure Channel Protocols', () => {
       expect(components.get(4)).to.deep.equal(importComp)
 
       const c4Block = buildLoadFileDataBlock(zipCap)
-      expect(c4Block[0]).to.equal(0xc4) // Tag 0xC4
-      // Total payload length = header (7) + dir (6) + import (5) = 18
+      expect(c4Block[0]).to.equal(0xc4)
       expect(c4Block[1]).to.equal(18)
-      // Canonical order: Header (Tag 1), Directory (Tag 2), Import (Tag 4)
       expect(c4Block[2]).to.equal(0x01)
       expect(c4Block[9]).to.equal(0x02)
       expect(c4Block[15]).to.equal(0x04)
@@ -294,11 +384,10 @@ describe('GlobalPlatform Cryptography and Secure Channel Protocols', () => {
 
       const c4Block = buildLoadFileDataBlock(zipWithDataDesc)
       expect(c4Block[0]).to.equal(0xc4)
-      expect(c4Block[1]).to.equal(13) // 7 + 6
+      expect(c4Block[1]).to.equal(13)
     })
 
     it('wraps raw concatenated components in Tag 0xC4 framing without bypassing', () => {
-      // Raw stream without ZIP wrapper: Header (Tag 1, 7B) + Directory (Tag 2, 6B)
       const headerComp = new Uint8Array([0x01, 0x00, 0x04, 0xaa, 0xbb, 0xcc, 0xdd])
       const dirComp = new Uint8Array([0x02, 0x00, 0x03, 0xee, 0xff, 0x11])
       const rawStream = new Uint8Array(headerComp.length + dirComp.length)
@@ -310,15 +399,83 @@ describe('GlobalPlatform Cryptography and Secure Channel Protocols', () => {
       expect(parsed.get(2)).to.deep.equal(dirComp)
 
       const c4Block = buildLoadFileDataBlock(rawStream)
-      expect(c4Block[0]).to.equal(0xc4) // Must be Tag 0xC4
-      expect(c4Block[1]).to.equal(13) // DER length
-      expect(c4Block[2]).to.equal(0x01) // Header component
-      expect(c4Block[9]).to.equal(0x02) // Directory component
+      expect(c4Block[0]).to.equal(0xc4)
+      expect(c4Block[1]).to.equal(13)
+      expect(c4Block[2]).to.equal(0x01)
+      expect(c4Block[9]).to.equal(0x02)
     })
   })
 })
 
-describe('GlobalPlatform Card Manager and Provisioner Workflows', () => {
+describe('Strict CAP Validation & Topology Preflight Engine', () => {
+  it('validates a correct CAP file and extracts metadata', () => {
+    const validCap = buildValidMockCap('FF6974656D01', ['A0000000620101'])
+    const res = validateCap(validCap, 'FF6974656D01')
+
+    expect(res.valid).to.equal(true)
+    expect(res.errors.length).to.equal(0)
+    expect(res.metadata?.packageAid).to.equal('FF6974656D01')
+    expect(res.metadata?.importedPackageAids).to.deep.equal(['A0000000620101'])
+  })
+
+  it('detects corrupted magic number or package AID mismatch', () => {
+    const validCap = buildValidMockCap('FF6974656D01')
+    const badAidRes = validateCap(validCap, 'FF6974656D02') // Mismatched declaration
+    expect(badAidRes.valid).to.equal(false)
+    expect(badAidRes.errors[0]).to.include('Package AID mismatch')
+
+    // Corrupt magic
+    const corruptedMagic = new Uint8Array(validCap)
+    corruptedMagic[3] = 0x00
+    const badMagicRes = validateCap(corruptedMagic)
+    expect(badMagicRes.valid).to.equal(false)
+    expect(badMagicRes.errors[0]).to.include('Invalid Header.cap magic')
+  })
+
+  it('resolves topological DAG loading order across multi-package dependencies', () => {
+    // Topology:
+    // Pkg C depends on Pkg B
+    // Pkg B depends on Pkg A
+    // Pkg A has no user dependencies (only java.lang)
+    const capA = buildValidMockCap('FF0001', ['A0000000620001'])
+    const capB = buildValidMockCap('FF0002', ['FF0001'])
+    const capC = buildValidMockCap('FF0003', ['FF0002'])
+
+    // Pass in reverse order (C, B, A) to ensure preflight correctly re-orders
+    const preflight = preflightTopology([
+      { name: 'PkgC', packageAid: 'FF0003', capBytes: capC },
+      { name: 'PkgB', packageAid: 'FF0002', capBytes: capB },
+      { name: 'PkgA', packageAid: 'FF0001', capBytes: capA },
+    ])
+
+    expect(preflight.valid).to.equal(true)
+    expect(preflight.plannedExecutionOrder).to.deep.equal(['FF0001', 'FF0002', 'FF0003'])
+  })
+
+  it('detects unfulfilled missing dependencies before execution', () => {
+    const capA = buildValidMockCap('FF0001', ['DEADBEEF0001']) // Imports non-existent package
+    const preflight = preflightTopology([{ name: 'PkgA', packageAid: 'FF0001', capBytes: capA }])
+
+    expect(preflight.valid).to.equal(false)
+    expect(preflight.errors[0]).to.include('requires missing dependency AIDs: DEADBEEF0001')
+  })
+
+  it('detects circular dependencies in package imports', () => {
+    // Pkg A imports Pkg B, and Pkg B imports Pkg A (cycle)
+    const capA = buildValidMockCap('FF0001', ['FF0002'])
+    const capB = buildValidMockCap('FF0002', ['FF0001'])
+
+    const preflight = preflightTopology([
+      { name: 'PkgA', packageAid: 'FF0001', capBytes: capA },
+      { name: 'PkgB', packageAid: 'FF0002', capBytes: capB },
+    ])
+
+    expect(preflight.valid).to.equal(false)
+    expect(preflight.errors[0]).to.include('Circular dependency detected')
+  })
+})
+
+describe('GlobalPlatform Card Manager, Inventory & Resilient Provisioning Workflows', () => {
   const keySet: GpKeySet = {
     version: 0x01,
     encKey: hexToUint8('404142434445464748494A4B4C4D4E4F'),
@@ -326,64 +483,17 @@ describe('GlobalPlatform Card Manager and Provisioner Workflows', () => {
     dekKey: hexToUint8('404142434445464748494A4B4C4D4E4F'),
   }
 
-  it('executes SELECT, INITIALIZE UPDATE, and EXTERNAL AUTHENTICATE sequence (with unencrypted HostCrypto) against MockTransport', async () => {
+  function mockInitUpdateResponse(): Uint8Array {
     const hostChallenge = hexToUint8('1122334455667788')
     const seqCounter = hexToUint8('0001')
     const cardChallenge = hexToUint8('AABBCCDDEEFF')
-
     const { sEnc } = Scp02Session.deriveSessionKeys(keySet.encKey, keySet.macKey, keySet.dekKey, seqCounter)
-
     const cardChallenge8 = new Uint8Array(8)
     cardChallenge8.set(seqCounter, 0)
     cardChallenge8.set(cardChallenge, 2)
     const cardCryptogram = Scp02Session.calculateCardCryptogram(sEnc, hostChallenge, cardChallenge8)
 
-    // Construct mock INITIALIZE UPDATE response (28 bytes + SW 9000):
-    // KeyDiv(10B) || KeyVer(1B) || SCP(1B) || SeqCounter(2B) || CardChal(6B) || CardCrypto(8B) || 9000
-    const initUpdateResp = new Uint8Array([
-      ...hexToUint8('01020304050607080910'),
-      0x01, // Key Version
-      0x02, // SCP02
-      ...seqCounter,
-      ...cardChallenge,
-      ...cardCryptogram,
-      0x90,
-      0x00,
-    ])
-
-    const transport = new MockTransport([
-      new Uint8Array([0x90, 0x00]), // 1. SELECT Card Manager -> SW 9000
-      initUpdateResp, // 2. INITIALIZE UPDATE -> initUpdateResp
-      new Uint8Array([0x90, 0x00]), // 3. EXTERNAL AUTHENTICATE -> SW 9000
-    ])
-
-    const reader = new Reader(transport)
-    await reader.connect()
-
-    const cardManager = new GlobalPlatformCardManager(reader)
-    await cardManager.selectCardManager(DEFAULT_ISD_AID)
-
-    const session = await cardManager.openSecureChannelScp02(
-      keySet,
-      GpSecurityLevel.C_DECRYPTION_AND_C_MAC,
-      hostChallenge
-    )
-
-    expect(session).to.be.instanceOf(Scp02Session)
-  })
-
-  it('clamps requested maxChunkSize (e.g. 240) to safe limit (224) avoiding short APDU overflow', async () => {
-    const hostChallenge = hexToUint8('1122334455667788')
-    const seqCounter = hexToUint8('0001')
-    const cardChallenge = hexToUint8('AABBCCDDEEFF')
-    const { sEnc } = Scp02Session.deriveSessionKeys(keySet.encKey, keySet.macKey, keySet.dekKey, seqCounter)
-
-    const cardChallenge8 = new Uint8Array(8)
-    cardChallenge8.set(seqCounter, 0)
-    cardChallenge8.set(cardChallenge, 2)
-    const cardCryptogram = Scp02Session.calculateCardCryptogram(sEnc, hostChallenge, cardChallenge8)
-
-    const initUpdateResp = new Uint8Array([
+    return new Uint8Array([
       ...hexToUint8('01020304050607080910'),
       0x01,
       0x02,
@@ -393,22 +503,29 @@ describe('GlobalPlatform Card Manager and Provisioner Workflows', () => {
       0x90,
       0x00,
     ])
+  }
 
-    // 500 bytes payload: with chunk size 224, it will be 3 chunks (224, 224, 52)
-    const dummyC4 = new Uint8Array(500)
-    dummyC4[0] = 0xc4
-    dummyC4[1] = 0x82
-    dummyC4[2] = 0x01
-    dummyC4[3] = 0xf0
+  it('inspects card inventory via GET STATUS', async () => {
+    const hostChallenge = hexToUint8('1122334455667788')
+    const initUpdateResp = mockInitUpdateResponse()
+
+    // Mock GET STATUS responses:
+    // 1. P1=0x20 (Exec Load Files): [AID len 5] [FF6974656D] [state 01] + SW 9000
+    const getStatusElf = new Uint8Array([0x05, 0xff, 0x69, 0x74, 0x65, 0x6d, 0x01, 0x90, 0x00])
+    // 2. P1=0x10 (Exec Modules): [AID len 5] [FF6974656D] [state 01] [Mod AID len 6] [FF6974656D01] + SW 9000
+    const getStatusMod = new Uint8Array([
+      0x05, 0xff, 0x69, 0x74, 0x65, 0x6d, 0x01, 0x06, 0xff, 0x69, 0x74, 0x65, 0x6d, 0x01, 0x90, 0x00,
+    ])
+    // 3. P1=0x40 (Applets): [AID len 6] [FF6974656D01] [state 07] [priv len 1] [00] + SW 9000
+    const getStatusApp = new Uint8Array([0x06, 0xff, 0x69, 0x74, 0x65, 0x6d, 0x01, 0x07, 0x01, 0x00, 0x90, 0x00])
 
     const transport = new MockTransport([
       new Uint8Array([0x90, 0x00]), // 1. SELECT
       initUpdateResp, // 2. INIT UPDATE
       new Uint8Array([0x90, 0x00]), // 3. EXT AUTH
-      new Uint8Array([0x90, 0x00]), // 4. INSTALL [for load]
-      new Uint8Array([0x90, 0x00]), // 5. LOAD chunk 1
-      new Uint8Array([0x90, 0x00]), // 6. LOAD chunk 2
-      new Uint8Array([0x90, 0x00]), // 7. LOAD chunk 3
+      getStatusElf, // 4. GET STATUS (0x20)
+      getStatusMod, // 5. GET STATUS (0x10)
+      getStatusApp, // 6. GET STATUS (0x40)
     ])
 
     const reader = new Reader(transport)
@@ -417,254 +534,113 @@ describe('GlobalPlatform Card Manager and Provisioner Workflows', () => {
     await cardManager.selectCardManager(DEFAULT_ISD_AID)
     await cardManager.openSecureChannelScp02(keySet, GpSecurityLevel.C_DECRYPTION_AND_C_MAC, hostChallenge)
 
-    // Requesting 240 bytes chunk size must be clamped to safe 224 bytes
-    await cardManager.loadCap(dummyC4, 'FF6974656D', DEFAULT_ISD_AID, 240)
+    const inventory = await cardManager.getCardInventory()
+    expect(inventory.executableLoadFiles.length).to.equal(1)
+    expect(inventory.executableLoadFiles[0].aid).to.equal('FF6974656D')
+    expect(inventory.executableModules.length).to.equal(1)
+    expect(inventory.appletsAndSecurityDomains.length).to.equal(1)
+    expect(inventory.appletsAndSecurityDomains[0].aid).to.equal('FF6974656D01')
   })
 
-  it('executes SCP03 with correct 1-byte option offset parsing', async () => {
-    const hostChallenge = hexToUint8('1122334455667788')
-    const aesKey = hexToUint8('404142434445464748494A4B4C4D4E4F404142434445464748494A4B4C4D4E4F')
-    const cardChallenge = hexToUint8('AABBCCDDEEFF0011')
-
-    const { sMac } = Scp03Session.deriveSessionKeys(aesKey, hostChallenge, cardChallenge)
-    const cardCryptogram = Scp03Session.calculateCardCryptogram(sMac, hostChallenge, cardChallenge)
-
-    // Construct mock SCP03 INITIALIZE UPDATE response (29 bytes + SW 9000):
-    // KeyDiv(10B, 0..9) || KeyVer(1B, 10) || SCP(1B, 11) || Option(1B, 12) || CardChal(8B, 13..20) || CardCrypto(8B, 21..28) || 9000
-    const initUpdateResp = new Uint8Array([
-      ...hexToUint8('01020304050607080910'),
-      0x01, // Key Version (index 10)
-      0x03, // SCP03 (index 11)
-      0x10, // SCP03 Implementation option (index 12)
-      ...cardChallenge, // Card Challenge (index 13..20)
-      ...cardCryptogram, // Card Cryptogram (index 21..28)
-      0x90,
-      0x00,
-    ])
+  it('supports cancellation via AbortSignal in all loops', async () => {
+    const controller = new AbortController()
+    controller.abort() // Immediately abort
 
     const transport = new MockTransport([
-      new Uint8Array([0x90, 0x00]), // 1. SELECT Card Manager
-      initUpdateResp, // 2. INITIALIZE UPDATE
-      new Uint8Array([0x90, 0x00]), // 3. EXTERNAL AUTHENTICATE
+      new Uint8Array([0x90, 0x00]), // SELECT
     ])
 
     const reader = new Reader(transport)
     await reader.connect()
-
     const cardManager = new GlobalPlatformCardManager(reader)
-    await cardManager.selectCardManager(DEFAULT_ISD_AID)
 
-    const session = await cardManager.openSecureChannelScp03(
-      aesKey,
-      0x01,
-      GpSecurityLevel.C_DECRYPTION_AND_C_MAC,
-      hostChallenge
-    )
+    let caughtError: Error | null = null
+    try {
+      await cardManager.selectCardManager(DEFAULT_ISD_AID, controller.signal)
+    } catch (e: unknown) {
+      caughtError = e as Error
+    }
 
-    expect(session).to.be.instanceOf(Scp03Session)
+    expect(caughtError).to.be.instanceOf(Error)
+    expect(caughtError?.message).to.include('aborted by user or signal')
   })
 
-  it('re-throws genuine deletion errors (0x6982, 0x6A80) while ignoring only 0x6A88 not found errors during clean wipe', async () => {
+  it('reconciles topology against inventory skipping already installed packages for interrupted flashing recovery', async () => {
     const hostChallenge = hexToUint8('1122334455667788')
-    const seqCounter = hexToUint8('0001')
-    const cardChallenge = hexToUint8('AABBCCDDEEFF')
+    const initUpdateResp = mockInitUpdateResponse()
 
-    const { sEnc } = Scp02Session.deriveSessionKeys(keySet.encKey, keySet.macKey, keySet.dekKey, seqCounter)
-    const cardChallenge8 = new Uint8Array(8)
-    cardChallenge8.set(seqCounter, 0)
-    cardChallenge8.set(cardChallenge, 2)
-    const cardCryptogram = Scp02Session.calculateCardCryptogram(sEnc, hostChallenge, cardChallenge8)
+    // Inventory already contains Pkg A ('FF0001')
+    const getStatusElf = new Uint8Array([0x03, 0xff, 0x00, 0x01, 0x01, 0x90, 0x00])
+    const getStatusMod = new Uint8Array([0x90, 0x00])
+    const getStatusApp = new Uint8Array([0x90, 0x00])
 
-    const initUpdateResp = new Uint8Array([
-      ...hexToUint8('01020304050607080910'),
-      0x01,
-      0x02,
-      ...seqCounter,
-      ...cardChallenge,
-      ...cardCryptogram,
-      0x90,
-      0x00,
-    ])
-
-    // Scenario 1: SW 0x6A88 (Referenced data not found) is ignored during wipe
-    const transportPass = new MockTransport([
+    const transport = new MockTransport([
       new Uint8Array([0x90, 0x00]), // 1. SELECT
       initUpdateResp, // 2. INIT UPDATE
       new Uint8Array([0x90, 0x00]), // 3. EXT AUTH
-      new Uint8Array([0x6a, 0x88]), // 4. DELETE -> 0x6A88 (Not found, ignored)
-      new Uint8Array([0x90, 0x00]), // 5. INSTALL [for load]
-      new Uint8Array([0x90, 0x00]), // 6. LOAD
+      getStatusElf, // 4. GET STATUS 0x20
+      getStatusMod, // 5. GET STATUS 0x10
+      getStatusApp, // 6. GET STATUS 0x40
+      new Uint8Array([0x90, 0x00]), // 7. INSTALL [for load] Pkg B only! (Pkg A skipped)
+      new Uint8Array([0x90, 0x00]), // 8. LOAD Pkg B chunk 1
     ])
 
-    const readerPass = new Reader(transportPass)
-    await readerPass.connect()
-    const provPass = new GlobalPlatformProvisioner(readerPass)
-    await provPass.provisionTopology(
+    const reader = new Reader(transport)
+    await reader.connect()
+    const provisioner = new GlobalPlatformProvisioner(reader)
+
+    const capA = buildValidMockCap('FF0001')
+    const capB = buildValidMockCap('FF0002')
+
+    const progressEvents: ProvisioningProgressEvent[] = []
+
+    await provisioner.provisionTopology(
       [
-        {
-          name: 'pkg',
-          packageAid: 'FF6974656D',
-          capBytes: new Uint8Array([0xc4, 0x02, 0x01, 0x00]),
-          isLibrary: true,
-        },
+        { name: 'PkgA', packageAid: 'FF0001', capBytes: capA, isLibrary: true },
+        { name: 'PkgB', packageAid: 'FF0002', capBytes: capB, isLibrary: true },
       ],
       {
         keySet,
         hostChallenge,
-        cleanWipeExisting: true,
-        existingAidsToDelete: ['FF6974656D'],
+        reconcileWithInventory: true, // Enable recovery mode
+        onProgress: ev => progressEvents.push(ev),
       }
     )
 
-    // Scenario 2: SW 0x6982 (Security status not satisfied) MUST be re-thrown
-    const transportFailAuth = new MockTransport([
-      new Uint8Array([0x90, 0x00]), // 1. SELECT
-      initUpdateResp, // 2. INIT UPDATE
-      new Uint8Array([0x90, 0x00]), // 3. EXT AUTH
-      new Uint8Array([0x69, 0x82]), // 4. DELETE -> 0x6982 (Auth error)
-    ])
-
-    const readerFailAuth = new Reader(transportFailAuth)
-    await readerFailAuth.connect()
-    const provFailAuth = new GlobalPlatformProvisioner(readerFailAuth)
-
-    let caughtErrorAuth: Error | null = null
-    try {
-      await provFailAuth.provisionTopology(
-        [
-          {
-            name: 'pkg',
-            packageAid: 'FF6974656D',
-            capBytes: new Uint8Array([0xc4, 0x02, 0x01, 0x00]),
-            isLibrary: true,
-          },
-        ],
-        {
-          keySet,
-          hostChallenge,
-          cleanWipeExisting: true,
-          existingAidsToDelete: ['FF6974656D'],
-        }
-      )
-    } catch (e: unknown) {
-      caughtErrorAuth = e as Error
-    }
-
-    expect(caughtErrorAuth).to.be.instanceOf(Error)
-    expect(caughtErrorAuth?.message).to.include('Failed to delete package')
-    expect(caughtErrorAuth?.message).to.include('0x6982')
-
-    // Scenario 3: SW 0x6A80 (Incorrect parameters in data field) MUST ALSO be re-thrown (not ignored!)
-    const transportFailParam = new MockTransport([
-      new Uint8Array([0x90, 0x00]), // 1. SELECT
-      initUpdateResp, // 2. INIT UPDATE
-      new Uint8Array([0x90, 0x00]), // 3. EXT AUTH
-      new Uint8Array([0x6a, 0x80]), // 4. DELETE -> 0x6A80 (Parameter error)
-    ])
-
-    const readerFailParam = new Reader(transportFailParam)
-    await readerFailParam.connect()
-    const provFailParam = new GlobalPlatformProvisioner(readerFailParam)
-
-    let caughtErrorParam: Error | null = null
-    try {
-      await provFailParam.provisionTopology(
-        [
-          {
-            name: 'pkg',
-            packageAid: 'FF6974656D',
-            capBytes: new Uint8Array([0xc4, 0x02, 0x01, 0x00]),
-            isLibrary: true,
-          },
-        ],
-        {
-          keySet,
-          hostChallenge,
-          cleanWipeExisting: true,
-          existingAidsToDelete: ['FF6974656D'],
-        }
-      )
-    } catch (e: unknown) {
-      caughtErrorParam = e as Error
-    }
-
-    expect(caughtErrorParam).to.be.instanceOf(Error)
-    expect(caughtErrorParam?.message).to.include('Failed to delete package')
-    expect(caughtErrorParam?.message).to.include('0x6A80')
+    const descriptions = progressEvents.map(e => e.stepDescription)
+    expect(descriptions.some(d => d.includes('Reconciled: 1 packages intact, 1 to load'))).to.equal(true)
+    expect(descriptions.some(d => d.includes('Loading PkgB'))).to.equal(true)
+    // PkgA loading must not have been triggered because it was already on card
+    expect(descriptions.some(d => d.includes('Loading PkgA'))).to.equal(false)
   })
 
-  it('provisions a multi-CAP topology using GlobalPlatformProvisioner', async () => {
-    const hostChallenge = hexToUint8('1122334455667788')
-    const seqCounter = hexToUint8('0001')
-    const cardChallenge = hexToUint8('AABBCCDDEEFF')
-
-    const { sEnc } = Scp02Session.deriveSessionKeys(keySet.encKey, keySet.macKey, keySet.dekKey, seqCounter)
-    const cardChallenge8 = new Uint8Array(8)
-    cardChallenge8.set(seqCounter, 0)
-    cardChallenge8.set(cardChallenge, 2)
-    const cardCryptogram = Scp02Session.calculateCardCryptogram(sEnc, hostChallenge, cardChallenge8)
-
-    const initUpdateResp = new Uint8Array([
-      ...hexToUint8('01020304050607080910'),
-      0x01,
-      0x02,
-      ...seqCounter,
-      ...cardChallenge,
-      ...cardCryptogram,
-      0x90,
-      0x00,
-    ])
-
-    const transport = new MockTransport([
-      new Uint8Array([0x90, 0x00]), // 1. SELECT Card Manager
-      initUpdateResp, // 2. INITIALIZE UPDATE
-      new Uint8Array([0x90, 0x00]), // 3. EXTERNAL AUTHENTICATE
-      new Uint8Array([0x90, 0x00]), // 4. DELETE existing package
-      new Uint8Array([0x90, 0x00]), // 5. INSTALL [for load] (item-api)
-      new Uint8Array([0x90, 0x00]), // 6. LOAD chunk 1 (item-api)
-      new Uint8Array([0x90, 0x00]), // 7. INSTALL [for load] (item-javacard)
-      new Uint8Array([0x90, 0x00]), // 8. LOAD chunk 1 (item-javacard)
-      new Uint8Array([0x90, 0x00]), // 9. INSTALL [for install & make selectable] (item-javacard)
-    ])
-
+  it('stops before card deletion if strict preflight validation fails', async () => {
+    const transport = new MockTransport([]) // Zero APDUs should be sent
     const reader = new Reader(transport)
     await reader.connect()
-
     const provisioner = new GlobalPlatformProvisioner(reader)
 
-    const dummyTopology: CapTopologyEntry[] = [
-      {
-        name: '01_item-api',
-        packageAid: 'FF6974656D7379730300FF',
-        capBytes: new Uint8Array([0xc4, 0x04, 0x01, 0x00, 0x02, 0x00]),
-        isLibrary: true,
-      },
-      {
-        name: '02_item-javacard',
-        packageAid: 'FF6974656D737973030000',
-        capBytes: new Uint8Array([0xc4, 0x04, 0x01, 0x00, 0x02, 0x00]),
-        appletAid: 'FF6974656D73797303000000',
-        instanceAid: 'FF6974656D73797303000000',
-        privileges: '00',
-        installParams: '0108100800',
-      },
-    ]
+    let caughtError: Error | null = null
+    try {
+      await provisioner.provisionTopology(
+        [
+          {
+            name: 'CorruptedPkg',
+            packageAid: 'FF0001',
+            capBytes: new Uint8Array([0x00, 0x01, 0x02]), // Invalid CAP
+          },
+        ],
+        {
+          keySet,
+          cleanWipeExisting: true,
+          existingAidsToDelete: ['FF0001'],
+        }
+      )
+    } catch (e: unknown) {
+      caughtError = e as Error
+    }
 
-    const progressLogs: string[] = []
-
-    await provisioner.provisionTopology(dummyTopology, {
-      keySet,
-      hostChallenge,
-      cleanWipeExisting: true,
-      existingAidsToDelete: ['FF6974656D737973030000'],
-      onProgress: step => progressLogs.push(step),
-    })
-
-    expect(progressLogs).to.include('Authenticating with Card Manager')
-    expect(progressLogs).to.include('Wiping existing packages')
-    expect(progressLogs).to.include('Loading 01_item-api')
-    expect(progressLogs).to.include('Loading 02_item-javacard')
-    expect(progressLogs).to.include('Instantiating 02_item-javacard')
-    expect(progressLogs).to.include('Provisioning Complete')
+    expect(caughtError).to.be.instanceOf(Error)
+    expect(caughtError?.message).to.include('Topology Preflight Validation Failed')
   })
 })

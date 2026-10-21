@@ -3,7 +3,7 @@ import { uint8ToHex, hexToUint8 } from '../utils'
 import { GpSecurityLevel, Scp02Session } from './scp02'
 import { Scp03Session } from './scp03'
 import { buildLoadFileDataBlock } from './cap-parser'
-import { randomBytes } from 'crypto'
+import { getRandomBytes } from './crypto'
 
 /**
  * Key Set structure for GlobalPlatform authentication.
@@ -36,15 +36,6 @@ export const DEFAULT_ISD_AID = 'A000000151000000'
 
 /**
  * Absolute maximum safe plaintext chunk size for LOAD APDUs under short APDUs (224 bytes).
- *
- * For short APDUs (single-byte Lc):
- * - Plaintext chunk: up to 224 bytes.
- * - ISO/IEC 9797-1 Method 2 padding (block size 8 for SCP02, 16 for SCP03): adds 1 to 16 bytes (up to 240 bytes ciphertext).
- * - C-MAC (8 bytes): 240 + 8 = 248 bytes.
- * - Total wrapped Lc = 248 <= 255.
- *
- * Any chunk size > 224 bytes will cause the wrapped encrypted/MACed APDU to exceed the
- * 255-byte short APDU limit, producing invalid/malformed APDUs.
  */
 export const DEFAULT_MAX_LOAD_CHUNK_SIZE = 224
 export const ABSOLUTE_MAX_SAFE_LOAD_CHUNK_SIZE = 224
@@ -70,9 +61,17 @@ export class GlobalPlatformCardManager {
   }
 
   /**
+   * Get active Secure Channel session or null if unauthenticated.
+   */
+  public getSession(): Scp02Session | Scp03Session | null {
+    return this.session
+  }
+
+  /**
    * Select Issuer Security Domain (Card Manager).
    */
-  public async selectCardManager(isdAid: string = DEFAULT_ISD_AID): Promise<Uint8Array> {
+  public async selectCardManager(isdAid: string = DEFAULT_ISD_AID, signal?: AbortSignal): Promise<Uint8Array> {
+    this.checkAborted(signal)
     const aidBytes = hexToUint8(isdAid)
     const selectApdu = new Uint8Array([0x00, 0xa4, 0x04, 0x00, aidBytes.length, ...aidBytes, 0x00])
     const resp = await this.reader.transmit(selectApdu)
@@ -87,17 +86,18 @@ export class GlobalPlatformCardManager {
   public async openSecureChannelScp02(
     keySet: GpKeySet,
     securityLevel: GpSecurityLevel = GpSecurityLevel.C_DECRYPTION_AND_C_MAC,
-    hostChallenge?: Uint8Array
+    hostChallenge?: Uint8Array,
+    signal?: AbortSignal
   ): Promise<Scp02Session> {
-    const hostChal = hostChallenge || new Uint8Array(randomBytes(8))
+    this.checkAborted(signal)
+    const hostChal = hostChallenge || getRandomBytes(8)
 
     // 1. INITIALIZE UPDATE (CLA=0x80, INS=0x50, P1=KeySetVersion, P2=0x00, Lc=0x08, Data=HostChallenge, Le=0x00)
     const initUpdateApdu = new Uint8Array([0x80, 0x50, keySet.version & 0xff, 0x00, 0x08, ...hostChal, 0x00])
     const initResp = await this.reader.transmit(initUpdateApdu)
     this.assertSuccess(initResp, 'INITIALIZE UPDATE (SCP02)')
 
-    // Response structure (28+2 bytes):
-    // Key Diversification Data (10B) || Key Info (2B) || Sequence Counter (2B) || Card Challenge (6B) || Card Cryptogram (8B) || SW (2B)
+    this.checkAborted(signal)
     const seqCounter = initResp.subarray(12, 14)
     const cardChallenge = initResp.subarray(14, 20)
     const cardCryptogram = initResp.subarray(20, 28)
@@ -116,18 +116,15 @@ export class GlobalPlatformCardManager {
     // 4. Calculate Host Cryptogram
     const hostCryptogram = Scp02Session.calculateHostCryptogram(sEnc, seqCounter, cardChallenge, hostChal)
 
-    // 5. EXTERNAL AUTHENTICATE
-    // Per GP 2.2 §10.4 / Appendix E.4.4:
-    // EXTERNAL AUTHENTICATE is wrapped with C-MAC ONLY (Lc=0x10, Data = HostCrypto(8B) || C-MAC(8B)).
-    // Data encryption (C-DECRYPTION) only takes effect on SUBSEQUENT commands.
+    // 5. EXTERNAL AUTHENTICATE (wrapped with C-MAC ONLY per GP 2.2 §10.4)
     const authSession = new Scp02Session(sEnc, sMac, sDek, GpSecurityLevel.C_MAC)
     const extAuthRaw = new Uint8Array([0x80, 0x82, securityLevel & 0xff, 0x00, 0x08, ...hostCryptogram])
     const extAuthWrapped = authSession.wrap(extAuthRaw)
 
+    this.checkAborted(signal)
     const extResp = await this.reader.transmit(extAuthWrapped)
     this.assertSuccess(extResp, 'EXTERNAL AUTHENTICATE (SCP02)')
 
-    // After successful EXTERNAL AUTHENTICATE, set requested target security level (e.g. C_DECRYPTION_AND_C_MAC)
     authSession.setSecurityLevel(securityLevel)
     this.session = authSession
     return authSession
@@ -140,24 +137,18 @@ export class GlobalPlatformCardManager {
     staticKey: Uint8Array,
     keyVersion = 0x01,
     securityLevel: GpSecurityLevel = GpSecurityLevel.C_DECRYPTION_AND_C_MAC,
-    hostChallenge?: Uint8Array
+    hostChallenge?: Uint8Array,
+    signal?: AbortSignal
   ): Promise<Scp03Session> {
-    const hostChal = hostChallenge || new Uint8Array(randomBytes(8))
+    this.checkAborted(signal)
+    const hostChal = hostChallenge || getRandomBytes(8)
 
-    // 1. INITIALIZE UPDATE (CLA=0x80, INS=0x50, P1=KeySetVersion, P2=0x00, Lc=0x08, Data=HostChallenge, Le=0x00)
+    // 1. INITIALIZE UPDATE
     const initUpdateApdu = new Uint8Array([0x80, 0x50, keyVersion & 0xff, 0x00, 0x08, ...hostChal, 0x00])
     const initResp = await this.reader.transmit(initUpdateApdu)
     this.assertSuccess(initResp, 'INITIALIZE UPDATE (SCP03)')
 
-    // Response structure per GP 2.3 Amendment D Section 5.1 / 6.1 (29+2 or 32+2 bytes):
-    // Key Diversification Data (10B, 0..9)
-    // Key Version Number (1B, 10)
-    // SCP Identifier (1B, 11: 0x03)
-    // SCP03 Implementation Option (1B, 12)
-    // Card Challenge (8B, 13..20)
-    // Card Cryptogram (8B, 21..28)
-    // [Sequence Counter (3B, 29..31) - optional]
-    // Status Word (2B)
+    this.checkAborted(signal)
     const cardChallenge = initResp.subarray(13, 21)
     const cardCryptogram = initResp.subarray(21, 29)
 
@@ -175,32 +166,137 @@ export class GlobalPlatformCardManager {
     // 4. Calculate Host Cryptogram
     const hostCryptogram = Scp03Session.calculateHostCryptogram(sMac, hostChal, cardChallenge)
 
-    // 5. EXTERNAL AUTHENTICATE (C-MAC only for authentication handshake)
+    // 5. EXTERNAL AUTHENTICATE (C-MAC only for handshake)
     const authSession = new Scp03Session(sEnc, sMac, sRMac, sDek, GpSecurityLevel.C_MAC)
     const extAuthRaw = new Uint8Array([0x80, 0x82, securityLevel & 0xff, 0x00, 0x08, ...hostCryptogram])
     const extAuthWrapped = authSession.wrap(extAuthRaw)
 
+    this.checkAborted(signal)
     const extResp = await this.reader.transmit(extAuthWrapped)
     this.assertSuccess(extResp, 'EXTERNAL AUTHENTICATE (SCP03)')
 
-    // Set requested target security level on session after authentication
     authSession.setSecurityLevel(securityLevel)
     this.session = authSession
     return authSession
   }
 
   /**
+   * Query card inventory using GET STATUS (GP 2.2 §11.4).
+   *
+   * @param p1 0x80 = ISD/SSD only, 0x40 = Applications & SDs, 0x20 = Executable Load Files, 0x10 = Executable Load Files & Executable Modules
+   */
+  public async getStatus(p1: number = 0x20, signal?: AbortSignal): Promise<GpInstalledElement[]> {
+    this.checkAborted(signal)
+    const results: GpInstalledElement[] = []
+
+    // Search filter TLV: 0x4F 0x00 (all AIDs)
+    const filter = new Uint8Array([0x4f, 0x00])
+    let p2 = 0x00 // First or all occurrences
+
+    while (true) {
+      this.checkAborted(signal)
+      const rawApdu = new Uint8Array([0x80, 0xf2, p1, p2, filter.length, ...filter, 0x00])
+      const wrapped = this.wrapApdu(rawApdu)
+
+      const resp = await this.reader.transmit(wrapped)
+      if (resp.length < 2) {
+        throw new Error(`GET STATUS failed: response too short (${resp.length} bytes)`)
+      }
+
+      const sw = (resp[resp.length - 2] << 8) | resp[resp.length - 1]
+      if (sw === 0x6a88) {
+        // Referenced data not found (empty inventory)
+        break
+      }
+      if (sw !== 0x9000 && sw !== 0x6310) {
+        // 0x6310 means more data available
+        throw new Error(
+          `GET STATUS (P1=0x${p1.toString(16)}) failed with Status Word: 0x${sw.toString(16).toUpperCase()}`
+        )
+      }
+
+      const data = resp.subarray(0, resp.length - 2)
+      let off = 0
+
+      while (off < data.length) {
+        if (off + 2 > data.length) break
+        const aidLen = data[off]
+        if (off + 1 + aidLen + 1 > data.length) break
+
+        const aid = uint8ToHex(data.subarray(off + 1, off + 1 + aidLen)).toUpperCase()
+        const lifeCycleState = data[off + 1 + aidLen]
+        off += 1 + aidLen + 1
+
+        let privileges: string | undefined
+        let executableLoadFileAid: string | undefined
+        let versionNumber: string | undefined
+
+        // If P1 == 0x40 or 0x80 (Applets / SDs), privileges follows lifecycle
+        if (p1 === 0x40 || p1 === 0x80) {
+          if (off < data.length) {
+            const privLen = data[off]
+            if (off + 1 + privLen <= data.length) {
+              privileges = uint8ToHex(data.subarray(off + 1, off + 1 + privLen))
+              off += 1 + privLen
+            }
+          }
+        }
+
+        // If P1 == 0x10 (Executable modules), module format is: Executable Load File AID, Executable Module AID
+        if (p1 === 0x10) {
+          if (off < data.length) {
+            const extraAidLen = data[off]
+            if (off + 1 + extraAidLen <= data.length) {
+              executableLoadFileAid = aid
+              off += 1 + extraAidLen
+            }
+          }
+        }
+
+        results.push({
+          aid,
+          lifeCycleState,
+          privileges,
+          executableLoadFileAid,
+          versionNumber,
+        })
+      }
+
+      if (sw === 0x9000) {
+        break
+      }
+      p2 = 0x01 // Get next occurrence
+    }
+
+    return results
+  }
+
+  /**
+   * Inspect full card inventory across Executable Load Files, Modules, and Applets.
+   */
+  public async getCardInventory(signal?: AbortSignal): Promise<GpStatusResult> {
+    const executableLoadFiles = await this.getStatus(0x20, signal)
+    const executableModules = await this.getStatus(0x10, signal)
+    const appletsAndSecurityDomains = await this.getStatus(0x40, signal)
+
+    return {
+      executableLoadFiles,
+      executableModules,
+      appletsAndSecurityDomains,
+    }
+  }
+
+  /**
    * Delete an applet instance or package by AID.
    */
-  public async delete(aid: string, deleteRelated = true): Promise<void> {
+  public async delete(aid: string, deleteRelated = true, signal?: AbortSignal): Promise<void> {
+    this.checkAborted(signal)
     const aidBytes = hexToUint8(aid)
-    // DELETE data field TLV: 0x4F || len || AID
     const data = new Uint8Array(2 + aidBytes.length)
     data[0] = 0x4f
     data[1] = aidBytes.length
     data.set(aidBytes, 2)
 
-    // P2: 0x00 = delete object, 0x80 = delete related objects (e.g. executable modules with package)
     const p2 = deleteRelated ? 0x80 : 0x00
     const rawApdu = new Uint8Array([0x80, 0xe4, 0x00, p2, data.length, ...data])
     const wrapped = this.wrapApdu(rawApdu)
@@ -211,40 +307,23 @@ export class GlobalPlatformCardManager {
 
   /**
    * Load and flash a compiled CAP file onto the card.
-   *
-   * Automatically unpacks ZIP-formatted CAP archives and constructs the canonical
-   * GlobalPlatform Load File Data Block (Tag 0xC4) containing the ordered component TLVs.
-   *
-   * Clamps the chunk size to ABSOLUTE_MAX_SAFE_LOAD_CHUNK_SIZE (224 bytes) to guarantee
-   * that encrypted and MACed short APDUs never exceed 255 bytes.
-   *
-   * @param capBytes Raw CAP binary content (ZIP archive, raw component stream, or Load File Data Block)
-   * @param packageAid Executable Load File AID
-   * @param securityDomainAid Target Security Domain AID (default ISD)
-   * @param maxChunkSize Chunk size for LOAD APDUs (default 224 bytes; clamped to max 224)
    */
   public async loadCap(
     capBytes: Uint8Array,
     packageAid: string,
     securityDomainAid: string = DEFAULT_ISD_AID,
-    maxChunkSize: number = DEFAULT_MAX_LOAD_CHUNK_SIZE
+    maxChunkSize: number = DEFAULT_MAX_LOAD_CHUNK_SIZE,
+    onChunkProgress?: (bytesLoaded: number, totalBytes: number) => void,
+    signal?: AbortSignal
   ): Promise<void> {
+    this.checkAborted(signal)
     const pkgAidBytes = hexToUint8(packageAid)
     const isdAidBytes = hexToUint8(securityDomainAid)
 
-    // Clamp chunk size to safe maximum (224 bytes) to prevent APDU Lc overflow under encryption & MAC
     const effectiveChunkSize = Math.max(16, Math.min(maxChunkSize, ABSOLUTE_MAX_SAFE_LOAD_CHUNK_SIZE))
-
-    // Build canonical GlobalPlatform Load File Data Block (Tag 0xC4)
     const loadFileDataBlock = buildLoadFileDataBlock(capBytes)
 
-    // 1. INSTALL [for load] (CLA=0x80, INS=0xE6, P1=0x02, P2=0x00)
-    // Data TLV:
-    // [Pkg AID len (1B)] [Pkg AID]
-    // [SD AID len (1B)] [SD AID]
-    // [Load File Hash len (1B, 0x00 for none)]
-    // [Load Parameters len (1B, 0x00 for none)]
-    // [Load Token len (1B, 0x00 for none)]
+    // 1. INSTALL [for load]
     const installForLoadData = new Uint8Array(1 + pkgAidBytes.length + 1 + isdAidBytes.length + 1 + 1 + 1)
     let off = 0
     installForLoadData[off++] = pkgAidBytes.length
@@ -271,11 +350,12 @@ export class GlobalPlatformCardManager {
     const installResp = await this.reader.transmit(wrappedInstall)
     this.assertSuccess(installResp, `INSTALL [for load] Package ${packageAid}`)
 
-    // 2. Stream chunked LOAD APDUs (CLA=0x80, INS=0xE8, P1=0x00 (more) / 0x80 (last), P2=blockNumber)
+    // 2. Stream chunked LOAD APDUs
     let blockNumber = 0
     let capOffset = 0
 
     while (capOffset < loadFileDataBlock.length) {
+      this.checkAborted(signal)
       const remaining = loadFileDataBlock.length - capOffset
       const chunkSize = Math.min(remaining, effectiveChunkSize)
       const isLastChunk = capOffset + chunkSize === loadFileDataBlock.length
@@ -285,9 +365,7 @@ export class GlobalPlatformCardManager {
       const loadApdu = new Uint8Array([0x80, 0xe8, p1, blockNumber & 0xff, chunk.length, ...chunk])
       const wrappedLoad = this.wrapApdu(loadApdu)
 
-      // Verify wrapped APDU does not exceed short APDU single-byte limit (255 bytes payload)
       if (wrappedLoad.length > 261) {
-        // 5 header + 255 data + 1 Le
         throw new Error(`LOAD APDU block ${blockNumber} length (${wrappedLoad.length} bytes) exceeds short APDU limit!`)
       }
 
@@ -299,38 +377,28 @@ export class GlobalPlatformCardManager {
 
       capOffset += chunkSize
       blockNumber = (blockNumber + 1) & 0xff
+      onChunkProgress?.(capOffset, loadFileDataBlock.length)
     }
   }
 
   /**
    * Instantiate an applet from an installed package and make it selectable.
-   *
-   * @param packageAid Executable Load File AID
-   * @param moduleAid Executable Module AID inside the package
-   * @param instanceAid Target Applet Instance AID
-   * @param privileges Application Privileges (e.g. "00" or "04" for Default Selected)
-   * @param installParams Hex-encoded custom install parameters (e.g. "C90100" or raw parameter bytes)
    */
   public async installAndMakeSelectable(
     packageAid: string,
     moduleAid: string,
     instanceAid: string,
     privileges = '00',
-    installParams = ''
+    installParams = '',
+    signal?: AbortSignal
   ): Promise<void> {
+    this.checkAborted(signal)
     const pkgBytes = hexToUint8(packageAid)
     const modBytes = hexToUint8(moduleAid)
     const instBytes = hexToUint8(instanceAid)
     const privBytes = hexToUint8(privileges)
     const paramBytes = hexToUint8(installParams)
 
-    // Data TLV:
-    // [Pkg AID len (1B)] [Pkg AID]
-    // [Mod AID len (1B)] [Mod AID]
-    // [Inst AID len (1B)] [Inst AID]
-    // [Privileges len (1B)] [Privileges]
-    // [Params len (1B)] [Params]
-    // [Install Token len (1B, 0x00)]
     const totalLen =
       1 +
       pkgBytes.length +
@@ -369,7 +437,6 @@ export class GlobalPlatformCardManager {
 
     data[off++] = 0x00 // No token
 
-    // P1: 0x0C = Install & Make Selectable
     const rawApdu = new Uint8Array([0x80, 0xe6, 0x0c, 0x00, data.length, ...data])
     const wrapped = this.wrapApdu(rawApdu)
 
@@ -377,9 +444,12 @@ export class GlobalPlatformCardManager {
     this.assertSuccess(resp, `INSTALL [for install] Instance ${instanceAid}`)
   }
 
-  /**
-   * Helper to wrap APDU with active Secure Channel session if open.
-   */
+  private checkAborted(signal?: AbortSignal): void {
+    if (signal?.aborted) {
+      throw new Error('GlobalPlatform operation aborted by user or signal')
+    }
+  }
+
   private wrapApdu(rawApdu: Uint8Array): Uint8Array {
     if (this.session) {
       return this.session.wrap(rawApdu)
@@ -387,9 +457,6 @@ export class GlobalPlatformCardManager {
     return rawApdu
   }
 
-  /**
-   * Assert response ends with SW = 0x9000.
-   */
   private assertSuccess(resp: Uint8Array, operation: string): void {
     if (resp.length < 2) {
       throw new Error(`${operation} failed: response too short (${resp.length} bytes)`)

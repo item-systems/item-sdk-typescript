@@ -1,4 +1,4 @@
-import { inflateRawSync } from 'zlib'
+import { inflateRaw } from './inflate'
 
 /**
  * JavaCard standard component tags in GlobalPlatform Load File Data Block (Tag 0xC4).
@@ -23,99 +23,96 @@ export const ORDERED_COMPONENT_TAGS = [1, 2, 4, 3, 6, 7, 8, 10, 5, 9, 11, 12]
  */
 const VALID_COMPONENT_TAG_SET = new Set(ORDERED_COMPONENT_TAGS)
 
+const textDecoder = new TextDecoder('utf-8')
+
 /**
  * Parse an in-memory ZIP archive using Central Directory records.
  *
  * This supports all valid ZIP archives regardless of whether data descriptors (bit 3)
  * or streaming compressors were used, because the Central Directory at the end of the
  * archive always contains the authoritative uncompressed size, compressed size, and local header offset.
+ *
+ * 100% portable pure TypeScript (DataView / Uint8Array) without Node Buffer or zlib dependencies.
  */
 export function extractCapComponentsFromZip(zipBytes: Uint8Array): Map<number, Uint8Array> {
   const components = new Map<number, Uint8Array>()
-  const buf = Buffer.from(zipBytes)
 
-  // Quick check for minimum ZIP length (at least End of Central Directory record = 22 bytes)
-  if (buf.length < 22) {
+  if (zipBytes.length < 22) {
     return components
   }
 
+  const view = new DataView(zipBytes.buffer, zipBytes.byteOffset, zipBytes.byteLength)
+
   // 1. Locate the End of Central Directory (EOCD) signature: 0x06054b50 ("PK\x05\x06")
-  // Search backward from the end of buffer (EOCD can have up to 65535 bytes comment)
   let eocdOffset = -1
-  const searchLimit = Math.max(0, buf.length - 65557)
-  for (let i = buf.length - 22; i >= searchLimit; i--) {
-    if (buf[i] === 0x50 && buf[i + 1] === 0x4b && buf[i + 2] === 0x05 && buf[i + 3] === 0x06) {
+  const searchLimit = Math.max(0, zipBytes.length - 65557)
+  for (let i = zipBytes.length - 22; i >= searchLimit; i--) {
+    if (zipBytes[i] === 0x50 && zipBytes[i + 1] === 0x4b && zipBytes[i + 2] === 0x05 && zipBytes[i + 3] === 0x06) {
       eocdOffset = i
       break
     }
   }
 
   if (eocdOffset === -1) {
-    // Not a valid ZIP file with EOCD
     return components
   }
 
-  const totalEntries = buf.readUInt16LE(eocdOffset + 10)
-  const cdOffset = buf.readUInt32LE(eocdOffset + 16)
+  const totalEntries = view.getUint16(eocdOffset + 10, true)
+  const cdOffset = view.getUint32(eocdOffset + 16, true)
 
-  if (cdOffset >= buf.length) {
+  if (cdOffset >= zipBytes.length) {
     return components
   }
 
   // 2. Iterate through Central Directory records
   let cdPtr = cdOffset
-  for (let entryIdx = 0; entryIdx < totalEntries && cdPtr + 46 <= buf.length; entryIdx++) {
-    const cdSig = buf.readUInt32LE(cdPtr)
+  for (let entryIdx = 0; entryIdx < totalEntries && cdPtr + 46 <= zipBytes.length; entryIdx++) {
+    const cdSig = view.getUint32(cdPtr, true)
     if (cdSig !== 0x02014b50) {
-      // Signature mismatch ("PK\x01\x02")
       break
     }
 
-    const compressionMethod = buf.readUInt16LE(cdPtr + 10)
-    const compressedSize = buf.readUInt32LE(cdPtr + 20)
-    const fileNameLen = buf.readUInt16LE(cdPtr + 28)
-    const extraFieldLen = buf.readUInt16LE(cdPtr + 30)
-    const commentLen = buf.readUInt16LE(cdPtr + 32)
-    const localHeaderOffset = buf.readUInt32LE(cdPtr + 42)
+    const compressionMethod = view.getUint16(cdPtr + 10, true)
+    const compressedSize = view.getUint32(cdPtr + 20, true)
+    const fileNameLen = view.getUint16(cdPtr + 28, true)
+    const extraFieldLen = view.getUint16(cdPtr + 30, true)
+    const commentLen = view.getUint16(cdPtr + 32, true)
+    const localHeaderOffset = view.getUint32(cdPtr + 42, true)
 
     const fileNameStart = cdPtr + 46
-    const fileName = buf.toString('utf8', fileNameStart, fileNameStart + fileNameLen)
+    const fileNameBytes = zipBytes.subarray(fileNameStart, fileNameStart + fileNameLen)
+    const fileName = textDecoder.decode(fileNameBytes)
 
-    // Move to next Central Directory record
     cdPtr = fileNameStart + fileNameLen + extraFieldLen + commentLen
 
-    // Only process .cap component files
     if (!fileName.endsWith('.cap')) {
       continue
     }
 
-    // Read Local File Header to find exact file data start offset
-    if (localHeaderOffset + 30 > buf.length) {
+    if (localHeaderOffset + 30 > zipBytes.length) {
       continue
     }
 
-    const localSig = buf.readUInt32LE(localHeaderOffset)
+    const localSig = view.getUint32(localHeaderOffset, true)
     if (localSig !== 0x04034b50) {
       continue
     }
 
-    const locFileNameLen = buf.readUInt16LE(localHeaderOffset + 26)
-    const locExtraFieldLen = buf.readUInt16LE(localHeaderOffset + 28)
+    const locFileNameLen = view.getUint16(localHeaderOffset + 26, true)
+    const locExtraFieldLen = view.getUint16(localHeaderOffset + 28, true)
     const dataStart = localHeaderOffset + 30 + locFileNameLen + locExtraFieldLen
 
-    if (dataStart + compressedSize > buf.length) {
+    if (dataStart + compressedSize > zipBytes.length) {
       continue
     }
 
-    const compressedData = buf.subarray(dataStart, dataStart + compressedSize)
-    let decompressed: Buffer
+    const compressedData = zipBytes.subarray(dataStart, dataStart + compressedSize)
+    let decompressed: Uint8Array
 
     if (compressionMethod === 0) {
-      // Stored (uncompressed)
       decompressed = compressedData
     } else if (compressionMethod === 8) {
-      // Deflated
-      decompressed = inflateRawSync(compressedData)
+      decompressed = inflateRaw(compressedData)
     } else {
       throw new Error(`Unsupported ZIP compression method: ${compressionMethod} in ${fileName}`)
     }
@@ -123,7 +120,7 @@ export function extractCapComponentsFromZip(zipBytes: Uint8Array): Map<number, U
     if (decompressed.length > 0) {
       const tag = decompressed[0]
       if (VALID_COMPONENT_TAG_SET.has(tag)) {
-        components.set(tag, new Uint8Array(decompressed))
+        components.set(tag, decompressed)
       }
     }
   }
@@ -133,9 +130,6 @@ export function extractCapComponentsFromZip(zipBytes: Uint8Array): Map<number, U
 
 /**
  * Parse a raw concatenated JavaCard component stream.
- *
- * Each component starts with Tag (1B), Size (2B big-endian), followed by Size bytes of payload.
- * Total component length is 3 + Size bytes.
  */
 export function parseRawComponentStream(streamBytes: Uint8Array): Map<number, Uint8Array> {
   const components = new Map<number, Uint8Array>()
@@ -215,24 +209,16 @@ export function encodeDerLength(length: number): Uint8Array {
 /**
  * Construct a standard GlobalPlatform Load File Data Block (Tag 0xC4)
  * from input bytes (ZIP-formatted .cap archive, raw component stream, or pre-wrapped block).
- *
- * Guarantees that the output always starts with Tag 0xC4, DER-length, and contains the ordered
- * JavaCard components (Header, Directory, Import, Applet, Class, Method, StaticField, Export,
- * ConstantPool, RefLocation, Descriptor, Debug) per GlobalPlatform 2.2 §11.6.2.3.
  */
 export function buildLoadFileDataBlock(capBytes: Uint8Array): Uint8Array {
-  // If input is wrapped in 0xC4, unwrap first so we can validate and ensure canonical ordering
   const unwrapped = unwrapLoadFileDataBlock(capBytes)
 
-  // 1. Try Central Directory ZIP extraction
   let components = extractCapComponentsFromZip(capBytes)
 
-  // 2. If not a ZIP (or no components in ZIP), try parsing as a raw concatenated component stream
   if (components.size === 0) {
     components = parseRawComponentStream(unwrapped)
   }
 
-  // 3. If components were successfully identified, construct the canonical Tag 0xC4 Data Block
   if (components.size > 0) {
     let componentsTotalLength = 0
     for (const tag of ORDERED_COMPONENT_TAGS) {
@@ -245,7 +231,7 @@ export function buildLoadFileDataBlock(capBytes: Uint8Array): Uint8Array {
     const derLen = encodeDerLength(componentsTotalLength)
     const result = new Uint8Array(1 + derLen.length + componentsTotalLength)
 
-    result[0] = 0xc4 // Tag: Load File Data Block
+    result[0] = 0xc4
     result.set(derLen, 1)
 
     let writeOffset = 1 + derLen.length
@@ -260,7 +246,6 @@ export function buildLoadFileDataBlock(capBytes: Uint8Array): Uint8Array {
     return result
   }
 
-  // 4. Fallback for opaque pre-formatted raw component streams: wrap in Tag 0xC4
   const derLen = encodeDerLength(unwrapped.length)
   const result = new Uint8Array(1 + derLen.length + unwrapped.length)
   result[0] = 0xc4
