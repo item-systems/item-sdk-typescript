@@ -1,14 +1,6 @@
 import { StatusWord } from './statusword'
 
-import {
-  MasterKeyStats,
-  MicrokernelResourceFlags,
-  PluginInfo,
-  IdentityInfo,
-  CredentialDescriptor,
-  AuthPolicy,
-  AuthCredentialType,
-} from './types'
+import { MasterKeyStats, MicrokernelResourceFlags, PluginInfo, IdentityInfo, AuthPolicy } from './types'
 
 /**
  * Parsed representation of an ISO 7816 response APDU.
@@ -324,6 +316,8 @@ export class PackageCommitResponse extends ResponseAPDU {
 
 /**
  * Response parser for `IdentityQueryCommand` (INS 0x81).
+ * Wire format matches Python SDK v3.5.0:
+ * [uid(2B) | capabilities(2B) | policy(1B) | threshold(1B) | credCount(1B)]
  */
 export class IdentityQueryResponse extends ResponseAPDU {
   private identityInfo: IdentityInfo | null = null
@@ -348,42 +342,19 @@ export class IdentityQueryResponse extends ResponseAPDU {
 
     const view = new DataView(data.buffer, data.byteOffset, data.byteLength)
     const identityId = view.getUint16(0)
-    const active = data[2] !== 0
-    const authPolicy = data[3] as AuthPolicy
-    const requiredThreshold = data[4]
-    const capabilities = view.getUint16(5)
-    const credentialCount = data.length > 7 ? data[7] : 0
-
-    let off = 8
-    const credentials: CredentialDescriptor[] = []
-
-    for (let i = 0; i < credentialCount && off + 5 <= data.length; i++) {
-      const type = data[off] as AuthCredentialType
-      const algorithmId = data[off + 1]
-      const vLen = data[off + 2]
-      const keyReference = view.getUint16(off + 3)
-      const ownerIdentityId = data[off + 5]
-      off += 6
-      const verificationData = off + vLen <= data.length ? data.slice(off, off + vLen) : new Uint8Array(0)
-      off += vLen
-
-      credentials.push({
-        type,
-        algorithmId,
-        keyReference,
-        ownerIdentityId,
-        verificationData,
-      })
-    }
+    const capabilities = view.getUint16(2)
+    const authPolicy = (data[4] as AuthPolicy) || AuthPolicy.ANY_OF
+    const requiredThreshold = data[5] || 1
+    const credentialCount = data.length > 6 ? data[6] : 0
 
     this.identityInfo = {
       identityId,
-      active,
+      active: true,
       authPolicy,
       requiredThreshold,
       capabilities,
       credentialCount,
-      credentials,
+      credentials: [],
     }
   }
 

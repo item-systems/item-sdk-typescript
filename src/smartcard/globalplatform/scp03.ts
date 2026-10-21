@@ -16,6 +16,7 @@ export class Scp03Session {
   private macIcv: Uint8Array
   private encryptionCounter: number
   private securityLevel: GpSecurityLevel
+  private isDisposed = false
 
   constructor(
     sEnc: Uint8Array,
@@ -38,7 +39,33 @@ export class Scp03Session {
   }
 
   public setSecurityLevel(level: GpSecurityLevel): void {
+    this.assertNotDisposed()
     this.securityLevel = level
+  }
+
+  /**
+   * Securely zeroize all cryptographic session keys, MAC chaining buffers, and invalidate session.
+   */
+  public dispose(): void {
+    if (this.isDisposed) {
+      return
+    }
+    this.sEnc.fill(0)
+    this.sMac.fill(0)
+    this.sRMac.fill(0)
+    this.sDek.fill(0)
+    this.macIcv.fill(0)
+    this.isDisposed = true
+  }
+
+  public disposed(): boolean {
+    return this.isDisposed
+  }
+
+  private assertNotDisposed(): void {
+    if (this.isDisposed) {
+      throw new Error('Scp03Session is disposed and can no longer be used')
+    }
   }
 
   /**
@@ -150,6 +177,7 @@ export class Scp03Session {
    * Wrap a command APDU with SCP03 secure messaging.
    */
   public wrap(apdu: Uint8Array): Uint8Array {
+    this.assertNotDisposed()
     if (this.securityLevel === GpSecurityLevel.NO_SECURITY_LEVEL) {
       return apdu
     }

@@ -12,9 +12,8 @@ describe('User Access Control (UAC) IdentityManager and Mobile Transport', () =>
     // 1. IdentityCreateResponse: SW 9000
     const createResp = hexToUint8('9000')
 
-    // 2. IdentityQueryResponse: [id(2B): 0001] [active(1B): 01] [policy(1B): 01] [thresh(1B): 01] [caps(2B): 0040] [numCreds(1B): 01]
-    //    [credType(1B): 01] [algo(1B): 01] [vLen(1B): 04] [keyRef(2B): 0000] [owner(1B): 01] [vData(4B): 01020304] + SW 9000
-    const queryResp = hexToUint8('0001010101004001010104000001010203049000')
+    // 2. IdentityQueryResponse: [uid(2B): 0001] [caps(2B): 0200] [policy(1B): 01] [thresh(1B): 01] [credCount(1B): 01] + SW 9000
+    const queryResp = hexToUint8('000102000101019000')
 
     // 3. IdentityUpdateResponse: SW 9000
     const updateResp = hexToUint8('9000')
@@ -35,13 +34,7 @@ describe('User Access Control (UAC) IdentityManager and Mobile Transport', () =>
     const identityManager = new IdentityManager(reader)
 
     // 1. Create Identity
-    await identityManager.createIdentity(1, UacCapability.MANAGE_IDENTITIES, AuthPolicy.ANY_OF, 1, [
-      {
-        type: AuthCredentialType.ASYMMETRIC,
-        algorithmId: 1,
-        verificationData: hexToUint8('01020304'),
-      },
-    ])
+    await identityManager.createIdentity(1, UacCapability.MANAGE_IDENTITIES, AuthPolicy.ANY_OF, 1)
 
     // 2. Query Identity
     const info = await identityManager.queryIdentity(1)
@@ -51,15 +44,12 @@ describe('User Access Control (UAC) IdentityManager and Mobile Transport', () =>
     expect(info?.authPolicy).to.equal(AuthPolicy.ANY_OF)
     expect(info?.capabilities).to.equal(UacCapability.MANAGE_IDENTITIES)
     expect(info?.credentialCount).to.equal(1)
-    expect(info?.credentials.length).to.equal(1)
-    expect(info?.credentials[0].type).to.equal(AuthCredentialType.ASYMMETRIC)
-    expect(info?.credentials[0].algorithmId).to.equal(1)
 
     // 3. Update Identity
     await identityManager.updateIdentity(1, UacCapability.ALL_PRIVILEGES, AuthPolicy.ALL_OF, 2)
 
     // 4. Add Credential
-    await identityManager.addCredential(1, AuthCredentialType.PIN, 0, hexToUint8('12345678'))
+    await identityManager.addCredential(1, AuthCredentialType.PIN, hexToUint8('12345678'))
 
     // 5. Remove Credential
     await identityManager.removeCredential(1, 0)

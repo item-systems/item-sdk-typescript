@@ -3,44 +3,45 @@
   "version": "0.6.1",
   "description": "A package for interfacing with Non-Fungible Items",
   "main": "./dist/cjs/index.cjs",
-  "type": "module",
   "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
+  "directories": {
+    "doc": "docs"
+  },
+  "type": "module",
   "files": [
     "dist",
     "README.md",
     "LICENSE"
   ],
-  "directories": {
-    "doc": "docs"
-  },
-  "publishConfig": {
-    "access": "public"
-  },
   "scripts": {
+    "test": "npm run test:unit && npm run test:mobile",
+    "test:unit": "ts-mocha \"tests/smartcard/**/*.spec.ts\" \"tests/item/**/*.spec.ts\"",
+    "test:mobile": "node --test tests/mobile/mobile.test.mjs",
+    "test:integration": "ts-mocha \"tests/integration/**/*.spec.ts\"",
+    "test:manual": "ts-mocha \"tests/manual/**/*.spec.ts\"",
+    "test:all": "npm run test:unit && npm run test:mobile && npm run test:integration && npm run test:manual",
     "tsc": "npm run clean && tsc -p tsconfig.json && node ./scripts/normalize-esm-specifiers.mjs && tsc -p tsconfig-cjs.json && node ./scripts/rename-cjs-extension.mjs && node ./scripts/normalize-cjs-specifiers.mjs && node ./scripts/normalize-dts-specifiers.mjs",
     "prepublishOnly": "npm run tsc && npm run smoke:packed",
     "clean": "rm -rf ./dist",
     "lint": "eslint --fix .",
     "docs": "typedoc",
-    "test": "npm run test:unit",
-    "test:unit": "ts-mocha \"tests/smartcard/**/*.spec.ts\" \"tests/item/**/*.spec.ts\"",
-    "test:integration": "ts-mocha \"tests/integration/**/*.spec.ts\"",
-    "test:manual": "ts-mocha \"tests/manual/**/*.spec.ts\"",
-    "test:all": "npm run test:unit && npm run test:integration && npm run test:manual",
     "format": "prettier --write .",
-    "smoke:packed": "node ./scripts/smoke-packed-consumer.mjs",
-    "test:mobile": "node --test tests/mobile/*.test.mjs"
+    "smoke:packed": "node ./scripts/smoke-packed-consumer.mjs"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/item-systems/item-sdk-typescript.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "homepage": "https://item.systems",
   "author": {
     "name": "ITEM Systems",
     "url": "https://item.systems"
   },
   "license": "Apache-2.0",
-  "homepage": "https://item.systems",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/item-systems/item-sdk-typescript.git"
-  },
   "dependencies": {
     "@cityofzion/neon-core": "^5.0.0-next.16",
     "@cityofzion/neon-dappkit": "1.0.0",
@@ -48,9 +49,8 @@
     "@cityofzion/neon-js": "^5.3.0",
     "@noble/curves": "1.9.7",
     "@noble/hashes": "2.0.0",
-    "axios": "1.12.2",
     "@types/node": "22.18.8",
-    "@noble/ciphers": "1.3.0"
+    "axios": "1.12.2"
   },
   "optionalDependencies": {
     "pcsc-mini": "^0.1.3"
@@ -76,7 +76,6 @@
     "typedoc": "^0.28.13",
     "typescript": "^5.8.3"
   },
-  "types": "./dist/esm/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/esm/index.d.ts",
@@ -89,6 +88,18 @@
       "react-native": "./dist/esm/smartcard/mobile/index.js",
       "import": "./dist/esm/smartcard/mobile/index.js",
       "require": "./dist/cjs/smartcard/mobile/index.cjs"
+    },
+    "./globalplatform": {
+      "types": "./dist/esm/smartcard/globalplatform/index.d.ts",
+      "import": "./dist/esm/smartcard/globalplatform/index.js",
+      "require": "./dist/cjs/smartcard/globalplatform/index.cjs",
+      "default": "./dist/esm/smartcard/globalplatform/index.js"
+    },
+    "./smartcard": {
+      "types": "./dist/esm/smartcard/index.d.ts",
+      "import": "./dist/esm/smartcard/index.js",
+      "require": "./dist/cjs/smartcard/index.cjs",
+      "default": "./dist/esm/smartcard/index.js"
     }
   }
 }

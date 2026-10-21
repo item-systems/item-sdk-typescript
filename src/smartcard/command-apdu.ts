@@ -493,6 +493,9 @@ export class PackageCommitCommand extends CommandApdu {
 
 /**
  * Inner APDU for creating a new UAC Identity (INS 0x80).
+ * Wire format matches Python SDK v3.5.0:
+ * CLA = 0x80, INS = 0x80, P1 = 0x00, P2 = authPolicy
+ * Data = [identityId (2B) | capabilities (2B) | threshold (1B)]
  */
 export class IdentityCreateCommand extends CommandApdu {
   static readonly CLA_INNER = 0x80
@@ -503,46 +506,13 @@ export class IdentityCreateCommand extends CommandApdu {
     identityId: number,
     capabilities: number,
     authPolicy: AuthPolicy = AuthPolicy.ANY_OF,
-    requiredThreshold = 1,
-    initialCredentials?: Array<{
-      type: AuthCredentialType
-      algorithmId: number
-      keyReference?: number
-      ownerIdentityId?: number
-      verificationData?: Uint8Array
-    }>
+    requiredThreshold = 1
   ) {
-    let credsLength = 0
-    if (initialCredentials && initialCredentials.length > 0) {
-      for (const cred of initialCredentials) {
-        const vLen = cred.verificationData ? cred.verificationData.length : 0
-        credsLength += 1 + 1 + 1 + 2 + 1 + vLen
-      }
-    }
-
-    const data = new Uint8Array(2 + 2 + 1 + (initialCredentials ? 1 + credsLength : 0))
+    const data = new Uint8Array(2 + 2 + 1)
     const view = new DataView(data.buffer, data.byteOffset, data.byteLength)
     view.setUint16(0, identityId)
     view.setUint16(2, capabilities)
-    data[4] = requiredThreshold
-
-    if (initialCredentials && initialCredentials.length > 0) {
-      data[5] = initialCredentials.length
-      let off = 6
-      for (const cred of initialCredentials) {
-        const vLen = cred.verificationData ? cred.verificationData.length : 0
-        data[off++] = cred.type
-        data[off++] = cred.algorithmId
-        data[off++] = vLen
-        view.setUint16(off, cred.keyReference || 0)
-        off += 2
-        data[off++] = cred.ownerIdentityId ?? identityId
-        if (cred.verificationData && vLen > 0) {
-          data.set(cred.verificationData, off)
-          off += vLen
-        }
-      }
-    }
+    data[4] = requiredThreshold & 0xff
 
     super(
       IdentityCreateCommand.CLA_INNER,
@@ -557,6 +527,9 @@ export class IdentityCreateCommand extends CommandApdu {
 
 /**
  * Inner APDU for querying a UAC Identity (INS 0x81).
+ * Wire format matches Python SDK v3.5.0:
+ * CLA = 0x80, INS = 0x81, P1 = identityId >> 8, P2 = identityId & 0xFF
+ * Data = empty
  */
 export class IdentityQueryCommand extends CommandApdu {
   static readonly CLA_INNER = 0x80
@@ -576,6 +549,9 @@ export class IdentityQueryCommand extends CommandApdu {
 
 /**
  * Inner APDU for updating a UAC Identity properties (INS 0x82).
+ * Wire format matches Python SDK v3.5.0:
+ * CLA = 0x80, INS = 0x82, P1 = identityId >> 8, P2 = identityId & 0xFF
+ * Data = [newCapabilities (2B) | newPolicy (1B) | newThreshold (1B)]
  */
 export class IdentityUpdateCommand extends CommandApdu {
   static readonly CLA_INNER = 0x80
@@ -601,6 +577,9 @@ export class IdentityUpdateCommand extends CommandApdu {
 
 /**
  * Inner APDU for deleting a UAC Identity (INS 0x83).
+ * Wire format matches Python SDK v3.5.0:
+ * CLA = 0x80, INS = 0x83, P1 = identityId >> 8, P2 = identityId & 0xFF
+ * Data = empty
  */
 export class IdentityDeleteCommand extends CommandApdu {
   static readonly CLA_INNER = 0x80
@@ -620,27 +599,18 @@ export class IdentityDeleteCommand extends CommandApdu {
 
 /**
  * Inner APDU for adding a credential to a UAC Identity (INS 0x84).
+ * Wire format matches Python SDK v3.5.0:
+ * CLA = 0x80, INS = 0x84, P1 = identityId >> 8, P2 = identityId & 0xFF
+ * Data = [credType (1B) | credData (N bytes)]
  */
 export class IdentityAddCredentialCommand extends CommandApdu {
   static readonly CLA_INNER = 0x80
   static readonly INS_IDENTITY_ADD_CREDENTIAL = 0x84
 
-  constructor(
-    identityId: number,
-    type: AuthCredentialType,
-    algorithmId: number,
-    verificationData: Uint8Array,
-    keyReference = 0,
-    ownerIdentityId = identityId
-  ) {
-    const data = new Uint8Array(1 + 1 + 1 + 2 + 1 + verificationData.length)
-    const view = new DataView(data.buffer, data.byteOffset, data.byteLength)
-    data[0] = type
-    data[1] = algorithmId
-    data[2] = verificationData.length
-    view.setUint16(3, keyReference)
-    data[5] = ownerIdentityId
-    data.set(verificationData, 6)
+  constructor(identityId: number, type: AuthCredentialType, credData: Uint8Array) {
+    const data = new Uint8Array(1 + credData.length)
+    data[0] = type & 0xff
+    data.set(credData, 1)
 
     super(
       IdentityAddCredentialCommand.CLA_INNER,
@@ -655,6 +625,9 @@ export class IdentityAddCredentialCommand extends CommandApdu {
 
 /**
  * Inner APDU for removing a credential from a UAC Identity (INS 0x85).
+ * Wire format matches Python SDK v3.5.0:
+ * CLA = 0x80, INS = 0x85, P1 = identityId >> 8, P2 = identityId & 0xFF
+ * Data = [credIndex (1B)]
  */
 export class IdentityRemoveCredentialCommand extends CommandApdu {
   static readonly CLA_INNER = 0x80
