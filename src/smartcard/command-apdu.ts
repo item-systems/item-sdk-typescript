@@ -306,3 +306,186 @@ export class KeyRingDeriveCommand extends CommandApdu {
     )
   }
 }
+
+/**
+ * Inner APDU for registering an SIO plugin in the microkernel's PluginRegistry (INS 0x40).
+ */
+export class PluginRegisterCommand extends CommandApdu {
+  static readonly CLA_INNER = 0x80
+  static readonly INS_PLUGIN_REGISTER = 0x40
+  static readonly UNUSED = 0x00
+
+  constructor(aid: Uint8Array, uid: number, gid = 1, mode = 0x01ed, quotaBlocks = 10) {
+    const data = new Uint8Array(1 + aid.length + 2 + 2 + 2 + 2)
+    data[0] = aid.length
+    data.set(aid, 1)
+    let off = 1 + aid.length
+    const view = new DataView(data.buffer, data.byteOffset, data.byteLength)
+    view.setUint16(off, uid)
+    off += 2
+    view.setUint16(off, gid)
+    off += 2
+    view.setUint16(off, mode)
+    off += 2
+    view.setUint16(off, quotaBlocks)
+
+    super(
+      PluginRegisterCommand.CLA_INNER,
+      PluginRegisterCommand.INS_PLUGIN_REGISTER,
+      PluginRegisterCommand.UNUSED,
+      PluginRegisterCommand.UNUSED,
+      data.length as Uint8,
+      data
+    )
+  }
+}
+
+/**
+ * Inner APDU for querying SIO plugin metadata by slot ID (INS 0x41).
+ */
+export class PluginQueryCommand extends CommandApdu {
+  static readonly CLA_INNER = 0x80
+  static readonly INS_PLUGIN_QUERY = 0x41
+  static readonly UNUSED = 0x00
+
+  constructor(slotId: number) {
+    super(
+      PluginQueryCommand.CLA_INNER,
+      PluginQueryCommand.INS_PLUGIN_QUERY,
+      slotId as Uint8,
+      PluginQueryCommand.UNUSED,
+      0 as Uint8,
+      new Uint8Array(0)
+    )
+  }
+}
+
+/**
+ * Inner APDU for updating SIO plugin permissions and quota blocks (INS 0x42).
+ */
+export class PluginUpdateCommand extends CommandApdu {
+  static readonly CLA_INNER = 0x80
+  static readonly INS_PLUGIN_UPDATE = 0x42
+  static readonly UNUSED = 0x00
+
+  constructor(slotId: number, mode: number, quotaBlocks: number) {
+    const data = new Uint8Array(4)
+    const view = new DataView(data.buffer, data.byteOffset, data.byteLength)
+    view.setUint16(0, mode)
+    view.setUint16(2, quotaBlocks)
+    super(
+      PluginUpdateCommand.CLA_INNER,
+      PluginUpdateCommand.INS_PLUGIN_UPDATE,
+      slotId as Uint8,
+      PluginUpdateCommand.UNUSED,
+      data.length as Uint8,
+      data
+    )
+  }
+}
+
+/**
+ * Inner APDU for unregistering / deleting an SIO plugin from PluginRegistry (INS 0x43).
+ */
+export class PluginDeleteCommand extends CommandApdu {
+  static readonly CLA_INNER = 0x80
+  static readonly INS_PLUGIN_DELETE = 0x43
+  static readonly UNUSED = 0x00
+
+  constructor(slotId: number) {
+    super(
+      PluginDeleteCommand.CLA_INNER,
+      PluginDeleteCommand.INS_PLUGIN_DELETE,
+      slotId as Uint8,
+      PluginDeleteCommand.UNUSED,
+      0 as Uint8,
+      new Uint8Array(0)
+    )
+  }
+}
+
+/**
+ * Inner APDU for setting the active contactless NDEF provider plugin slot (INS 0x44).
+ */
+export class PluginSetActiveNdefProviderCommand extends CommandApdu {
+  static readonly CLA_INNER = 0x80
+  static readonly INS_SET_ACTIVE_NDEF_PROVIDER = 0x44
+  static readonly UNUSED = 0x00
+
+  constructor(slotId: number) {
+    super(
+      PluginSetActiveNdefProviderCommand.CLA_INNER,
+      PluginSetActiveNdefProviderCommand.INS_SET_ACTIVE_NDEF_PROVIDER,
+      slotId as Uint8,
+      PluginSetActiveNdefProviderCommand.UNUSED,
+      0 as Uint8,
+      new Uint8Array(0)
+    )
+  }
+}
+
+/**
+ * Inner APDU for beginning an in-band CAP bytecode streaming session (INS 0x55).
+ */
+export class PackageBeginCommand extends CommandApdu {
+  static readonly CLA_INNER = 0x80
+  static readonly INS_PACKAGE_BEGIN = 0x55
+  static readonly UNUSED = 0x00
+
+  constructor(totalLength: number, packageAid: Uint8Array) {
+    const data = new Uint8Array(4 + 1 + packageAid.length)
+    const view = new DataView(data.buffer, data.byteOffset, data.byteLength)
+    view.setUint32(0, totalLength)
+    data[4] = packageAid.length
+    data.set(packageAid, 5)
+
+    super(
+      PackageBeginCommand.CLA_INNER,
+      PackageBeginCommand.INS_PACKAGE_BEGIN,
+      PackageBeginCommand.UNUSED,
+      PackageBeginCommand.UNUSED,
+      data.length as Uint8,
+      data
+    )
+  }
+}
+
+/**
+ * Inner APDU for streaming a chunk of CAP bytecode to the active session slot (INS 0x56).
+ */
+export class PackageStreamCommand extends CommandApdu {
+  static readonly CLA_INNER = 0x80
+  static readonly INS_PACKAGE_STREAM = 0x56
+  static readonly UNUSED = 0x00
+
+  constructor(sessionSlot: number, chunk: Uint8Array) {
+    super(
+      PackageStreamCommand.CLA_INNER,
+      PackageStreamCommand.INS_PACKAGE_STREAM,
+      sessionSlot as Uint8,
+      PackageStreamCommand.UNUSED,
+      chunk.length as Uint8,
+      chunk
+    )
+  }
+}
+
+/**
+ * Inner APDU for committing the streamed CAP package and calculating the final H_code hash (INS 0x57).
+ */
+export class PackageCommitCommand extends CommandApdu {
+  static readonly CLA_INNER = 0x80
+  static readonly INS_PACKAGE_COMMIT = 0x57
+  static readonly UNUSED = 0x00
+
+  constructor(sessionSlot: number) {
+    super(
+      PackageCommitCommand.CLA_INNER,
+      PackageCommitCommand.INS_PACKAGE_COMMIT,
+      sessionSlot as Uint8,
+      PackageCommitCommand.UNUSED,
+      0 as Uint8,
+      new Uint8Array(0)
+    )
+  }
+}

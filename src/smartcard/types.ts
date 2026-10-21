@@ -38,6 +38,19 @@ export interface KeyRingInfo {
 }
 
 /**
+ * Structured metadata for an on-card SIO plugin in the ITEM Microkernel.
+ */
+export interface PluginInfo {
+  slotId: number
+  aid: Uint8Array
+  uid: number
+  gid: number
+  posixMode: number
+  quotaBlocks: number
+  hCode: Uint8Array
+}
+
+/**
  * Microkernel attribute flags for resources.
  */
 export enum MicrokernelResourceFlags {

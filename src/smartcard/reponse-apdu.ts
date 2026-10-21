@@ -1,6 +1,6 @@
 import { StatusWord } from './statusword'
 
-import { MasterKeyStats, MicrokernelResourceFlags } from './types'
+import { MasterKeyStats, MicrokernelResourceFlags, PluginInfo } from './types'
 
 /**
  * Parsed representation of an ISO 7816 response APDU.
@@ -231,5 +231,85 @@ export class MasterKeyStatsResponse extends ResponseAPDU {
    */
   getStats(): MasterKeyStats[] {
     return this.stats
+  }
+}
+
+/**
+ * Response parser for `PluginQueryCommand` (INS 0x41).
+ */
+export class PluginQueryResponse extends ResponseAPDU {
+  private pluginInfo: PluginInfo | null = null
+
+  constructor(apdu: Uint8Array, slotId: number) {
+    super(apdu)
+
+    if (this.getSW() !== StatusWord.OK) {
+      throw new Error(`Failed to parse PluginQueryResponse: wrong status word 0x${this.getSW().toString(16)}`)
+    }
+
+    const data = this.getData()
+    if (data.length === 0 || data[0] === 0) {
+      this.pluginInfo = null
+      return
+    }
+
+    // Format: [ status (1B) | aid_len (1B) | aid | uid (2B) | gid (2B) | mode (2B) | quota (2B) | h_code (32B) ]
+    const aidLen = data[1]
+    let offset = 2
+    const aid = data.slice(offset, offset + aidLen)
+    offset += aidLen
+
+    const view = new DataView(data.buffer, data.byteOffset, data.byteLength)
+    const uid = view.getUint16(offset)
+    offset += 2
+    const gid = view.getUint16(offset)
+    offset += 2
+    const posixMode = view.getUint16(offset)
+    offset += 2
+    const quotaBlocks = view.getUint16(offset)
+    offset += 2
+    const hCode = data.length >= offset + 32 ? data.slice(offset, offset + 32) : new Uint8Array(32)
+
+    this.pluginInfo = {
+      slotId,
+      aid,
+      uid,
+      gid,
+      posixMode,
+      quotaBlocks,
+      hCode,
+    }
+  }
+
+  /**
+   * Return parsed plugin metadata record, or null if the slot is unallocated.
+   */
+  getPluginInfo(): PluginInfo | null {
+    return this.pluginInfo
+  }
+}
+
+/**
+ * Response parser for `PackageCommitCommand` (INS 0x57).
+ */
+export class PackageCommitResponse extends ResponseAPDU {
+  private hCode: Uint8Array
+
+  constructor(apdu: Uint8Array) {
+    super(apdu)
+
+    if (this.getSW() !== StatusWord.OK) {
+      throw new Error(`Failed to parse PackageCommitResponse: wrong status word 0x${this.getSW().toString(16)}`)
+    }
+
+    const data = this.getData()
+    this.hCode = data.length >= 32 ? data.slice(0, 32) : new Uint8Array(data)
+  }
+
+  /**
+   * Return the 32-byte verified SHA-256 bytecode hash ($H_{code}$) calculated by the microkernel.
+   */
+  getCodeHash(): Uint8Array {
+    return this.hCode
   }
 }
