@@ -351,14 +351,22 @@ export class GlobalPlatformCardManager {
           let privileges: string | undefined
           let versionNumber: string | undefined
 
-          // If P1 == 0x40 or 0x80 (Applets / SDs), format is:
-          // [AID Len] [AID] [LifeCycleState] [Privileges Len] [Privileges]
+          // If P1 == 0x40 or 0x80 (Applets / SDs), format per GP 2.2 §11.4.3.1:
+          // [AID Len] [AID] [LifeCycleState] [Privileges (1B) or Privileges Len + Privileges]
           if (p1 === 0x40 || p1 === 0x80) {
             if (off < data.length) {
-              const privLen = data[off]
-              if (off + 1 + privLen <= data.length) {
-                privileges = uint8ToHex(data.subarray(off + 1, off + 1 + privLen))
-                off += 1 + privLen
+              const privByte = data[off]
+              // If next byte after privByte is start of next record (AID len 5..16) or end of data, privByte is a 1-byte privilege field
+              if (off + 1 === data.length || (data[off + 1] >= 5 && data[off + 1] <= 16)) {
+                privileges = uint8ToHex(data.subarray(off, off + 1))
+                off += 1
+              } else if (privByte > 0 && off + 1 + privByte <= data.length) {
+                // privByte is length of multi-byte privileges field
+                privileges = uint8ToHex(data.subarray(off + 1, off + 1 + privByte))
+                off += 1 + privByte
+              } else {
+                privileges = uint8ToHex(data.subarray(off, off + 1))
+                off += 1
               }
             }
             results.push({
@@ -370,29 +378,25 @@ export class GlobalPlatformCardManager {
           }
 
           // If P1 == 0x10 (Executable modules), format per GlobalPlatform 2.2 §11.4.3.1:
-          // [ELF AID Len] [ELF AID] [LifeCycleState] [Num Modules] ([Module AID Len] [Module AID])*
+          // [ELF AID Len] [ELF AID] [LifeCycleState] [Privileges (1B)] [Num Modules (1B)] ([Module AID Len] [Module AID])*
+          // OR [ELF AID Len] [ELF AID] [LifeCycleState] [Num Modules (1B)] ([Module AID Len] [Module AID])*
           // OR [ELF AID Len] [ELF AID] [LifeCycleState] [Module AID Len] [Module AID]
           if (p1 === 0x10) {
             const elfAid = aid
             if (off < data.length) {
-              const numModulesOrModLen = data[off]
-              if (numModulesOrModLen >= 5 && numModulesOrModLen <= 16 && off + 1 + numModulesOrModLen <= data.length) {
-                // Single module without explicit count byte
-                const moduleAid = uint8ToHex(data.subarray(off + 1, off + 1 + numModulesOrModLen)).toUpperCase()
-                off += 1 + numModulesOrModLen
-                results.push({
-                  aid: moduleAid,
-                  lifeCycleState,
-                  executableLoadFileAid: elfAid,
-                  executableModuleAid: moduleAid,
-                })
-              } else {
-                // Explicit numModules count byte
-                const numModules = numModulesOrModLen
-                off += 1
-                for (let m = 0; m < numModules && off < data.length; m++) {
-                  const mLen = data[off]
-                  if (mLen >= 5 && mLen <= 16 && off + 1 + mLen <= data.length) {
+              const b1 = data[off]
+              // Check if b1 is numModules count byte (1..32)
+              // If b1 is count byte, then data[off+1] is first module length (5..16)
+              if (b1 > 0 && b1 <= 32 && off + 1 < data.length) {
+                const firstModLen = data[off + 1]
+                if (firstModLen >= 5 && firstModLen <= 16 && off + 2 + firstModLen <= data.length) {
+                  // b1 is numModules count byte
+                  const numModules = b1
+                  off += 1
+                  for (let m = 0; m < numModules; m++) {
+                    if (off >= data.length) break
+                    const mLen = data[off]
+                    if (mLen < 5 || mLen > 16 || off + 1 + mLen > data.length) break
                     const moduleAid = uint8ToHex(data.subarray(off + 1, off + 1 + mLen)).toUpperCase()
                     off += 1 + mLen
                     results.push({
@@ -402,30 +406,104 @@ export class GlobalPlatformCardManager {
                       executableModuleAid: moduleAid,
                     })
                   }
+                  continue
+                }
+              }
+
+              // Check if b1 is a direct single module AID length (5..16)
+              if (b1 >= 5 && b1 <= 16 && off + 1 + b1 <= data.length) {
+                const moduleAid = uint8ToHex(data.subarray(off + 1, off + 1 + b1)).toUpperCase()
+                off += 1 + b1
+                results.push({
+                  aid: moduleAid,
+                  lifeCycleState,
+                  executableLoadFileAid: elfAid,
+                  executableModuleAid: moduleAid,
+                })
+                continue
+              }
+
+              // b1 is privilege byte; advance and check b2
+              off += 1
+              if (off < data.length) {
+                const b2 = data[off]
+                if (b2 > 0 && b2 <= 32 && off + 1 < data.length) {
+                  const firstModLen = data[off + 1]
+                  if (firstModLen >= 5 && firstModLen <= 16 && off + 2 + firstModLen <= data.length) {
+                    const numModules = b2
+                    off += 1
+                    for (let m = 0; m < numModules; m++) {
+                      if (off >= data.length) break
+                      const mLen = data[off]
+                      if (mLen < 5 || mLen > 16 || off + 1 + mLen > data.length) break
+                      const moduleAid = uint8ToHex(data.subarray(off + 1, off + 1 + mLen)).toUpperCase()
+                      off += 1 + mLen
+                      results.push({
+                        aid: moduleAid,
+                        lifeCycleState,
+                        executableLoadFileAid: elfAid,
+                        executableModuleAid: moduleAid,
+                      })
+                    }
+                    continue
+                  }
+                }
+
+                if (b2 >= 5 && b2 <= 16 && off + 1 + b2 <= data.length) {
+                  const moduleAid = uint8ToHex(data.subarray(off + 1, off + 1 + b2)).toUpperCase()
+                  off += 1 + b2
+                  results.push({
+                    aid: moduleAid,
+                    lifeCycleState,
+                    executableLoadFileAid: elfAid,
+                    executableModuleAid: moduleAid,
+                  })
+                  continue
                 }
               }
             }
             continue
           }
 
-          // If P1 == 0x20 (Executable Load Files), optional version/hash TLVs follow
+          // If P1 == 0x20 (Executable Load Files), format per GP 2.2 §11.4.3.1:
+          // [ELF AID Len] [ELF AID] [LifeCycleState] [Privileges (1B)] (optional TLVs)*
           if (p1 === 0x20) {
+            let recordPriv: number | undefined
             while (off < data.length) {
-              const tag = data[off]
-              if (tag === 0xce || tag === 0xcc || tag === 0xc4) {
+              const b = data[off]
+              // Check if b is an optional TLV tag (0xCE, 0xCC, 0xC4)
+              if (b === 0xce || b === 0xcc || b === 0xc4) {
                 if (off + 1 < data.length) {
                   const tlvLen = data[off + 1]
                   if (off + 2 + tlvLen <= data.length) {
-                    if (tag === 0xce) {
+                    if (b === 0xce) {
                       versionNumber = uint8ToHex(data.subarray(off + 2, off + 2 + tlvLen))
                     }
                     off += 2 + tlvLen
                     continue
                   }
                 }
+                break
               }
-              break
+
+              // Check if b is the start of the next ELF record [nextAidLen (5..16)]
+              // If data[off] is a valid AID len (5..16) AND there are enough bytes for [len] [AID] [state] (1 + b + 1 bytes)
+              if (b >= 5 && b <= 16 && off + 1 + b + 1 <= data.length) {
+                break
+              }
+
+              // Otherwise b is the 1-byte privileges field
+              recordPriv = b
+              off += 1
             }
+
+            results.push({
+              aid,
+              lifeCycleState,
+              privileges: recordPriv !== undefined ? uint8ToHex(new Uint8Array([recordPriv])) : undefined,
+              versionNumber,
+            })
+            continue
           }
 
           results.push({

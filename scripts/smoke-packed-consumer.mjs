@@ -12,7 +12,7 @@ const tarball = path.join(repo, tarballName)
 
 try {
   fs.writeFileSync(path.join(tmp, 'package.json'), JSON.stringify({ type: 'module', private: true }, null, 2))
-  run('npm', ['install', '--silent', tarball])
+  run('npm', ['install', '--silent', '--install-strategy=nested', '--ignore-scripts', '--omit=optional', tarball])
 
   fs.writeFileSync(
     path.join(tmp, 'esm.mjs'),
@@ -68,7 +68,7 @@ void IdentityManager
 void PluginManager
 `
   )
-  run('npm', ['install', '--silent', '--save-dev', 'typescript@^5.0.0'])
+  run('npm', ['install', '--silent', '--save-dev', 'typescript@^5.0.0', '@types/node@^22.0.0'])
   run('npx', [
     'tsc',
     'tscheck.ts',

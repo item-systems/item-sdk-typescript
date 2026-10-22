@@ -18,8 +18,8 @@ describe('User Access Control (UAC) IdentityManager and Mobile Transport', () =>
     // 3. IdentityUpdateResponse: SW 9000
     const updateResp = hexToUint8('9000')
 
-    // 4. AddCredentialResponse: SW 9000
-    const addCredResp = hexToUint8('9000')
+    // 4. AddCredentialResponse: [allocatedIndex 0x02] + SW 9000
+    const addCredResp = hexToUint8('029000')
 
     // 5. RemoveCredentialResponse: SW 9000
     const remCredResp = hexToUint8('9000')
@@ -33,7 +33,7 @@ describe('User Access Control (UAC) IdentityManager and Mobile Transport', () =>
     await reader.connect()
     const identityManager = new IdentityManager(reader)
 
-    // 1. Create Identity
+    // 1. Create Identity (wire check CLA 0xA0)
     await identityManager.createIdentity(1, UacCapability.MANAGE_IDENTITIES, AuthPolicy.ANY_OF, 1)
 
     // 2. Query Identity
@@ -49,7 +49,8 @@ describe('User Access Control (UAC) IdentityManager and Mobile Transport', () =>
     await identityManager.updateIdentity(1, UacCapability.ALL_PRIVILEGES, AuthPolicy.ALL_OF, 2)
 
     // 4. Add Credential
-    await identityManager.addCredential(1, AuthCredentialType.PIN, hexToUint8('12345678'))
+    const credIndex = await identityManager.addCredential(1, AuthCredentialType.PIN, hexToUint8('12345678'))
+    expect(credIndex).to.equal(2)
 
     // 5. Remove Credential
     await identityManager.removeCredential(1, 0)
