@@ -183,10 +183,13 @@ export class Scp02Session {
       macInput.set(headerWithLc, 0)
       macInput.set(data, headerWithLc.length)
 
-      // Encrypt ICV with S-MAC before MAC calculation if not first command (SCP02 rule)
+      // Encrypt ICV with single-DES using first 8 bytes (K1) of S-MAC (GP 2.2 Appendix E.3.5 / '02' 15 rule)
       let icvToUse = this.macIcv
       if (uint8ToHex(this.macIcv) !== '0000000000000000') {
-        icvToUse = des3EcbEncrypt(this.sMac, this.macIcv).subarray(0, 8)
+        const k1Key = new Uint8Array(16)
+        k1Key.set(this.sMac.subarray(0, 8), 0)
+        k1Key.set(this.sMac.subarray(0, 8), 8)
+        icvToUse = des3EcbEncrypt(k1Key, this.macIcv).subarray(0, 8)
       }
 
       const mac = calculateRetailMac(this.sMac, icvToUse, macInput)

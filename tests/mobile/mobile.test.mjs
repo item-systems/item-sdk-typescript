@@ -123,3 +123,32 @@ test('CAP loader respects short tunnel capacity and validates completion hash', 
   await assert.rejects(loader.streamCap(new Uint8Array(440), sdk.unhex('0102030405')), /hash/)
   assert.equal(sent, 440)
 })
+
+test('Card initialization / pair command sets paired status', async () => {
+  const pairingKey = new Uint8Array(32).fill(0xaa)
+  let transmittedApdu = null
+  const transport = {
+    connect: async () => true,
+    disconnect: async () => {},
+    transmit: async bytes => {
+      transmittedApdu = sdk.hex(bytes)
+      if (transmittedApdu.startsWith('00a40400')) {
+        // SELECT response returning Tag 0xA1 with paired=0 (010100)
+        return sdk.unhex(
+          'a165010100a310000102030405060708090a0b0c0d0e0fa50108a441045ecbe4d1a6330a44c8f7ef951d4bf165e6c6b721efada985fb41661bc6e7fd6c8734640c4998ff7e374b06ce1a64a2ecd82ab036384fb83d9a79b127a27d5032a603030500a701029000'
+        )
+      }
+      if (transmittedApdu.startsWith('a011000020')) {
+        return sdk.unhex('9000')
+      }
+      return sdk.unhex('6d00')
+    },
+  }
+  const tunnel = new sdk.ItemSecureTunnel(transport, () => new Uint8Array(32))
+  const info = await tunnel.connect()
+  assert.equal(info.paired, false)
+  await tunnel.pair(pairingKey)
+  assert.equal(tunnel.info.paired, true)
+  assert.equal(transmittedApdu, 'a011000020' + sdk.hex(pairingKey))
+  await tunnel.close()
+})
