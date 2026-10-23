@@ -163,6 +163,20 @@ export class ItemSecureTunnel implements Tunnel {
     })
   }
 
+  pair(pairingKey: Uint8Array): Promise<void> {
+    const pairing = pairingKey.slice()
+    return this.serial(async g => {
+      if (!this.info) throw new Error('Connect a card first')
+      if (pairing.length !== 32) throw new Error('Pairing key must contain 32 bytes')
+      try {
+        await this.transmit(apdu(0xa0, 0x11, 0, 0, pairing), g)
+        this.info.paired = true
+      } finally {
+        pairing.fill(0)
+      }
+    })
+  }
+
   open(pairingKey: Uint8Array, identity?: IdentityCredential): Promise<void> {
     const pairing = pairingKey.slice()
     const credential = identity

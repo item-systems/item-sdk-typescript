@@ -651,6 +651,18 @@ export class GlobalPlatformCardManager {
     const privBytes = hexToUint8(privileges)
     const paramBytes = hexToUint8(installParams)
 
+    // GlobalPlatform 2.2 §11.5.2.3.7:
+    // Installation parameters field in INSTALL [for install] MUST be formatted as a parameter TLV list (e.g. C9 00 for empty applet parameters).
+    let formattedParams = paramBytes
+    if (paramBytes.length === 0) {
+      formattedParams = new Uint8Array([0xc9, 0x00])
+    } else if (paramBytes[0] !== 0xc9 && paramBytes[0] !== 0xef) {
+      formattedParams = new Uint8Array(2 + paramBytes.length)
+      formattedParams[0] = 0xc9
+      formattedParams[1] = paramBytes.length
+      formattedParams.set(paramBytes, 2)
+    }
+
     const totalLen =
       1 +
       pkgBytes.length +
@@ -661,7 +673,7 @@ export class GlobalPlatformCardManager {
       1 +
       privBytes.length +
       1 +
-      paramBytes.length +
+      formattedParams.length +
       1
 
     const data = new Uint8Array(totalLen)
@@ -683,9 +695,9 @@ export class GlobalPlatformCardManager {
     data.set(privBytes, off)
     off += privBytes.length
 
-    data[off++] = paramBytes.length
-    data.set(paramBytes, off)
-    off += paramBytes.length
+    data[off++] = formattedParams.length
+    data.set(formattedParams, off)
+    off += formattedParams.length
 
     data[off++] = 0x00 // No token
 
