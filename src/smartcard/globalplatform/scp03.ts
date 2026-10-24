@@ -186,6 +186,13 @@ export class Scp03Session {
     const ins = apdu[1]
     const p1 = apdu[2]
     const p2 = apdu[3]
+    // Short case-4 APDUs carry Le after the data. Le is not encrypted or MACed.
+    const le =
+      apdu.length === 5
+        ? apdu.subarray(4)
+        : apdu.length === 6 + apdu[4]
+          ? apdu.subarray(apdu.length - 1)
+          : new Uint8Array(0)
     let data = apdu.length > 5 ? apdu.subarray(5, 5 + apdu[4]) : new Uint8Array(0)
 
     cla = (cla | 0x04) & 0xff
@@ -222,16 +229,18 @@ export class Scp03Session {
       this.macIcv = fullCmac // In SCP03, full CMAC becomes the next ICV
       const mac = fullCmac.slice(0, 8)
 
-      const wrapped = new Uint8Array(headerWithLc.length + data.length + 8)
+      const wrapped = new Uint8Array(headerWithLc.length + data.length + 8 + le.length)
       wrapped.set(headerWithLc, 0)
       wrapped.set(data, headerWithLc.length)
       wrapped.set(mac, headerWithLc.length + data.length)
+      wrapped.set(le, headerWithLc.length + data.length + 8)
       return wrapped
     }
 
-    const result = new Uint8Array(5 + data.length)
+    const result = new Uint8Array(5 + data.length + le.length)
     result.set([cla, ins, p1, p2, data.length], 0)
     result.set(data, 5)
+    result.set(le, 5 + data.length)
     return result
   }
 }

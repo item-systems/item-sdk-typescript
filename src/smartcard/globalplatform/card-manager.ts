@@ -701,7 +701,8 @@ export class GlobalPlatformCardManager {
 
     data[off++] = 0x00 // No token
 
-    const rawApdu = new Uint8Array([0x80, 0xe6, 0x0c, 0x00, data.length, ...data])
+    // GP 2.3 table 11-40: INSTALL is case 4, with Le=00 outside secure messaging.
+    const rawApdu = new Uint8Array([0x80, 0xe6, 0x0c, 0x00, data.length, ...data, 0x00])
     const wrapped = this.wrapApdu(rawApdu)
 
     const resp = await this.reader.transmit(wrapped)
