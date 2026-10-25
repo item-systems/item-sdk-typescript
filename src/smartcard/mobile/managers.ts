@@ -233,22 +233,29 @@ export class PluginManager extends Manager {
   }
 }
 export class KeyRingCacheClient extends Manager {
-  setBaseUrl(url: string): Promise<Uint8Array> {
+  async setBaseUrl(url: string): Promise<Uint8Array> {
     const bytes = textBytes(url)
-    if (!bytes.length || bytes.length > 218) throw new Error('URL must contain 1–218 UTF-8 bytes')
-    return this.call(0x16, 0, 0, bytes)
+    if (!bytes.length || bytes.length > 100) throw new Error('URL must contain 1–100 UTF-8 bytes')
+    const response = await this.call(0x16, 0, 0, bytes)
+    if (response.length !== 0) throw new Error('Unexpected URL response: firmware may have routed the request to diagnostics; URL configuration is not confirmed')
+    return response
   }
 
   async refillCache(ring: number, count: number): Promise<number> {
     if (count < 1) throw new Error('Refill count must be 1–255 per request')
-    return new Cursor(await this.call(0x1a, ring, integer(count))).word()
+    const response = await this.call(0x1a, ring, integer(count))
+    if (response.length !== 2) throw new Error('Unexpected cache refill response length')
+    return new Cursor(response).word()
   }
 
   async getCacheStatus(ring: number): Promise<CacheStatus> {
-    const c = new Cursor(await this.call(0x1b, ring))
+    const response = await this.call(0x1b, ring)
+    if (response.length !== 9) throw new Error('Unexpected cache status response length')
+    const c = new Cursor(response)
     const capacity = c.word()
     const unconsumed = c.word()
     const nextNonce = Array.from(c.take(5)).reduce((n, b) => n * 256 + b, 0)
+    if (unconsumed > capacity) throw new Error('Cache status count exceeds capacity')
     return { capacity, unconsumed, nextNonce }
   }
 

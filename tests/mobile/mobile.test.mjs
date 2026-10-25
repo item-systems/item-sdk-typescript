@@ -3,6 +3,28 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import * as sdk from '@item-systems/item/mobile'
 
+test('Cache managers reject diagnostic and malformed success responses', async () => {
+  let response = new Uint8Array(23)
+  const calls = []
+  const cache = new sdk.KeyRingCacheClient({ tunnel: async (...args) => { calls.push(args); return response } })
+  await assert.rejects(cache.setBaseUrl('itm.st/ob/1cf8?d='), /configuration is not confirmed/)
+  calls.length = 0
+  await assert.rejects(cache.setBaseUrl('é'.repeat(51)), /1–100/)
+  await assert.rejects(cache.setBaseUrl(''), /1–100/)
+  assert.equal(calls.length, 0)
+  response = new Uint8Array()
+  await cache.setBaseUrl('é'.repeat(50))
+  await assert.rejects(cache.refillCache(0, 1), /response length/)
+  response = new Uint8Array(11)
+  await assert.rejects(cache.getCacheStatus(0), /response length/)
+  response = sdk.unhex('000100020000000006')
+  await assert.rejects(cache.getCacheStatus(0), /exceeds capacity/)
+  response = sdk.unhex('002000030000000006')
+  assert.deepEqual(await cache.getCacheStatus(0), { capacity: 32, unconsumed: 3, nextNonce: 6 })
+  response = sdk.unhex('0003')
+  assert.equal(await cache.refillCache(0, 255), 3)
+})
+
 const reference = JSON.parse(fs.readFileSync(new URL('./fixtures/python-reference.json', import.meta.url)))
 for (const entry of reference.cases)
   test(`Python parity: ${entry.manager}.${entry.method}`, async () => {
