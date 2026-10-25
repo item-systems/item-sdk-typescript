@@ -79,9 +79,20 @@ void IdentityManager
 void PluginManager
 `
   )
-  run('npm', ['install', '--silent', '--save-dev', 'typescript@^5.0.0', '@types/node@^22.0.0'])
-  run('npx', [
-    'tsc',
+  // Release workflows set NODE_ENV=production. Explicitly retain compiler dev
+  // dependencies and execute that installed compiler; never let npx fetch "tsc".
+  run('npm', [
+    'install',
+    '--silent',
+    '--include=dev',
+    '--ignore-scripts',
+    '--save-dev',
+    'typescript@^5.0.0',
+    '@types/node@^22.0.0',
+  ])
+  const compiler = path.join(tmp, 'node_modules/typescript/bin/tsc')
+  run(process.execPath, [
+    compiler,
     'tscheck.ts',
     'mobile-inspect.ts',
     '--module',
@@ -92,8 +103,8 @@ void PluginManager
     'ES2022',
     '--noEmit',
   ])
-  run('npx', [
-    'tsc',
+  run(process.execPath, [
+    compiler,
     'tscheck.ts',
     'mobile-inspect.ts',
     '--module',

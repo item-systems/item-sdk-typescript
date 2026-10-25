@@ -1,6 +1,6 @@
 # Smartcard and microkernel integration
 
-For SDK 0.6.2, start with the
+For SDK 0.6.3, start with the
 [firmware workflow guide](../skills/item-sdk-typescript/references/firmware-workflows.md).
 It is bundled with the npm package and documents actual return values and the
 v3.5.4 hardware boundary. Older examples that constructed `new CardReader()` or

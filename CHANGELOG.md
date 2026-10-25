@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.3
+
+- Fix packed-consumer verification under `NODE_ENV=production`: explicitly install
+  compiler development dependencies and invoke that compiler directly instead of
+  allowing `npx` to fetch the unrelated `tsc` package. CI now covers this environment.
+- Carries all 0.6.2 documentation, validation and bundled-skill changes; no card API
+  or firmware protocol changes. 0.6.2 exists on GitHub but its npm publication failed.
+- Generated HTML documentation is also provided as a release ZIP. Hosted-docs
+  deployment requires repair of the repository's invalid AWS publishing credential.
+
 ## 0.6.2
 
 - Ship portable NFC workflow documentation and an opt-in, self-contained

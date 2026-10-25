@@ -27,7 +27,7 @@ jobs:
       - name: Test Mobile Python Parity
         run: npm run test:mobile
       - name: Verify Packed Package
-        run: npm run smoke:packed
+        run: NODE_ENV=production npm run smoke:packed
       - name: Build Docs
         run: NODE_ENV=production CI=false npm run docs
       - name: Audit production dependencies

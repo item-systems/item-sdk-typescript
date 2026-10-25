@@ -14,7 +14,7 @@
 
 ## Documentation
 
-### Firmware / phone integrations (0.6.2)
+### Firmware / phone integrations (0.6.3)
 
 Use `@item-systems/item/mobile` for portable phone APIs; the package root is the
 Neo N3 integration. These are different entry points, not interchangeable clients.

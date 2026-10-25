@@ -1,4 +1,4 @@
-# ITEM TypeScript firmware workflows — SDK 0.6.2
+# ITEM TypeScript firmware workflows — SDK 0.6.3
 
 ## Entry points
 
