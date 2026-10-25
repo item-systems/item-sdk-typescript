@@ -1,7 +1,8 @@
 {
   "$schema": "https://typedoc.org/schema.json",
-  "entryPoints": ["src/index.ts"],
+  "entryPoints": ["src/index.ts", "src/smartcard/mobile/index.ts", "src/smartcard/globalplatform/index.ts"],
   "entryPointStrategy": "resolve",
+  "projectDocuments": ["docs-src/*.md", "skills/item-sdk-typescript/references/*.md"],
   "out": "site/api",
   "plugin": [],
   "exclude": ["**/*.spec.ts", "tests/**/*", "dist/**/*"],

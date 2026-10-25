@@ -14,6 +14,25 @@
 
 ## Documentation
 
+### Firmware / phone integrations (0.6.2)
+
+Use `@item-systems/item/mobile` for portable phone APIs; the package root is the
+Neo N3 integration. These are different entry points, not interchangeable clients.
+Start with the [firmware workflow guide](skills/item-sdk-typescript/references/firmware-workflows.md)
+and [read-only mobile example](examples/mobile-inspect.ts).
+
+The `item-javacard v3.5.4` checkpoint has a known active-ring routing defect;
+Ed25519 is disabled and NDEF/cache workflows remain unqualified. SDK API coverage
+does not mean every corresponding firmware operation is supported or tested.
+See [release notes](CHANGELOG.md) for scope and migration details.
+
+### Bundled agent skill
+
+The npm package includes `skills/item-sdk-typescript/`. Copy that entire folder
+to your agent's skill directory (for Codex, `$CODEX_HOME/skills` or
+`~/.codex/skills`) and invoke `$item-sdk-typescript`. Installation is opt-in;
+the package does not modify agent settings. Its references ship with the skill.
+
 - Developer portal: [docs.item.systems](https://docs.item.systems)
 - SDK docs: [docs.item.systems/sdk/ts](https://docs.item.systems/sdk/ts/)
 - Local API docs: run `npm run docs`
@@ -61,7 +80,7 @@ It supports:
 
 The repository now separates tests by execution intent:
 
-- `npm test` / `npm run test:unit`: deterministic default suite used for local validation and CI.
+- `npm test`: deterministic desktop unit tests and mobile parity tests; `npm run test:unit` runs the desktop unit subset.
 - `npm run test:integration`: environment-backed ITEM workflow tests under `tests/integration/**`. These require configured `.env` values and may interact with live services or mutate state.
 - `npm run test:manual`: manual or hardware-backed tests under `tests/manual/**`. Some specs require explicit opt-in flags such as `RUN_SMARTCARD_MANUAL=1`.
 - `npm run test:all`: runs all tiers in sequence.

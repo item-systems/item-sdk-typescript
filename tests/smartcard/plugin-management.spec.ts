@@ -177,6 +177,14 @@ describe('Smartcard Plugin Management and In-Band Bytecode Loader APDUs', () => 
       const resp = new PackageCommitResponse(payload)
       assert.deepStrictEqual(resp.getCodeHash(), expectedHCode)
     })
+
+    it('rejects missing, truncated and oversized package hash receipts', () => {
+      for (const size of [0, 1, 31, 33]) {
+        const response = new Uint8Array(size + 2)
+        response.set([0x90, 0], size)
+        assert.throws(() => new PackageCommitResponse(response), /exactly 32/)
+      }
+    })
   })
 
   describe('High-Level PluginManager and InBandBytecodeLoader Clients', () => {
@@ -267,6 +275,20 @@ describe('Smartcard Plugin Management and In-Band Bytecode Loader APDUs', () => 
       await manager.update(2, 0x01ff, 20)
       await manager.setActiveNdefProvider(2)
       await manager.delete(2)
+    })
+
+    it('rejects invalid chunk sizes before transmitting', () => {
+      const reader = new MockTunneledReader()
+      for (const size of [0, -1, 1.5, 221, NaN]) {
+        assert.throws(() => new InBandBytecodeLoader(reader, size), /Chunk size/)
+      }
+    })
+
+    it('rejects an absent session slot instead of streaming to slot zero', async () => {
+      const reader = new MockTunneledReader()
+      reader.responses.set(0x55, () => new ResponseAPDU(new Uint8Array([0x90, 0])))
+      const loader = new InBandBytecodeLoader(reader)
+      await assert.rejects(loader.streamCap(new Uint8Array([1]), new Uint8Array(5)), /session-slot/)
     })
 
     it('InBandBytecodeLoader streams and commits CAP binary chunks', async () => {

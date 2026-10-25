@@ -303,11 +303,12 @@ export class PackageCommitResponse extends ResponseAPDU {
     }
 
     const data = this.getData()
-    this.hCode = data.length >= 32 ? data.slice(0, 32) : new Uint8Array(data)
+    if (data.length !== 32) throw new Error('Package commit must return exactly 32 SHA-256 bytes')
+    this.hCode = new Uint8Array(data)
   }
 
   /**
-   * Return the 32-byte verified SHA-256 bytecode hash ($H_{code}$) calculated by the microkernel.
+   * Return the 32-byte card receipt. InBandBytecodeLoader separately compares it to local SHA-256.
    */
   getCodeHash(): Uint8Array {
     return this.hCode

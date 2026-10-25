@@ -19,9 +19,9 @@ jobs:
           aws-secret-access-key: ${{secrets.AWS_SECRET_ACCESS_KEY_PROD}}
           aws-region: us-west-1
       - name: Build and Publish
-        run: npm install --force && NODE_ENV=production CI=false npm run docs
+        run: npm ci --force && NODE_ENV=production CI=false npm run docs
       - name: Deploy app build to S3 bucket
-        run: aws s3 sync ./docs/ s3://item-systems-docs/sdk/ts --delete
+        run: aws s3 sync ./site/api/ s3://item-systems-docs/sdk/ts --delete
         # Invalidate Cloudfront
       - name: invalidate
         uses: chetan/invalidate-cloudfront-action@master
@@ -42,7 +42,7 @@ jobs:
       # Setup .npmrc file to publish to npm
       - uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: '22.x'
           registry-url: 'https://registry.npmjs.org'
       - run: npm ci --force
       - run: NODE_ENV=production CI=false npm run prepublishOnly

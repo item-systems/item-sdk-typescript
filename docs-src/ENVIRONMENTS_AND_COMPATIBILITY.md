@@ -65,6 +65,11 @@ In practice, integrators should verify compatibility for:
 
 ## Smartcard compatibility notes
 
+Phone integrations should use `@item-systems/item/mobile`, injected NFC transport
+and a platform CSPRNG. The root/desktop entry points are not substitutes. See the
+[firmware workflow and qualification guide](../skills/item-sdk-typescript/references/firmware-workflows.md)
+before interpreting manager availability as card support.
+
 Smartcard support is more environment-sensitive than the core contract facade.
 
 Consider it separately:

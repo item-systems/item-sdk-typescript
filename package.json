@@ -1,6 +1,6 @@
 {
   "name": "@item-systems/item",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "A package for interfacing with Non-Fungible Items",
   "main": "./dist/cjs/index.cjs",
   "module": "./dist/esm/index.js",
@@ -11,6 +11,10 @@
   "type": "module",
   "files": [
     "dist",
+    "docs-src",
+    "skills",
+    "examples/mobile-inspect.ts",
+    "CHANGELOG.md",
     "README.md",
     "LICENSE"
   ],
@@ -24,7 +28,7 @@
     "tsc": "npm run clean && tsc -p tsconfig.json && node ./scripts/normalize-esm-specifiers.mjs && tsc -p tsconfig-cjs.json && node ./scripts/rename-cjs-extension.mjs && node ./scripts/normalize-cjs-specifiers.mjs && node ./scripts/normalize-dts-specifiers.mjs",
     "prepublishOnly": "npm run tsc && npm run smoke:packed",
     "clean": "rm -rf ./dist",
-    "lint": "eslint --fix .",
+    "lint": "eslint .",
     "docs": "typedoc",
     "format": "prettier --write .",
     "smoke:packed": "node ./scripts/smoke-packed-consumer.mjs"

@@ -14,6 +14,17 @@ try {
   fs.writeFileSync(path.join(tmp, 'package.json'), JSON.stringify({ type: 'module', private: true }, null, 2))
   run('npm', ['install', '--silent', '--install-strategy=nested', '--ignore-scripts', '--omit=optional', tarball])
 
+  const installed = path.join(tmp, 'node_modules/@item-systems/item')
+  for (const file of [
+    'skills/item-sdk-typescript/SKILL.md',
+    'skills/item-sdk-typescript/references/firmware-workflows.md',
+    'docs-src/DOCS_INDEX.md',
+    'CHANGELOG.md',
+  ]) {
+    if (!fs.readFileSync(path.join(installed, file), 'utf8').trim()) throw new Error(`Missing bundled guide: ${file}`)
+  }
+  fs.copyFileSync(path.join(installed, 'examples/mobile-inspect.ts'), path.join(tmp, 'mobile-inspect.ts'))
+
   fs.writeFileSync(
     path.join(tmp, 'esm.mjs'),
     `
@@ -72,6 +83,7 @@ void PluginManager
   run('npx', [
     'tsc',
     'tscheck.ts',
+    'mobile-inspect.ts',
     '--module',
     'NodeNext',
     '--moduleResolution',
@@ -83,6 +95,7 @@ void PluginManager
   run('npx', [
     'tsc',
     'tscheck.ts',
+    'mobile-inspect.ts',
     '--module',
     'ES2022',
     '--moduleResolution',

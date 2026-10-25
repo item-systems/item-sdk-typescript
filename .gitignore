@@ -4,3 +4,5 @@ dist
 docs
 .env
 files
+site/
+*.tgz

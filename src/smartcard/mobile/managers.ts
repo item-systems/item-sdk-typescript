@@ -86,6 +86,7 @@ export interface CacheStatus {
 }
 
 export class MasterKeyManager extends Manager {
+  /** Allocate a new master. Inspect getStats first; generation is not an idempotent retry. */
   async generate(): Promise<number> {
     return first(await this.call(0x17))
   }
@@ -149,15 +150,22 @@ export class MasterKeyManager extends Manager {
   }
 }
 export class KeyRingManager extends Manager {
+  /**
+   * Return public-key bytes, NOT a ring ID. path is up to ten big-endian uint32 components.
+   * engine is a discovered registry slot, not an algorithm ID. Empty path selects the root.
+   * v3.5.4 requires checking diagnostics/currentRing; multi-ring routing is not qualified.
+   */
   derive(master: number, path: Uint8Array, engine = 1): Promise<Uint8Array> {
     if (path.length % 4 || path.length > 40) throw new Error('Derivation path must have at most ten 4-byte components')
     return this.call(0x13, engine, master, path)
   }
 
+  /** Sign a 32-byte precomputed digest; P-256/K1 return 64-byte r||s, not DER. v3.5.4 may use the active ring instead of ring. */
   sign(ring: number, digest: Uint8Array): Promise<Uint8Array> {
     return this.call(0x12, ring, 0, sized(digest, 32, 'Digest'))
   }
 
+  /** Export public-key bytes. v3.5.4 active-ring routing means ring is not a reliable selector. */
   exportPublicKey(ring: number): Promise<Uint8Array> {
     return this.call(0x14, ring)
   }
@@ -200,6 +208,7 @@ export class PosixManager extends Manager {
   }
 }
 export class PluginManager extends Manager {
+  /** Register an existing applet instance by AID via SIO; does not GP-install a CAP. mode is numeric (use 0o755), quota is blocks. */
   async register(aid: Uint8Array, uid: number, gid = 1, mode = 0x1ed, quota = 10): Promise<number> {
     if (aid.length < 5 || aid.length > 16) throw new Error('Applet AID must contain 5–16 bytes')
     return first(
@@ -233,14 +242,19 @@ export class PluginManager extends Manager {
   }
 }
 export class KeyRingCacheClient extends Manager {
+  /** Require 1–100 UTF-8 bytes and an empty acknowledgement. Diagnostics bytes with SW=9000 are not success. v3.5.4 unqualified. */
   async setBaseUrl(url: string): Promise<Uint8Array> {
     const bytes = textBytes(url)
     if (!bytes.length || bytes.length > 100) throw new Error('URL must contain 1–100 UTF-8 bytes')
     const response = await this.call(0x16, 0, 0, bytes)
-    if (response.length !== 0) throw new Error('Unexpected URL response: firmware may have routed the request to diagnostics; URL configuration is not confirmed')
+    if (response.length !== 0)
+      throw new Error(
+        'Unexpected URL response: firmware may have routed the request to diagnostics; URL configuration is not confirmed'
+      )
     return response
   }
 
+  /** One request, 1–255 signatures. Larger totals require explicit batches after state/capacity checks; no blind retries. */
   async refillCache(ring: number, count: number): Promise<number> {
     if (count < 1) throw new Error('Refill count must be 1–255 per request')
     const response = await this.call(0x1a, ring, integer(count))
@@ -270,10 +284,12 @@ export class KeyRingCacheClient extends Manager {
   }
 }
 export class CryptoRegistryClient extends Manager {
+  /** Bind an algorithm ID and return its allocated slot. Never assume slot === algorithm or infer support from slot existence. */
   async createSlot(algorithm: number, policy = 0): Promise<number> {
     return first(await this.call(0x50, 0, algorithm, word(policy)))
   }
 
+  /** Inspect active/algorithm/capabilities before use; the checkpoint's Ed25519 descriptor advertises zero capabilities. */
   async querySlot(slot: number): Promise<CryptoSlot> {
     const c = new Cursor(await this.call(0x51, slot))
     const out = {
@@ -419,6 +435,13 @@ export class AuditClient extends Manager {
   }
 }
 export class InBandBytecodeLoader extends Manager {
+  /**
+   * Stream bytes and return an exact verified 32-byte SHA-256 hash, never a package ID.
+   * BEGIN uses a 4-byte length plus AID length/AID; STREAM/COMMIT use the session slot in P1.
+   * The 218-byte chunks include room for tunnel framing. Streaming is separate from
+   * GP installation and SIO registration; successful hashing alone proves neither.
+   * Stop on transport loss: do not replay an ambiguously acknowledged mutation.
+   */
   async streamCap(
     cap: Uint8Array,
     aid: Uint8Array,

@@ -6,11 +6,13 @@ import { apdu, concat, Cursor, equal, hex, response, unhex, word } from './bytes
 export const PYTHON_REFERENCE = 'cd4c319cabbd2040699bb1ebb28c68bd379f64b3'
 export const KERNEL_AID = 'ff6974656d73797303000000'
 export const CACHE_AID = 'd2760000850101'
+/** Host-owned NFC transport. transmit returns data plus SW1/SW2; no automatic mutation replay. */
 export interface CardTransport {
   connect(): Promise<boolean>
   transmit(command: Uint8Array): Promise<Uint8Array>
   disconnect(): Promise<void>
 }
+/** Platform CSPRNG returning exactly length bytes. Never use Math.random or deterministic fixtures in production. */
 export type RandomSource = (length: number) => Uint8Array
 export interface Tunnel {
   tunnel(ins: number, p1?: number, p2?: number, data?: Uint8Array): Promise<Uint8Array>
@@ -101,6 +103,11 @@ export function identityPayload(
   }
 }
 
+/**
+ * Serialized, on-device application tunnel; distinct from GlobalPlatform SCP02/03.
+ * connect selects/inspects; open authenticates; pair permanently changes pairing state.
+ * A cached CardInfo is an observation, not proof that the card is still present.
+ */
 export class ItemSecureTunnel implements Tunnel {
   private enc: Uint8Array = new Uint8Array(0)
   private mac: Uint8Array = new Uint8Array(0)
@@ -146,6 +153,7 @@ export class ItemSecureTunnel implements Tunnel {
     return response(result)
   }
 
+  /** Connect and SELECT without pairing or creating keys. Compare identity after every reconnect. */
   connect(): Promise<CardInfo> {
     return this.serial(async g => {
       this.clear()
@@ -163,6 +171,7 @@ export class ItemSecureTunnel implements Tunnel {
     })
   }
 
+  /** Initialize an explicitly authorized unpaired card with a 32-byte application secret, not GP factory keys. */
   pair(pairingKey: Uint8Array): Promise<void> {
     const pairing = pairingKey.slice()
     return this.serial(async g => {
@@ -177,6 +186,7 @@ export class ItemSecureTunnel implements Tunnel {
     })
   }
 
+  /** Authenticate a selected card. Optional identity proof binds the requested UID; a UID alone grants no authority. */
   open(pairingKey: Uint8Array, identity?: IdentityCredential): Promise<void> {
     const pairing = pairingKey.slice()
     const credential = identity
@@ -224,6 +234,7 @@ export class ItemSecureTunnel implements Tunnel {
     })
   }
 
+  /** Cancel queued work, clear owned session buffers and disconnect; cannot undo an APDU already accepted by the card. */
   close(): Promise<void> {
     this.generation++
     this.clear()

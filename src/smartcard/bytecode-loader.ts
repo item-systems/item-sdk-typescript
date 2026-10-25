@@ -17,6 +17,8 @@ export class InBandBytecodeLoader {
   private chunkSize: number
 
   constructor(reader: CardReader, chunkSize = InBandBytecodeLoader.DEFAULT_CHUNK_SIZE) {
+    if (!Number.isInteger(chunkSize) || chunkSize < 1 || chunkSize > 220)
+      throw new Error('Chunk size must be an integer from 1 to 220')
     this.reader = reader
     this.chunkSize = chunkSize
   }
@@ -40,6 +42,8 @@ export class InBandBytecodeLoader {
    * @param packageAid JavaCard Package AID.
    * @param progressCallback Optional streaming progress callback.
    * @returns Verified on-card SHA-256 bytecode hash ($H_{code}$).
+   * This receipt is not an installed applet or plugin-registration result. Stop on
+   * uncertain transport failure; do not replay a partially acknowledged stream.
    */
   async streamCap(
     capBytes: Uint8Array,
@@ -47,6 +51,8 @@ export class InBandBytecodeLoader {
     progressCallback?: ProgressCallback
   ): Promise<Uint8Array> {
     const totalLen = capBytes.length
+    if (!totalLen || totalLen > 0xffffffff || packageAid.length < 5 || packageAid.length > 16)
+      throw new Error('Invalid CAP or package AID')
     const localSha256 = sha256(capBytes)
 
     // 1. INS_PACKAGE_BEGIN (0x55)
@@ -55,7 +61,8 @@ export class InBandBytecodeLoader {
     if (beginResp.getSW() !== StatusWord.OK) {
       throw new Error(`Package begin failed: SW=0x${beginResp.getSW().toString(16)}`)
     }
-    const sessionSlot = beginResp.getData().length > 0 ? beginResp.getData()[0] : 0
+    if (beginResp.getData().length !== 1) throw new Error('Package begin must return exactly one session-slot byte')
+    const sessionSlot = beginResp.getData()[0]
 
     // 2. INS_PACKAGE_STREAM (0x56)
     let offset = 0
@@ -82,7 +89,7 @@ export class InBandBytecodeLoader {
     const parsedCommit = new PackageCommitResponse(commitResp.toArray())
     const cardHCode = parsedCommit.getCodeHash()
 
-    if (cardHCode.length === 32 && !uint8Equals(cardHCode, localSha256)) {
+    if (!uint8Equals(cardHCode, localSha256)) {
       throw new Error('Bytecode hash mismatch between local CAP and on-card computed hash')
     }
 

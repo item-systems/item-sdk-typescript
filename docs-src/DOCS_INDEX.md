@@ -9,6 +9,8 @@ Use this page as the human-oriented map of the SDK documentation.
 
 ## Core guides
 
+- [Firmware workflow guide and compatibility](../skills/item-sdk-typescript/references/firmware-workflows.md) — mobile entry point, exact return values, capability discovery, retry boundaries, and v3.5.4 limitations
+
 - `API_OVERVIEW.md` — public API grouped by domain
 - `WORKFLOW_PLAYBOOKS.md` — end-to-end integration flows
 - `ARCHITECTURE_AND_DATA_MODEL.md` — domain model, relationships, and lifecycle
