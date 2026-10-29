@@ -1,0 +1,6 @@
+{
+  "version": 2,
+  "cardAuthentication": { "mode": "pinned", "algorithm": 2 },
+  "identities": [{ "uid": 1, "capabilities": 4095, "credentialAlgorithm": 2 }],
+  "retireBootstrap": true
+}

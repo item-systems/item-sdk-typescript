@@ -1,0 +1,6 @@
+{
+  "version": 2,
+  "cardAuthentication": { "mode": "none" },
+  "identities": [],
+  "retireBootstrap": true
+}

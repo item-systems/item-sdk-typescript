@@ -6,14 +6,44 @@ import { NativeNfcTransceiver } from '../../src/smartcard/transport/mobile'
 import { GlobalPlatformProvisioner } from '../../src/smartcard/globalplatform/provisioner'
 import { AuthPolicy, AuthCredentialType, UacCapability } from '../../src/smartcard/types'
 import { hexToUint8 } from '../../src/smartcard/utils'
+import { IdentityQueryResponse } from '../../src/smartcard/reponse-apdu'
+import {
+  IdentityCreateCommand,
+  IdentityQueryCommand,
+  IdentityUpdateCommand,
+  IdentityRemoveCredentialCommand,
+} from '../../src/smartcard/command-apdu'
 
 describe('User Access Control (UAC) IdentityManager and Mobile Transport', () => {
+  it('encodes firmware privileges without truncating invalid identity parameters', () => {
+    expect(new IdentityCreateCommand(7, UacCapability.MANAGE_IDENTITIES).toArray()).to.deep.equal(
+      hexToUint8('a0800001050007004001')
+    )
+    expect(new IdentityQueryCommand(0xffff).toArray()).to.deep.equal(hexToUint8('a081ffff00'))
+    expect(() => new IdentityCreateCommand(65536, 0)).to.throw()
+    expect(() => new IdentityUpdateCommand(0xffff, 0, AuthPolicy.ANY_OF, 1)).to.throw()
+    expect(() => new IdentityCreateCommand(7, -1)).to.throw()
+    expect(() => new IdentityCreateCommand(7, 0, AuthPolicy.ANY_OF, 2)).to.throw()
+    expect(() => new IdentityRemoveCredentialCommand(7, 256)).to.throw()
+  })
+
+  it('distinguishes missing identity from malformed metadata and unsupported commands', async () => {
+    for (const sw of ['6a83', '6a88'])
+      expect(new IdentityQueryResponse(hexToUint8(sw)).getIdentityInfo()).to.equal(null)
+    for (const raw of ['6a82', '9000', '0007004001019000', '000700400001019000'])
+      expect(() => new IdentityQueryResponse(hexToUint8(raw))).to.throw()
+    const reader = new Reader(new MockTransport([hexToUint8('000700400101019000')]))
+    await reader.connect()
+    expect((await new IdentityManager(reader).current()).identityId).to.equal(7)
+    await reader.dispose()
+  })
+
   it('creates, queries, updates, adds credentials, and deletes identities via Tunnel APDUs', async () => {
     // 1. IdentityCreateResponse: SW 9000
     const createResp = hexToUint8('9000')
 
-    // 2. IdentityQueryResponse: [uid(2B): 0001] [caps(2B): 0200] [policy(1B): 01] [thresh(1B): 01] [credCount(1B): 01] + SW 9000
-    const queryResp = hexToUint8('000102000101019000')
+    // Firmware MANAGE_IDENTITIES is 0040 (0200 is CRYPTO_EXECUTE).
+    const queryResp = hexToUint8('000100400101019000')
 
     // 3. IdentityUpdateResponse: SW 9000
     const updateResp = hexToUint8('9000')

@@ -15,6 +15,7 @@ Use this page as the human-oriented map of the SDK documentation.
 - `WORKFLOW_PLAYBOOKS.md` — end-to-end integration flows
 - `ARCHITECTURE_AND_DATA_MODEL.md` — domain model, relationships, and lifecycle
 - `SMARTCARD_AND_MICROKERNEL.md` — smartcard secure channel, in-band bytecode loader, SIO plugins, and v3.5 microkernel lifecycle
+- [Identity/capability repair candidate](IDENTITY_CAPABILITIES.md) — signed session identity, corrected capability masks, current-principal query, and qualification limits
 - `GLOBALPLATFORM_PROVISIONING.md` — GlobalPlatform Card Manager, SCP02/SCP03 mutual authentication, and silicon flashing
 - `AUTHENTICATION.md` — auth payloads, validation, auth, claim, and purge flows
 - `TEST_VECTORS_AUTH_VERIFY_MAINNET.md` — timestamped public MainNet auth-vector evidence and reproduction boundary

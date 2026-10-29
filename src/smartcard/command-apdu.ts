@@ -1,5 +1,6 @@
 import { Uint8 } from './byte'
 import { AuthPolicy, AuthCredentialType } from './types'
+import { validateCapabilities, validateIdentityId, validateIdentityPolicy } from './identity-wire'
 
 /**
  * Base representation of an ISO 7816 command APDU.
@@ -508,6 +509,9 @@ export class IdentityCreateCommand extends CommandApdu {
     authPolicy: AuthPolicy = AuthPolicy.ANY_OF,
     requiredThreshold = 1
   ) {
+    validateIdentityId(identityId)
+    validateCapabilities(capabilities)
+    validateIdentityPolicy(authPolicy, requiredThreshold)
     const data = new Uint8Array(2 + 2 + 1)
     const view = new DataView(data.buffer, data.byteOffset, data.byteLength)
     view.setUint16(0, identityId)
@@ -536,6 +540,7 @@ export class IdentityQueryCommand extends CommandApdu {
   static readonly INS_IDENTITY_QUERY = 0x81
 
   constructor(identityId: number) {
+    validateIdentityId(identityId, true)
     super(
       IdentityQueryCommand.CLA_INNER,
       IdentityQueryCommand.INS_IDENTITY_QUERY,
@@ -558,6 +563,9 @@ export class IdentityUpdateCommand extends CommandApdu {
   static readonly INS_IDENTITY_UPDATE = 0x82
 
   constructor(identityId: number, capabilities: number, authPolicy: AuthPolicy, requiredThreshold: number) {
+    validateIdentityId(identityId)
+    validateCapabilities(capabilities)
+    validateIdentityPolicy(authPolicy, requiredThreshold)
     const data = new Uint8Array(4)
     const view = new DataView(data.buffer, data.byteOffset, data.byteLength)
     view.setUint16(0, capabilities)
@@ -586,6 +594,8 @@ export class IdentityDeleteCommand extends CommandApdu {
   static readonly INS_IDENTITY_DELETE = 0x83
 
   constructor(identityId: number) {
+    validateIdentityId(identityId)
+    if (identityId === 0) throw new Error('Root identity cannot be deleted by this command')
     super(
       IdentityDeleteCommand.CLA_INNER,
       IdentityDeleteCommand.INS_IDENTITY_DELETE,
@@ -608,6 +618,9 @@ export class IdentityAddCredentialCommand extends CommandApdu {
   static readonly INS_IDENTITY_ADD_CREDENTIAL = 0x84
 
   constructor(identityId: number, type: AuthCredentialType, credData: Uint8Array) {
+    validateIdentityId(identityId)
+    if (!Number.isInteger(type) || type < 1 || type > 4) throw new Error('Invalid credential wire type')
+    if (credData.length > 217) throw new Error('Credential exceeds a short tunneled APDU')
     const data = new Uint8Array(1 + credData.length)
     data[0] = type & 0xff
     data.set(credData, 1)
@@ -634,6 +647,9 @@ export class IdentityRemoveCredentialCommand extends CommandApdu {
   static readonly INS_IDENTITY_REMOVE_CREDENTIAL = 0x85
 
   constructor(identityId: number, credentialIndex: number) {
+    validateIdentityId(identityId)
+    if (!Number.isInteger(credentialIndex) || credentialIndex < 0 || credentialIndex > 3)
+      throw new Error('Credential slot must be 0..3')
     const data = new Uint8Array([credentialIndex & 0xff])
 
     super(

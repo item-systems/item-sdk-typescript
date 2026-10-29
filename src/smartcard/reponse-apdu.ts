@@ -1,6 +1,7 @@
 import { StatusWord } from './statusword'
 
-import { MasterKeyStats, MicrokernelResourceFlags, PluginInfo, IdentityInfo, AuthPolicy } from './types'
+import { MasterKeyStats, MicrokernelResourceFlags, PluginInfo, IdentityInfo } from './types'
+import { parseIdentityInfo } from './identity-wire'
 
 /**
  * Parsed representation of an ISO 7816 response APDU.
@@ -326,7 +327,7 @@ export class IdentityQueryResponse extends ResponseAPDU {
   constructor(apdu: Uint8Array) {
     super(apdu)
 
-    if (this.getSW() === 0x6a88 || this.getSW() === 0x6a82) {
+    if (this.getSW() === 0x6a83 || this.getSW() === 0x6a88) {
       this.identityInfo = null
       return
     }
@@ -335,28 +336,7 @@ export class IdentityQueryResponse extends ResponseAPDU {
       throw new Error(`Failed to parse IdentityQueryResponse: wrong status word 0x${this.getSW().toString(16)}`)
     }
 
-    const data = this.getData()
-    if (data.length < 6) {
-      this.identityInfo = null
-      return
-    }
-
-    const view = new DataView(data.buffer, data.byteOffset, data.byteLength)
-    const identityId = view.getUint16(0)
-    const capabilities = view.getUint16(2)
-    const authPolicy = (data[4] as AuthPolicy) || AuthPolicy.ANY_OF
-    const requiredThreshold = data[5] || 1
-    const credentialCount = data.length > 6 ? data[6] : 0
-
-    this.identityInfo = {
-      identityId,
-      active: true,
-      authPolicy,
-      requiredThreshold,
-      capabilities,
-      credentialCount,
-      credentials: [],
-    }
+    this.identityInfo = parseIdentityInfo(this.getData())
   }
 
   getIdentityInfo(): IdentityInfo | null {

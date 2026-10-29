@@ -1,4 +1,16 @@
-# ITEM TypeScript firmware workflows — SDK 0.6.3
+# ITEM TypeScript firmware workflows
+
+## Exchange-provider checkpoint (0.7.0-exchange.1)
+
+Use the coordinated item-javacard v3.6.0-exchange.1 and engine/registry
+v3.1.0-exchange.1 tags for this prerelease, not the historical baseline below.
+See RELEASE_NOTES.md and the firmware EXCHANGE_PROVIDER_V1.md contract.
+The mobile SDK probes INS 25/P1=3 before PIN/password login. Only mechanism 0001
+(SPAKE2 P-256/SHA-256) is implemented. K1 key-exchange capability does not imply
+K1 password support. Do not silently fall back to another engine or replay BEGIN.
+Direct ANY_OF group login uses a member credential; UAC retains the group's
+permissions, not a union of member permissions. Password login is software-tested,
+not yet physically qualified. Keep those evidence levels separate.
 
 ## Entry points
 
@@ -14,7 +26,7 @@ process or desktop reader. Transport `transmit` returns bytes including SW1/SW2.
 Use a platform cryptographic RNG returning the requested number of bytes. Never
 substitute `Math.random`. TypeScript/parity tests do not prove NFC-device behavior.
 
-## Compatibility checkpoint
+## Historical compatibility checkpoint (SDK 0.6.3)
 
 Firmware: [item-javacard v3.5.4](https://github.com/item-systems/item-javacard/releases/tag/v3.5.4),
 CryptoRegistry 3.0.3, Enclave/KeyRingCache 3.0.2, engines 3.0.1; API CAP remains

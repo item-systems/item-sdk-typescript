@@ -1,6 +1,7 @@
 import { sha256 } from '@noble/hashes/sha2.js'
 import { CardError, concat, Cursor, equal, hex, integer, word } from './bytes'
 import { Tunnel } from './tunnel'
+import { parseIdentityInfo, validateCapabilities, validateIdentityId, validateIdentityPolicy } from '../identity-wire'
 
 const empty = new Uint8Array(0)
 const textBytes = (text: string) => new TextEncoder().encode(text)
@@ -28,6 +29,24 @@ export interface Diagnostics {
   ndefSlot: number
   lifecycle: number
   version: string
+}
+/** Opt-in storage telemetry v1. Pool counts are not physical free-memory estimates. */
+export interface MemoryDiagnostics {
+  formatVersion: 1
+  totalBlocks: number
+  blockSize: number
+  payloadSize: number
+  leasedBlocks: number
+  materializedBlocks: number
+  unmaterializedBlocks: number
+  reusableBlocks: number
+  quarantinedBlocks: number
+  /** JCRE estimates; null means unavailable. Transient pools must not be added together. */
+  persistentFreeBytes: number | null
+  transientResetFreeBytes: number | null
+  transientDeselectFreeBytes: number | null
+  unusedCommitBytes: number
+  maxCommitBytes: number
 }
 export interface MasterKey {
   slot: number
@@ -337,31 +356,48 @@ export class EnclaveClient extends Manager {
   }
 }
 export class UacManager extends Manager {
-  private id(uid: number): [number, number] {
-    integer(uid, 65535)
+  /** Read the principal bound to this session, not a caller-selected identity. */
+  async current(): Promise<Identity> {
+    const identity = await this.query(0xffff)
+    if (!identity) throw new Error('Authenticated identity is unavailable')
+    return identity
+  }
+
+  private id(uid: number, allowCurrent = false): [number, number] {
+    validateIdentityId(uid, allowCurrent)
     return [uid >>> 8, uid & 255]
   }
 
   create(uid: number, capabilities = 0, policy = 1, threshold = 1): Promise<Uint8Array> {
+    validateIdentityId(uid)
+    validateCapabilities(capabilities)
+    validateIdentityPolicy(policy, threshold)
     return this.call(0x80, 0, policy, concat(word(uid), word(capabilities), Uint8Array.of(integer(threshold))))
   }
 
   async query(uid: number): Promise<Identity | null> {
     let data: Uint8Array
     try {
-      data = await this.call(0x81, ...this.id(uid))
+      data = await this.call(0x81, ...this.id(uid, true))
     } catch (e) {
-      if (e instanceof CardError && e.status === 0x6a88) return null
+      // Current firmware uses RECORD_NOT_FOUND; retain legacy REFERENCED_DATA_NOT_FOUND.
+      if (e instanceof CardError && (e.status === 0x6a83 || e.status === 0x6a88)) return null
       throw e
     }
-    if (!data.length) return null
-    const c = new Cursor(data)
-    const info = { uid: c.word(), capabilities: c.word(), policy: c.byte(), threshold: c.byte(), credentialCount: 0 }
-    if (c.offset < data.length) info.credentialCount = c.byte()
-    return info
+    const info = parseIdentityInfo(data)
+    if (uid !== 0xffff && info.identityId !== uid) throw new Error('Identity response UID mismatch')
+    return {
+      uid: info.identityId,
+      capabilities: info.capabilities,
+      policy: info.authPolicy,
+      threshold: info.requiredThreshold,
+      credentialCount: info.credentialCount,
+    }
   }
 
   update(uid: number, capabilities: number, policy: number, threshold: number): Promise<Uint8Array> {
+    validateCapabilities(capabilities)
+    validateIdentityPolicy(policy, threshold)
     return this.call(
       0x82,
       ...this.id(uid),
@@ -375,7 +411,10 @@ export class UacManager extends Manager {
   }
 
   async addCredential(uid: number, type: number, data: Uint8Array): Promise<number> {
-    return first(await this.call(0x84, ...this.id(uid), concat(Uint8Array.of(integer(type)), data)))
+    if (!Number.isInteger(type) || type < 1 || type > 4) throw new Error('Invalid credential wire type')
+    const reply = await this.call(0x84, ...this.id(uid), concat(Uint8Array.of(type), data))
+    if (reply.length !== 1 || reply[0] > 3) throw new Error('Invalid allocated credential slot')
+    return reply[0]
   }
 
   removeCredential(uid: number, index: number): Promise<Uint8Array> {
@@ -496,5 +535,46 @@ export class MicrokernelClient extends Manager {
       lifecycle: c.byte(),
       version: Array.from(c.take(3)).join('.'),
     }
+  }
+
+  /** Requires firmware implementing empty INS 0x16/P1=1. Older firmware errors
+   * are propagated, not interpreted as zero free memory or retried as a mutation.
+   * Memory estimates do not guarantee an allocation will succeed.
+   */
+  async getMemoryDiagnostics(): Promise<MemoryDiagnostics> {
+    const c = new Cursor(sized(await this.call(0x16, 1), 36, 'Memory diagnostics'))
+    if (c.byte() !== 0x53 || c.byte() !== 0x4d || c.byte() !== 1 || c.byte() !== 36)
+      throw new Error('Unsupported memory diagnostics format')
+    const memory = (): number | null => {
+      const value = c.word() * 65536 + c.word()
+      return value === 0xffffffff ? null : value
+    }
+    const result: MemoryDiagnostics = {
+      formatVersion: 1,
+      totalBlocks: c.word(),
+      blockSize: c.word(),
+      payloadSize: c.word(),
+      leasedBlocks: c.word(),
+      materializedBlocks: c.word(),
+      unmaterializedBlocks: c.word(),
+      reusableBlocks: c.word(),
+      quarantinedBlocks: c.word(),
+      persistentFreeBytes: memory(),
+      transientResetFreeBytes: memory(),
+      transientDeselectFreeBytes: memory(),
+      unusedCommitBytes: c.word(),
+      maxCommitBytes: c.word(),
+    }
+    c.end()
+    if (
+      result.blockSize <= 16 ||
+      result.payloadSize !== result.blockSize - 16 ||
+      result.materializedBlocks + result.unmaterializedBlocks !== result.totalBlocks ||
+      result.leasedBlocks + result.reusableBlocks !== result.materializedBlocks ||
+      result.quarantinedBlocks > result.leasedBlocks ||
+      result.unusedCommitBytes > result.maxCommitBytes
+    )
+      throw new Error('Inconsistent memory diagnostics counts')
+    return result
   }
 }

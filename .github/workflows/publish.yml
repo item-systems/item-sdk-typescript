@@ -6,6 +6,7 @@ name: Publish
 
 jobs:
   publish-docs:
+    if: '!github.event.release.prerelease'
     name: Publish Docs
     runs-on: ubuntu-latest
     steps:
@@ -46,6 +47,6 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - run: npm ci --force
       - run: NODE_ENV=production CI=false npm run prepublishOnly
-      - run: npm publish --provenance --access public
+      - run: npm publish --provenance --access public --tag "${{ github.event.release.prerelease && 'next' || 'latest' }}"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

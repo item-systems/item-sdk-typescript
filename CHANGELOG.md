@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.7.0-exchange.1
+
+Architecture checkpoint: password login probes a versioned exchange-provider
+descriptor before using the P-256 SPAKE2 adapter. Unknown mechanisms fail closed,
+without falling back to R1 or consuming/replaying a BEGIN. Kernel/UAC owns the
+authenticated identity and group authorization. See RELEASE_NOTES.md for the
+coordinated firmware tags and physical-qualification limitations.
+
+- Treat firmware `6A83` and legacy `6A88` as an absent UAC identity (`null`).
+  Authentication, transport and other card failures still propagate without retries.
+- Select secp256k1 or P-256 ECDH from the explicit firmware tunnel profile.
+  Reject unsupported profiles, wrong-curve points, and profile changes/removal
+  between inspection and OPEN. Legacy cards without a profile remain P-256.
+  Add dual-curve handshake and fail-closed profile regression tests.
+- Mobile tunnel authentication now refreshes SELECT metadata before every OPEN,
+  including retries, so it uses the card's fresh single-use ECDH public key.
+  The existing NFC transport remains connected; no additional physical tap is required.
+- Reject a changed card UID before sending OPEN/identity proof, and discard
+  cached metadata when the refresh fails. Wallet keys and pairing are unchanged.
+- Add rotating-key reference-card tests for successful reconnects, rejected
+  authentication, card replacement and NFC loss during SELECT.
+
 ## 0.6.3
 
 - Fix packed-consumer verification under `NODE_ENV=production`: explicitly install

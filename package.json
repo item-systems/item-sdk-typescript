@@ -1,6 +1,6 @@
 {
   "name": "@item-systems/item",
-  "version": "0.6.3",
+  "version": "0.7.0-exchange.1",
   "description": "A package for interfacing with Non-Fungible Items",
   "main": "./dist/cjs/index.cjs",
   "module": "./dist/esm/index.js",
@@ -14,14 +14,16 @@
     "docs-src",
     "skills",
     "examples/mobile-inspect.ts",
+    "examples/initialization",
     "CHANGELOG.md",
+    "RELEASE_NOTES.md",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
     "test": "npm run test:unit && npm run test:mobile",
     "test:unit": "ts-mocha \"tests/smartcard/**/*.spec.ts\" \"tests/item/**/*.spec.ts\"",
-    "test:mobile": "node --test tests/mobile/mobile.test.mjs",
+    "test:mobile": "node --test tests/mobile/*.test.mjs",
     "test:integration": "ts-mocha \"tests/integration/**/*.spec.ts\"",
     "test:manual": "ts-mocha \"tests/manual/**/*.spec.ts\"",
     "test:all": "npm run test:unit && npm run test:mobile && npm run test:integration && npm run test:manual",

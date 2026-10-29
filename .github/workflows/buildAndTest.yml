@@ -8,6 +8,8 @@ jobs:
   build-and-test:
     name: Build and Test
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -33,3 +35,14 @@ jobs:
       - name: Audit production dependencies
         run: npm audit --omit=optional
         continue-on-error: true
+      - name: Pack checkpoint artifact
+        if: startsWith(github.ref, 'refs/tags/v') && contains(github.ref_name, '-exchange.')
+        run: npm pack
+      - name: Publish checkpoint GitHub release
+        if: startsWith(github.ref, 'refs/tags/v') && contains(github.ref_name, '-exchange.')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: item-systems-item-*.tgz
+          body_path: RELEASE_NOTES.md
+          prerelease: true
+          generate_release_notes: true

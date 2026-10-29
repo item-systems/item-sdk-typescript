@@ -50,7 +50,7 @@ export class IdentityManager {
   public async queryIdentity(identityId: number): Promise<IdentityInfo | null> {
     const cmd = new IdentityQueryCommand(identityId)
     const resp = await this.executeTunneled(cmd.toArray())
-    if (resp.getSW() === 0x6a88 || resp.getSW() === 0x6a82) {
+    if (resp.getSW() === 0x6a83 || resp.getSW() === 0x6a88) {
       return null
     }
     if (resp.getSW() !== StatusWord.OK) {
@@ -59,7 +59,17 @@ export class IdentityManager {
       )
     }
     const queryResp = new IdentityQueryResponse(resp.toArray())
-    return queryResp.getIdentityInfo()
+    const info = queryResp.getIdentityInfo()
+    if (info && identityId !== 0xffff && info.identityId !== identityId)
+      throw new Error('Identity response UID mismatch')
+    return info
+  }
+
+  /** Read the session-bound UID and capabilities, never a host-asserted caller. */
+  public async current(): Promise<IdentityInfo> {
+    const info = await this.queryIdentity(0xffff)
+    if (!info) throw new Error('Authenticated identity is unavailable')
+    return info
   }
 
   /**
@@ -106,7 +116,8 @@ export class IdentityManager {
       )
     }
     const data = resp.getData()
-    return data.length > 0 ? data[0] : 0
+    if (data.length !== 1 || data[0] > 3) throw new Error('Invalid allocated credential slot')
+    return data[0]
   }
 
   /**

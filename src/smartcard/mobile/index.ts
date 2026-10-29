@@ -2,4 +2,14 @@
 export * from './bytes'
 export * from './tunnel'
 export * from './managers'
+export * from './initialization'
+export {
+  enrollPassword,
+  exchangeDescriptor,
+  SPAKE2_P256_SHA256,
+  type ExchangeDescriptor,
+  type PasswordLogin,
+  type PasswordParameters,
+} from './password'
 export * from './status'
+export { AuthPolicy, AuthCredentialType, UacCapability } from '../types'
