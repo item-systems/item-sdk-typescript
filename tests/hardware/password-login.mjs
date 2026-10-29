@@ -13,10 +13,10 @@ import { enrollPassword } from '../../dist/esm/smartcard/mobile/password.js'
 import { createTransport } from './omni-transport.mjs'
 import { p256 } from '@noble/curves/nist.js'
 
-assert.ok(['044D2AB2971490','04384D82971490'].includes(process.env.ITEM_TEST_UID),
+assert.ok(['044D2AB2971490','04384D82971490','04384C82971490','04384E82971490'].includes(process.env.ITEM_TEST_UID),
   'Only an explicitly authorized diagnostic UID; the bridge checks the exact selection')
 const action=process.argv[2]
-assert.ok(['bootstrap','inspect','login','retire','negative','wallet'].includes(action))
+assert.ok(['bootstrap','inspect','login','retire','retired-inspect','negative','locked','wallet','wallet-existing'].includes(action))
 const logfile=process.env.ITEM_TEST_LOG
 assert.ok(logfile, 'Set ITEM_TEST_LOG to retain qualification evidence')
 function log(event,fields={}) {
@@ -26,16 +26,59 @@ function log(event,fields={}) {
 const random=n=>new Uint8Array(randomBytes(n))
 const transport=createTransport({passwordQualification:true})
 const transmit=transport.transmit.bind(transport)
+let sequence=0
 transport.transmit=async bytes=>{
-  const start=performance.now(), reply=await transmit(bytes)
-  log('apdu',{header:Buffer.from(bytes.slice(0,4)).toString('hex'),
-    sw:Buffer.from(reply.slice(-2)).toString('hex'),responseBytes:reply.length-2,ms:Math.round(performance.now()-start)})
-  return reply
+  const start=performance.now()
+  const metadata={sequence:++sequence,header:Buffer.from(bytes.slice(0,4)).toString('hex'),requestBytes:bytes.length}
+  log('apdu_start',metadata)
+  try {
+    const reply=await transmit(bytes)
+    log('apdu',{...metadata,sw:Buffer.from(reply.slice(-2)).toString('hex'),
+      responseBytes:reply.length-2,ms:Math.round(performance.now()-start)})
+    if(process.env.ITEM_TEST_FAILURE_DIAGNOSTICS==='1' && action==='bootstrap'
+        && bytes[1]===0x25 && bytes[2]===1
+        && Buffer.from(reply.slice(-2)).toString('hex')==='6982') {
+      // Explicit lab-only admin inspection BEFORE the SDK's required disconnect
+      // clears RAM traces. The original PIN failure is still returned unchanged.
+      // Never retry PIN or expose this diagnostic session as a successful login.
+      await captureFailureDiagnostics()
+    }
+    return reply
+  } catch(error) {
+    // Never print payloads, keys or exception text potentially containing APDUs.
+    log('apdu_transport_failure',{...metadata,ms:Math.round(performance.now()-start),
+      outcome:'unknown; stop and inspect, do not replay'})
+    throw error
+  }
 }
 const tunnel=new ItemSecureTunnel(transport,random)
 const uac=new UacManager(tunnel), init=new InitializationManager(tunnel)
 // Public diagnostic fixtures only, intentionally not printed in evidence logs.
 const password='123456', pairing=Uint8Array.from({length:32},(_,i)=>i)
+async function captureFailureDiagnostics() {
+  const expected=tunnel.info?.uid
+  const diagnostic=new ItemSecureTunnel({
+    connect:async()=>true, disconnect:async()=>{},
+    transmit:async bytes=>{
+      const start=performance.now(),reply=await transmit(bytes)
+      log('diagnostic_admin_apdu',{header:Buffer.from(bytes.slice(0,4)).toString('hex'),
+        requestBytes:bytes.length,responseBytes:reply.length-2,
+        sw:Buffer.from(reply.slice(-2)).toString('hex'),ms:Math.round(performance.now()-start)})
+      return reply
+    },
+  },random)
+  try {
+    assert.equal((await diagnostic.connect()).uid,expected)
+    await diagnostic.open(pairing)
+    assert.equal((await new UacManager(diagnostic).current()).uid,0)
+    const data=await diagnostic.tunnel(0x16)
+    assert.equal(data.length,23);assert.equal(data[14],0x4b);assert.equal(data[15],1)
+    log('password_failure_trace',{operation:data[16],stage:data[17],exceptionKind:data[18],
+      reason:(data[19]<<8)|data[20],transactionDepth:data[21],outcome:data[22]})
+    log('memory_at_failure',{info:await new MicrokernelClient(diagnostic).getMemoryDiagnostics()})
+  }catch(error){log('diagnostic_inspection_failed',{errorType:error.name})}
+  finally{await diagnostic.close()}
+}
 async function login(target=1,member=target,secret=password) {
   const start=performance.now()
   await tunnel.openWithPassword({identityId:target,credentialIdentityId:member,password:secret})
@@ -71,16 +114,21 @@ try {
     }
     await uac.create(9,0);assert.equal(await uac.addCredential(9,4,Uint8Array.of(0,7)),0)
     log('passed',{test:'public_fixture_enrollment'})
+    log('memory_before_password_provider',{info:await new MicrokernelClient(tunnel).getMemoryDiagnostics()})
     await login()
   } else if(action==='login') {
     for(let i=0;i<3;i++){await login();await tunnel.close()}
     const group=await login(9,7);assert.equal(group.capabilities,0)
     await assert.rejects(uac.create(10,65535),/6986/)
     log('passed',{test:'group_does_not_inherit_member_admin_capabilities'})
-  } else if(action==='retire') {
-    await login();await init.retireBootstrap();assert.equal(tunnel.isOpen,false)
+  } else if(action==='retire' || action==='retired-inspect') {
+    if(action==='retire') {
+      await login();await init.retireBootstrap();assert.equal(tunnel.isOpen,false)
+    }
     await login();assert.equal((await init.query()).info.phase,'retired')
     log('passed',{test:'password_login_after_bootstrap_retirement'})
+    assert.equal(await uac.query(0),null)
+    log('memory_after_retirement',{info:await new MicrokernelClient(tunnel).getMemoryDiagnostics()})
   } else if(action==='negative') {
     await assert.rejects(login(8,8,'654321'),/6982/)
     assert.equal(tunnel.isOpen,false);await tunnel.close()
@@ -94,15 +142,36 @@ try {
     await assert.rejects(login(9,8),/6982/)
     await login()
     log('passed',{test:'nonmember_rejected_admin_unaffected'})
-  } else if(action==='wallet') {
+  } else if(action==='locked') {
+    await tunnel.connect()
+    const parameters=await transport.transmit(Uint8Array.of(0xa0,0x25,0,0,6,1,0,12,0,12,0))
+    assert.equal(Buffer.from(parameters.slice(-2)).toString('hex'),'9000')
+    assert.equal(parameters.length,21);assert.equal(parameters[18],0,'Requires exhausted public fixture')
+    // Bypass only the HOST's budget precheck to prove the card itself denies
+    // BEGIN after reconnect. This public point carries no password or key.
+    const point=p256.getPublicKey(Uint8Array.from({length:32},(_,i)=>i===31?1:0),false)
+    const reply=await transport.transmit(Uint8Array.of(0xa0,0x25,1,0,71,1,0,12,0,12,0,...point))
+    assert.equal(Buffer.from(reply).toString('hex'),'6983')
+    log('passed',{test:'card_enforces_PIN_lockout_without_SDK_precheck'})
+  } else if(action==='wallet' || action==='wallet-existing') {
     await login()
     const masters=new MasterKeyManager(tunnel), rings=new KeyRingManager(tunnel), posix=new PosixManager(tunnel)
-    assert.equal((await masters.getStats()).length,0,'Wallet stage is not replayable')
-    const master=await masters.generate()
-    const publicKey=await rings.derive(master,new Uint8Array(),0)
+    let publicKey
+    if(action==='wallet') {
+      assert.equal((await masters.getStats()).length,0,'Wallet stage is not replayable')
+      const master=await masters.generate()
+      publicKey=await rings.derive(master,new Uint8Array(),0)
+    } else {
+      assert.equal((await masters.getStats()).length,1,'Expected prior acknowledged diagnostic master')
+      const resource=await posix.stat(2,0)
+      assert.equal(resource.uid,1);assert.equal(resource.mode,0o700)
+      publicKey=await rings.exportPublicKey(0)
+      log('passed',{test:'existing_diagnostic_ring_inspected_no_key_generation_replayed'})
+    }
     assert.equal(publicKey.length,65)
     assert.deepEqual(await rings.exportPublicKey(0),publicKey)
     await posix.chown(2,0,1,9);await posix.chmod(2,0,0o650)
+    assert.deepEqual(await posix.stat(2,0),{type:2,id:0,uid:1,gid:9,mode:0o650,frozen:false})
     await login(9,7)
     const digest=createHash('sha256').update('ITEM password group qualification').digest()
     assert.equal(p256.verify(await rings.sign(0,digest),digest,publicKey,{lowS:false}),true)
@@ -112,5 +181,7 @@ try {
     log('passed',{test:'nonmember_POSIX_sign_denied'})
   }
   log('complete')
-}catch(error){log('failed',{message:error.message});process.exitCode=1}
+}catch(error){log('failed',{errorType:error.name,
+  message:error.name==='AssertionError' ? 'Qualification assertion failed; stopped without replay' : error.message,
+  location:error.stack?.match(/password-login\.mjs:\d+:\d+/)?.[0]});process.exitCode=1}
 finally{await tunnel.close()}

@@ -210,20 +210,22 @@ export class KeyRingManager extends Manager {
   }
 }
 export class PosixManager extends Manager {
+  /** Firmware resource verbs 70/71/72; STAT echoes type and id before metadata. */
   async stat(type: number, id: number): Promise<Resource> {
-    const c = new Cursor(await this.call(0x65, type, id))
+    const c = new Cursor(sized(await this.call(0x70, type, id), 8, 'Resource metadata'))
+    if (c.byte() !== type || c.byte() !== id) throw new Error('Resource response does not match requested target')
     const uid = c.word()
     const gid = c.word()
     const mode = c.word()
     return { type, id, uid, gid, mode, frozen: !!(mode & 0x4000) }
   }
 
-  chmod(type: number, id: number, mode: number): Promise<Uint8Array> {
-    return this.call(0x66, type, id, word(mode))
+  async chmod(type: number, id: number, mode: number): Promise<Uint8Array> {
+    return sized(await this.call(0x71, type, id, word(mode)), 0, 'Resource chmod acknowledgement')
   }
 
-  chown(type: number, id: number, uid: number, gid: number): Promise<Uint8Array> {
-    return this.call(0x67, type, id, concat(word(uid), word(gid)))
+  async chown(type: number, id: number, uid: number, gid: number): Promise<Uint8Array> {
+    return sized(await this.call(0x72, type, id, concat(word(uid), word(gid))), 0, 'Resource chown acknowledgement')
   }
 }
 export class PluginManager extends Manager {

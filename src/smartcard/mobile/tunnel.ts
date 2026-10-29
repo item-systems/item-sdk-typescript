@@ -566,6 +566,10 @@ export class ItemSecureTunnel implements Tunnel {
         } finally {
           this.clear()
           this.info = null
+          // info=null makes the next login reconnect. Finish releasing the old
+          // NFC transport first; a second connect on a live handle can fail.
+          // Preserve the original retirement outcome even if cleanup fails.
+          await this.transport.disconnect().catch(() => undefined)
         }
       }
       const reply = await this.exchange(0x30, inner, g)

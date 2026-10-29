@@ -21,9 +21,13 @@ function peer(options = {}) {
     : { mode: 'none' }
   let selects = 0, ephemeral, pub, enc, mac, iv, transcript, authenticated = false
   const opens = [], proofs = [], commands = []
+  let connected = false, disconnects = 0
   const transport = {
-    connect: async () => true,
-    disconnect: async () => { authenticated = false },
+    connect: async () => { assert.equal(connected, false, 'Old transport must be released'); connected = true; return true },
+    disconnect: async () => {
+      if (options.disconnectDelay) await new Promise(resolve => setTimeout(resolve, options.disconnectDelay))
+      authenticated = false; connected = false; disconnects++
+    },
     transmit: async request => {
       if (request[1] === 0xa4) {
         ephemeral = scalar(++selects + 10); pub = curve(agreement).getPublicKey(ephemeral, false)
@@ -81,7 +85,8 @@ function peer(options = {}) {
       return sdk.concat(responseTag, encrypted, sdk.unhex('9000'))
     },
   }
-  return { tunnel: new sdk.ItemSecureTunnel(transport, n => new Uint8Array(randomBytes(n))), pin, opens, proofs, commands }
+  return { tunnel: new sdk.ItemSecureTunnel(transport, n => new Uint8Array(randomBytes(n))), pin, opens, proofs, commands,
+    disconnectCount: () => disconnects }
 }
 
 for (const agreement of [1, 2]) for (const identityAlgo of [1, 2]) for (const cardAlgo of [0, 1, 2])
@@ -119,13 +124,15 @@ test('missing policy, wrong pin, different policy and UID0 all fail closed', asy
 
 for (const lostFinalization of [false, true])
   test(`retirement clears session and queued work, including unknown outcome=${lostFinalization}`, async () => {
-    const p = peer({ lostFinalization }); await p.tunnel.connect(); await p.tunnel.openOperational(credential, p.pin)
+    const p = peer({ lostFinalization, disconnectDelay: 10 }); await p.tunnel.connect(); await p.tunnel.openOperational(credential, p.pin)
     const manager = new sdk.InitializationManager(p.tunnel)
     const retirement = manager.retireBootstrap(), queued = manager.query()
     const results = await Promise.allSettled([retirement, queued])
     assert.equal(results[0].status, lostFinalization ? 'rejected' : 'fulfilled')
     assert.equal(results[1].status, 'rejected'); assert.equal(p.commands.length, 1)
     assert.equal(p.tunnel.isOpen, false); assert.equal(p.tunnel.info, null)
+    assert.equal(p.disconnectCount(), 1)
+    await p.tunnel.connect() // must not race the previous connection's cleanup
   })
 
 test('configuration API does not create an identity or silently choose a card key', async () => {

@@ -1,5 +1,14 @@
 # ITEM TypeScript firmware workflows
 
+## Current P-256 PIN checkpoint (0.7.0-exchange.2)
+
+Use kernel v3.6.0-exchange.2, registry/P-256 v3.1.0-exchange.2 and the retained
+AES/MAC v3.1.0-exchange.1. The minimal six-CAP configuration has physical Omni
+PIN/group/lockout/signing/retirement/recovery evidence; phone NFC and K1 PIN do
+not. Release CAPs are CI rebuilds; compare hashes before inheriting local binary
+qualification. See RELEASE_NOTES.md for tested hashes and memory limits.
+POSIX and retirement transport fixes described below are included in this tag.
+
 ## Exchange-provider checkpoint (0.7.0-exchange.1)
 
 Use the coordinated item-javacard v3.6.0-exchange.1 and engine/registry
@@ -11,6 +20,16 @@ K1 password support. Do not silently fall back to another engine or replay BEGIN
 Direct ANY_OF group login uses a member credential; UAC retains the group's
 permissions, not a union of member permissions. Password login is software-tested,
 not yet physically qualified. Keep those evidence levels separate.
+
+Local 2026-10-29 qualification (not the published tags) subsequently passed
+P-256 PIN login, reconnects, group authority isolation, on-card retry lockout,
+root derivation, group signing and post-retirement PIN login on the Omni test
+card. It required a RAM-reclaimed kernel and shared-EC-container R1 candidate;
+do not claim the published exchange.1 CAPs inherit this result. K1 PIN and phone
+NFC are still not covered. Current mobile POSIX uses INS 70/71/72; STAT is eight
+bytes including its type/id prefix. Historical Python vectors with 65/66/67 and
+six-byte responses are obsolete. Retirement must release the transport before
+the next login reconnects, including when its acknowledgement was lost.
 
 ## Entry points
 

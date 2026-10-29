@@ -29,7 +29,10 @@ test('Cache managers reject diagnostic and malformed success responses', async (
 })
 
 const reference = JSON.parse(fs.readFileSync(new URL('./fixtures/python-reference.json', import.meta.url)))
-for (const entry of reference.cases)
+// Historical Python POSIX vectors use obsolete 65/66/67 and omit STAT's target
+// prefix. Preserve the fixture as historical evidence; current firmware vectors
+// and strict response validation live in posix-wire.test.mjs.
+for (const entry of reference.cases.filter(entry => entry.manager !== 'PosixManager'))
   test(`${entry.manager === 'UacManager' ? 'Firmware UAC range supersedes historical Python fixture' : 'Python parity'}: ${entry.manager}.${entry.method}`, async () => {
     const calls = []
     const channel = {

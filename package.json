@@ -1,6 +1,6 @@
 {
   "name": "@item-systems/item",
-  "version": "0.7.0-exchange.1",
+  "version": "0.7.0-exchange.2",
   "description": "A package for interfacing with Non-Fungible Items",
   "main": "./dist/cjs/index.cjs",
   "module": "./dist/esm/index.js",
