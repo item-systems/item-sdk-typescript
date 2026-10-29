@@ -1,5 +1,15 @@
 # ITEM TypeScript firmware workflows
 
+## Current K1 PIN companion (0.7.0-exchange.3)
+
+K1 v3.1.0-exchange.2 adds mechanism 0002 without kernel/API changes. Use the
+same kernel/registry/AES/MAC companions as exchange.2 below. Enrollment must
+explicitly pass SPAKE2_SECP256K1_SHA256 as the final enrollPassword argument;
+the compatibility default is P-256. Login discovers the exact provider. K1
+records are version 2 with separate domains; never reinterpret P-256 records
+or silently change providers. Both suites have physical Omni qualification
+in separate minimal six-CAP installs; phone NFC is not covered.
+
 ## Current P-256 PIN checkpoint (0.7.0-exchange.2)
 
 Use kernel v3.6.0-exchange.2, registry/P-256 v3.1.0-exchange.2 and the retained

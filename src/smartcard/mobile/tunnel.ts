@@ -12,6 +12,7 @@ import {
   passwordContext,
   exchangeDescriptor,
   SPAKE2_P256_SHA256,
+  SPAKE2_SECP256K1_SHA256,
   passwordSessionKeys,
   verifyPasswordConfirmation,
   type PasswordLogin,
@@ -381,19 +382,26 @@ export class ItemSecureTunnel implements Tunnel {
         // Registry flags establish eligibility, not PAKE implementation. Probe
         // the exact configured provider; never silently substitute another curve.
         const provider = exchangeDescriptor(await this.transmit(apdu(0xa0, 0x25, 3, 0, subject), g))
-        if (provider.mechanism !== SPAKE2_P256_SHA256 || provider.maxPeerBytes < 65 || provider.maxPublicBytes < 65)
+        if (
+          ![SPAKE2_P256_SHA256, SPAKE2_SECP256K1_SHA256].includes(provider.mechanism) ||
+          provider.maxPeerBytes < 65 ||
+          provider.maxPublicBytes < 65
+        )
           throw new Error('Selected exchange mechanism is not supported by this SDK')
-        const parameters = passwordParameters(await this.transmit(apdu(0xa0, 0x25, 0, 0, subject), g))
+        const parameters = passwordParameters(
+          await this.transmit(apdu(0xa0, 0x25, 0, 0, subject), g),
+          provider.mechanism
+        )
         if (parameters.attemptsRemaining === 0) throw new Error('Password credential is locked')
-        w = await passwordScalar(login.password, parameters.salt, fresh.uid, member)
+        w = await passwordScalar(login.password, parameters.salt, fresh.uid, member, provider.mechanism)
         this.current(g)
-        client = new Spake2Client(w, this.random)
+        client = new Spake2Client(w, this.random, provider.mechanism)
         const peer = await this.transmit(apdu(0xa0, 0x25, 1, 0, concat(subject, client.share)), g)
-        const context = passwordContext(subject, parameters)
+        const context = passwordContext(subject, parameters, provider.mechanism)
         proofs = client.finish(peer, context.clientId, unhex(fresh.uid), context.aad)
         const confirmation = await this.transmit(apdu(0xa0, 0x25, 2, 0, proofs.clientConfirmation), g)
         verifyPasswordConfirmation(proofs.serverConfirmation, confirmation)
-        keys = passwordSessionKeys(proofs.sharedSecret, proofs.transcriptHash)
+        keys = passwordSessionKeys(proofs.sharedSecret, proofs.transcriptHash, provider.mechanism)
         this.enc = keys.slice(0, 32)
         this.mac = keys.slice(32, 64)
         this.iv = keys.slice(64, 80)

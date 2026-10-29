@@ -12,6 +12,12 @@ import { UacManager, MasterKeyManager, KeyRingManager, PosixManager, Microkernel
 import { enrollPassword } from '../../dist/esm/smartcard/mobile/password.js'
 import { createTransport } from './omni-transport.mjs'
 import { p256 } from '@noble/curves/nist.js'
+import { secp256k1 } from '@noble/curves/secp256k1.js'
+
+const curveName=process.env.ITEM_TEST_CURVE || 'r1'
+assert.ok(['r1','k1'].includes(curveName))
+const curve=curveName==='k1'?secp256k1:p256
+const mechanism=curveName==='k1'?2:1
 
 assert.ok(['044D2AB2971490','04384D82971490','04384C82971490','04384E82971490'].includes(process.env.ITEM_TEST_UID),
   'Only an explicitly authorized diagnostic UID; the bridge checks the exact selection')
@@ -89,7 +95,7 @@ async function login(target=1,member=target,secret=password) {
   return current
 }
 try {
-  log('start',{uid:process.env.ITEM_TEST_UID,reader:'Identiv uTrust 3700 F CL Reader'})
+  log('start',{uid:process.env.ITEM_TEST_UID,reader:'Identiv uTrust 3700 F CL Reader',curve:curveName,mechanism})
   if(action==='inspect') {
     await tunnel.connect();await tunnel.open(pairing)
     log('initialization',{info:(await init.query()).info})
@@ -109,7 +115,7 @@ try {
     await init.configureCardAuthentication({mode:'none'})
     for(const [uid,caps,limit] of [[1,65535,10],[7,65535,5],[8,0,3],[12,0,3]]) {
       await uac.create(uid,caps)
-      assert.equal(await enrollPassword(tunnel,uid,password,info.uid,random,limit),0)
+      assert.equal(await enrollPassword(tunnel,uid,password,info.uid,random,limit,mechanism),0)
       log('enrolled',{uid,limit})
     }
     await uac.create(9,0);assert.equal(await uac.addCredential(9,4,Uint8Array.of(0,7)),0)
@@ -149,7 +155,7 @@ try {
     assert.equal(parameters.length,21);assert.equal(parameters[18],0,'Requires exhausted public fixture')
     // Bypass only the HOST's budget precheck to prove the card itself denies
     // BEGIN after reconnect. This public point carries no password or key.
-    const point=p256.getPublicKey(Uint8Array.from({length:32},(_,i)=>i===31?1:0),false)
+    const point=curve.getPublicKey(Uint8Array.from({length:32},(_,i)=>i===31?1:0),false)
     const reply=await transport.transmit(Uint8Array.of(0xa0,0x25,1,0,71,1,0,12,0,12,0,...point))
     assert.equal(Buffer.from(reply).toString('hex'),'6983')
     log('passed',{test:'card_enforces_PIN_lockout_without_SDK_precheck'})
@@ -174,8 +180,8 @@ try {
     assert.deepEqual(await posix.stat(2,0),{type:2,id:0,uid:1,gid:9,mode:0o650,frozen:false})
     await login(9,7)
     const digest=createHash('sha256').update('ITEM password group qualification').digest()
-    assert.equal(p256.verify(await rings.sign(0,digest),digest,publicKey,{lowS:false}),true)
-    log('passed',{test:'group_POSIX_sign_real_P256_signature'})
+    assert.equal(curve.verify(await rings.sign(0,digest),digest,publicKey,{lowS:false}),true)
+    log('passed',{test:'group_POSIX_sign_real_curve_signature',curve:curveName})
     await login(8)
     await assert.rejects(rings.sign(0,digest),/6982|6986/)
     log('passed',{test:'nonmember_POSIX_sign_denied'})

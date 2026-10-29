@@ -84,7 +84,7 @@ function passwordPeer(options={}) {
         return ok(sdk.concat(Uint8Array.of(0xa1,body.length),body))
       }
       if(request[1]===0x25){
-        if(request[2]===3)return ok(Uint8Array.of(options.badVersion?2:1,0,options.otherMechanism?2:1,0,65,0,65))
+        if(request[2]===3)return ok(Uint8Array.of(options.badVersion?2:1,0,options.otherMechanism?99:1,0,65,0,65))
         if(request[2]===0)return ok(sdk.concat(Uint8Array.of(1),salt,Uint8Array.of(limit,options.locked?0:limit-attempts)))
         if(request[2]===1){
           attempts++

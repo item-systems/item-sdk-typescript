@@ -1,4 +1,5 @@
 import { p256 } from '@noble/curves/nist.js'
+import { secp256k1 } from '@noble/curves/secp256k1.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { hkdf } from '@noble/hashes/hkdf.js'
 import { hmac } from '@noble/hashes/hmac.js'
@@ -11,7 +12,14 @@ const DOMAIN = text('ITEM_PASSWORD_V1')
 const KEY_DOMAIN = text('ITEM_PASSWORD_TUNNEL_V1')
 const M = p256.ProjectivePoint.fromHex('02886e2f97ace46e55ba9dd7242579f2993b64e16ef3dcab95afd497333d8fa12f')
 const N = p256.ProjectivePoint.fromHex('03d8bbd6c639c62937b04d997f38c3770719c629d7014d49a24b4f98baa1292b49')
-const order = p256.CURVE.n
+// RFC 9382 section 3.2: RFC 9380 hash_to_curve over the secp256k1 OID seeds.
+// Never replace these with hash(seed)*G: that reveals their discrete logarithms.
+const K1_M = secp256k1.ProjectivePoint.fromHex(
+  '04ee43df9dc974e2d3e0918943141fd984fbee3b8c25c5583c058774d10200e82049f0bc76a7c2429b95872752a9e3cec23c0204d2fa30450eac7e798216e3b17c'
+)
+const K1_N = secp256k1.ProjectivePoint.fromHex(
+  '04b122e318f0b0aef72254960bc7377b36654d6b15ad8f35deccc38c19ef3e1b34e95ec204e5986646e2a712ec5abbe1291fcf89d2d990d091573dbe4e95fa12fd'
+)
 const integer = (bytes: Uint8Array) => bytes.reduce((n, b) => (n << 8n) | BigInt(b), 0n)
 const scalar = (n: bigint) => {
   const out = new Uint8Array(32)
@@ -29,6 +37,21 @@ const field = (bytes: Uint8Array) => {
 
 /** Complete protocol identifier, not a curve ID or an allocated registry slot. */
 export const SPAKE2_P256_SHA256 = 0x0001
+/** ITEM-specific RFC 9382 construction, not an RFC-assigned ciphersuite. */
+export const SPAKE2_SECP256K1_SHA256 = 0x0002
+function suite(mechanism: number) {
+  if (mechanism === SPAKE2_P256_SHA256) return { curve: p256, M, N, domain: DOMAIN, keys: KEY_DOMAIN, credential: 1 }
+  if (mechanism === SPAKE2_SECP256K1_SHA256)
+    return {
+      curve: secp256k1,
+      M: K1_M,
+      N: K1_N,
+      domain: text('ITEM_PASSWORD_K1_V1'),
+      keys: text('ITEM_PASSWORD_TUNNEL_K1_V1'),
+      credential: 2,
+    }
+  throw new Error('Unsupported password exchange mechanism')
+}
 export interface ExchangeDescriptor {
   version: 1
   mechanism: number
@@ -71,8 +94,14 @@ export function passwordSubject(login: PasswordLogin): Uint8Array {
     throw new Error('Invalid password identity/group')
   return concat(Uint8Array.of(1), word(target), word(member), Uint8Array.of(slot))
 }
-export function passwordParameters(bytes: Uint8Array): PasswordParameters {
-  if (bytes.length !== 19 || bytes[0] !== 1 || bytes[17] < 1 || bytes[17] > 10 || bytes[18] > bytes[17])
+export function passwordParameters(bytes: Uint8Array, mechanism = SPAKE2_P256_SHA256): PasswordParameters {
+  if (
+    bytes.length !== 19 ||
+    bytes[0] !== suite(mechanism).credential ||
+    bytes[17] < 1 ||
+    bytes[17] > 10 ||
+    bytes[18] > bytes[17]
+  )
     throw new Error('Unsupported password credential parameters')
   return { salt: bytes.slice(1, 17), attemptLimit: bytes[17], attemptsRemaining: bytes[18] }
 }
@@ -84,8 +113,10 @@ export async function passwordScalar(
   password: string,
   salt: Uint8Array,
   cardUid: string,
-  member: number
+  member: number,
+  mechanism = SPAKE2_P256_SHA256
 ): Promise<Uint8Array> {
+  const profile = suite(mechanism)
   if (
     typeof password !== 'string' ||
     !Number.isInteger(member) ||
@@ -102,14 +133,14 @@ export async function passwordScalar(
   let stretched: Uint8Array | undefined
   try {
     if (encoded.length < 4 || encoded.length > 256) throw new Error('Password must contain 4–256 UTF-8 bytes')
-    stretched = await scryptAsync(encoded, concat(DOMAIN, salt, unhex(cardUid), word(member)), {
+    stretched = await scryptAsync(encoded, concat(profile.domain, salt, unhex(cardUid), word(member)), {
       N: 32768,
       r: 8,
       p: 1,
       dkLen: 40,
       maxmem: 40 * 1024 * 1024,
     })
-    const w = integer(stretched) % order
+    const w = integer(stretched) % profile.curve.CURVE.n
     if (w === 0n) throw new Error('Invalid derived password scalar')
     return scalar(w)
   } finally {
@@ -121,11 +152,14 @@ export async function passwordScalar(
 /** RFC 9382 client core. Separate from APDU transport for published-vector tests.
  * No password-derived signature/public key is exposed as an offline PIN oracle. */
 export class Spake2Client {
+  private readonly profile: ReturnType<typeof suite>
   private w: Uint8Array
   private x: Uint8Array
   readonly share: Uint8Array
-  constructor(w: Uint8Array, random: RandomSource) {
-    if (w.length !== 32 || !p256.utils.isValidPrivateKey(w)) throw new Error('Invalid password scalar')
+  constructor(w: Uint8Array, random: RandomSource, mechanism = SPAKE2_P256_SHA256) {
+    this.profile = suite(mechanism)
+    const { curve, M } = this.profile
+    if (w.length !== 32 || !curve.utils.isValidPrivateKey(w)) throw new Error('Invalid password scalar')
     this.w = w.slice()
     this.x = new Uint8Array(0)
     try {
@@ -133,9 +167,10 @@ export class Spake2Client {
         this.x.fill(0)
         this.x = random(32)
         if (this.x.length !== 32) throw new Error('Invalid random-source length')
-        if (p256.utils.isValidPrivateKey(this.x)) break
+        if (curve.utils.isValidPrivateKey(this.x)) break
       }
-      const point = p256.ProjectivePoint.BASE.multiply(integer(this.x)).add(M.multiply(integer(this.w)))
+      if (!curve.utils.isValidPrivateKey(this.x)) throw new Error('Invalid random scalar')
+      const point = curve.ProjectivePoint.BASE.multiply(integer(this.x)).add(M.multiply(integer(this.w)))
       point.assertValidity()
       this.share = point.toRawBytes(false)
     } catch (error) {
@@ -150,9 +185,9 @@ export class Spake2Client {
     let pointBytes: Uint8Array | undefined
     try {
       if (serverShare.length !== 65 || serverShare[0] !== 4) throw new Error('Invalid password peer share')
-      const peer = p256.ProjectivePoint.fromHex(serverShare)
+      const peer = this.profile.curve.ProjectivePoint.fromHex(serverShare)
       peer.assertValidity()
-      const unmasked = peer.subtract(N.multiply(integer(this.w)))
+      const unmasked = peer.subtract(this.profile.N.multiply(integer(this.w)))
       unmasked.assertValidity()
       pointBytes = unmasked.multiply(integer(this.x)).toRawBytes(false)
       transcript = concat(
@@ -185,14 +220,19 @@ export class Spake2Client {
     this.x?.fill(0)
   }
 }
-export function passwordContext(subject: Uint8Array, parameters: PasswordParameters) {
+export function passwordContext(subject: Uint8Array, parameters: PasswordParameters, mechanism = SPAKE2_P256_SHA256) {
+  const profile = suite(mechanism)
   return {
-    clientId: concat(DOMAIN, subject),
-    aad: concat(Uint8Array.of(1, 5, 4, 1), parameters.salt, Uint8Array.of(parameters.attemptLimit)),
+    clientId: concat(profile.domain, subject),
+    aad: concat(Uint8Array.of(1, 5, 4, profile.credential), parameters.salt, Uint8Array.of(parameters.attemptLimit)),
   }
 }
-export function passwordSessionKeys(shared: Uint8Array, transcriptHash: Uint8Array): Uint8Array {
-  return hkdf(sha256, shared, transcriptHash, KEY_DOMAIN, 96)
+export function passwordSessionKeys(
+  shared: Uint8Array,
+  transcriptHash: Uint8Array,
+  mechanism = SPAKE2_P256_SHA256
+): Uint8Array {
+  return hkdf(sha256, shared, transcriptHash, suite(mechanism).keys, 96)
 }
 export function verifyPasswordConfirmation(expected: Uint8Array, received: Uint8Array): void {
   if (received.length !== 32 || !equal(expected, received)) throw new Error('Password/card authentication failed')
@@ -200,15 +240,20 @@ export function verifyPasswordConfirmation(expected: Uint8Array, received: Uint8
 
 /** Enroll only over an authenticated tunnel. A successful response is the slot,
  * not evidence that login was tested. No retries: an interrupted enrollment has
- * unknown outcome. The password-equivalent record is erased from SDK buffers. */
+ * unknown outcome. The password-equivalent record is erased from SDK buffers.
+ * Select the configured provider's mechanism explicitly for K1; the compatibility
+ * default is P-256. Changing providers requires deliberate credential enrollment,
+ * never reinterpretation of an existing suite's record. */
 export async function enrollPassword(
   tunnel: Tunnel,
   identityId: number,
   password: string,
   cardUid: string,
   random: RandomSource,
-  attemptLimit = 5
+  attemptLimit = 5,
+  mechanism = SPAKE2_P256_SHA256
 ): Promise<number> {
+  const profile = suite(mechanism)
   if (!Number.isInteger(attemptLimit) || attemptLimit < 1 || attemptLimit > 10)
     throw new Error('Password attempt limit must be 1–10')
   passwordSubject({ identityId, password })
@@ -216,8 +261,8 @@ export async function enrollPassword(
   if (salt.length !== 16) throw new Error('Invalid random-source length')
   let w: Uint8Array | undefined, record: Uint8Array | undefined
   try {
-    w = await passwordScalar(password, salt, cardUid, identityId)
-    record = concat(Uint8Array.of(5, 1), salt, w, Uint8Array.of(attemptLimit))
+    w = await passwordScalar(password, salt, cardUid, identityId, mechanism)
+    record = concat(Uint8Array.of(5, profile.credential), salt, w, Uint8Array.of(attemptLimit))
     const reply = await tunnel.tunnel(0x84, identityId >> 8, identityId & 255, record)
     if (reply.length !== 1 || reply[0] > 3) throw new Error('Invalid password-enrollment receipt')
     return reply[0]

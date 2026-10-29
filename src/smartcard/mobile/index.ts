@@ -7,6 +7,7 @@ export {
   enrollPassword,
   exchangeDescriptor,
   SPAKE2_P256_SHA256,
+  SPAKE2_SECP256K1_SHA256,
   type ExchangeDescriptor,
   type PasswordLogin,
   type PasswordParameters,

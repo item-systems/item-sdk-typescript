@@ -1,3 +1,26 @@
+# v0.7.0-exchange.3 — K1 PIN/password companion
+
+Adds mechanism 0002 (ITEM SPAKE2/secp256k1/SHA-256) while preserving mechanism
+0001 P-256 and its RFC vector coverage. Discovery selects the configured provider,
+with no fallback or replay. K1 credentials use version 2 and separate password,
+transcript and record-key domains; P-256 records cannot be reinterpreted as K1.
+
+Enroll K1 with the optional final argument:
+`enrollPassword(tunnel, uid, password, cardUid, random, attemptLimit, SPAKE2_SECP256K1_SHA256)`.
+The default remains P-256 for compatibility. `openWithPassword` discovers the
+supported mechanism automatically; unknown mechanisms fail before BEGIN.
+
+Use K1 v3.1.0-exchange.2, kernel v3.6.0-exchange.2, CryptoRegistry
+v3.1.0-exchange.2 and AES/MAC v3.1.0-exchange.1. No R1 applet is needed for K1.
+Physical Omni tests passed K1 bootstrap/PIN/reconnect, group authorization,
+lockout, generated master/root ring, verified signing and post-retirement PIN.
+This is not phone NFC or production-security certification. RAM headroom is small.
+151 mobile tests plus the full SDK unit suite and packed consumer checks pass.
+The prior POSIX and retirement fixes are included. See the K1 engine release for
+the exact suite definition, tested CAP hash and qualification limits.
+
+## Previous checkpoint
+
 # v0.7.0-exchange.2 — P-256 PIN hardware checkpoint
 
 Correct mobile POSIX instructions to 70/71/72 with strict eight-byte STAT parsing. Await transport disconnect after bootstrap retirement, including uncertain outcomes. Extend non-secret hardware diagnostics and regression tests.
