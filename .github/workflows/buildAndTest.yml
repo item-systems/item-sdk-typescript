@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -35,14 +36,24 @@ jobs:
       - name: Audit production dependencies
         run: npm audit --omit=optional
         continue-on-error: true
-      - name: Pack checkpoint artifact
-        if: startsWith(github.ref, 'refs/tags/v') && contains(github.ref_name, '-exchange.')
+      - name: Pack release artifact
+        if: startsWith(github.ref, 'refs/tags/v')
         run: npm pack
-      - name: Publish checkpoint GitHub release
-        if: startsWith(github.ref, 'refs/tags/v') && contains(github.ref_name, '-exchange.')
+      - name: Publish GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: item-systems-item-*.tgz
           body_path: RELEASE_NOTES.md
-          prerelease: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
           generate_release_notes: true
+      # GITHUB_TOKEN-created releases do not trigger the release event workflow.
+      # Publish from this tested tag job rather than relying on that event.
+      - name: Publish stable SDK to npm
+        if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-')
+        run: |
+          test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
+          npm config set //registry.npmjs.org/:_authToken "$NODE_AUTH_TOKEN"
+          npm publish --provenance --access public --tag latest
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

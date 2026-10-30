@@ -1,3 +1,15 @@
+# v0.7.0
+
+Normal release of the working exchange-provider SDK: P-256 and K1 PIN login,
+suite-isolated credentials, bootstrap retirement and existing mobile parity APIs.
+Use with API/kernel 3.6.0 and companion packages 3.1.0.
+
+CI gates publication on lint, compilation, unit/mobile tests, packed consumers
+and documentation generation. No protocol implementation changes in this promotion.
+Hardware coverage and limitations remain those of the dated notes below.
+
+## Historical qualification notes
+
 # v0.7.0-exchange.3 — K1 PIN/password companion
 
 Adds mechanism 0002 (ITEM SPAKE2/secp256k1/SHA-256) while preserving mechanism
