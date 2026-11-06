@@ -9,6 +9,8 @@ Use this page as the human-oriented map of the SDK documentation.
 
 ## Core guides
 
+- [Qualification reports](QUALIFICATION_REPORTS.md) — local resource/timing evidence and offline CI publication
+
 - `API_OVERVIEW.md` — public API grouped by domain
 - `WORKFLOW_PLAYBOOKS.md` — end-to-end integration flows
 - `ARCHITECTURE_AND_DATA_MODEL.md` — domain model, relationships, and lifecycle

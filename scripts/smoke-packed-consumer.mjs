@@ -16,20 +16,27 @@ try {
 
   fs.writeFileSync(path.join(tmp, 'esm.mjs'), `
 import { Item, Utils, constants, types } from '@item-systems/item'
+import { QualificationRecorder, qualificationArtifact } from '@item-systems/item/qualification'
 if (!Item || !Utils || !constants || !types) throw new Error('missing ESM public exports')
+if (!QualificationRecorder || qualificationArtifact('A000000001', new Uint8Array([1])).sizeBytes !== 1) throw new Error('missing ESM qualification exports')
 console.log('esm ok')
 `)
   run('node', ['esm.mjs'])
 
   fs.writeFileSync(path.join(tmp, 'cjs.cjs'), `
 const { Item, Utils, constants, types } = require('@item-systems/item')
+const { QualificationRecorder, qualificationArtifact } = require('@item-systems/item/qualification')
 if (!Item || !Utils || !constants || !types) throw new Error('missing CJS public exports')
+if (!QualificationRecorder || qualificationArtifact('A000000001', new Uint8Array([1])).sizeBytes !== 1) throw new Error('missing CJS qualification exports')
 console.log('cjs ok')
 `)
   run('node', ['cjs.cjs'])
 
   fs.writeFileSync(path.join(tmp, 'tscheck.ts'), `
 import { Item, Utils, constants, types } from '@item-systems/item'
+import { QualificationRecorder, qualificationArtifact } from '@item-systems/item/qualification'
+void QualificationRecorder
+void qualificationArtifact
 void Item
 void Utils
 void constants

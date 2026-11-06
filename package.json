@@ -8,7 +8,9 @@
   "files": [
     "dist",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "examples/qualification",
+    "docs-src/QUALIFICATION_REPORTS.md"
   ],
   "directories": {
     "doc": "docs"
@@ -22,13 +24,14 @@
     "clean": "rm -rf ./dist",
     "lint": "eslint --fix .",
     "docs": "typedoc",
-    "test": "npm run test:unit",
+    "test": "npm run test:unit && npm run test:qualification",
     "test:unit": "ts-mocha \"tests/smartcard/**/*.spec.ts\"",
     "test:integration": "ts-mocha \"tests/integration/**/*.spec.ts\"",
     "test:manual": "ts-mocha \"tests/manual/**/*.spec.ts\"",
     "test:all": "npm run test:unit && npm run test:integration && npm run test:manual",
     "format": "prettier --write .",
-    "smoke:packed": "node ./scripts/smoke-packed-consumer.mjs"
+    "smoke:packed": "node ./scripts/smoke-packed-consumer.mjs",
+    "test:qualification": "node --test tests/qualification/*.test.mjs"
   },
   "author": {
     "name": "ITEM Systems",
@@ -81,6 +84,11 @@
       "import": "./dist/esm/index.js",
       "require": "./dist/cjs/index.cjs",
       "default": "./dist/esm/index.js"
+    },
+    "./qualification": {
+      "types": "./dist/esm/qualification.d.ts",
+      "import": "./dist/esm/qualification.js",
+      "require": "./dist/cjs/qualification.cjs"
     }
   }
 }
